@@ -68,7 +68,10 @@ def main(argv=None):
         if command.endswith(".plain") or Path(command).exists():
             command, rest = "run", ["run"] + rest
         else:
-            say(f'Type plain help to see what you can do. Plain has no command called "{command}".', err=True)
+            if Path(command + ".plain").exists():
+                say(f"Type plain run {command}.plain to run it. Plain has no command called \"{command}\".", err=True)
+            else:
+                say(f'Type plain help to see what you can do. Plain has no command called "{command}".', err=True)
             return 2
     if command == "help":
         say(HELP)
@@ -92,6 +95,10 @@ def open_and_run(command, name, options):
         return 2
     try:
         text = path.read_bytes().decode("utf-8-sig")
+        if text.lstrip().startswith("{\\rtf"):
+            say(f'Save "{path.name}" as plain text, then try again. In TextEdit, choose Format > Make Plain Text.',
+                err=True)
+            return 2
     except UnicodeDecodeError:
         say(f'Save "{path.name}" as plain text (UTF-8), then try again.', err=True)
         return 2

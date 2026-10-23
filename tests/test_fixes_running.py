@@ -89,7 +89,7 @@ class Saving(unittest.TestCase):
 
     def test_rename_into_a_missing_folder_names_the_folder(self):       # running-10
         out, saved = run_saving('rename "out.txt" to "nofolder/out.txt"\n', {"out.txt": "hi\n"})
-        self.assertIn('Check the folder name "nofolder", or make the folder first.', out)
+        self.assertIn('Check the folder name "nofolder".', out)
         self.assertNotIn(os.sep + "private", out)
         self.assertIn("out.txt", saved)
 

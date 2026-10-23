@@ -3,6 +3,7 @@
 import csv
 import io
 import json
+import re
 from decimal import Decimal
 from pathlib import Path
 
@@ -127,7 +128,12 @@ def read_file(run, name):
         return parse_csv(text)
     if ending == ".json":
         return parse_json(text)
-    return text
+    return text[:-1] if text.endswith("\n") else text   # the file's last line break isn't part of the text
+
+
+def alternative(name):
+    path = Path(name)
+    return str(path.with_name(f"{path.stem} 2{path.suffix}"))
 
 
 def missing_file(run, name, path):
@@ -152,6 +158,10 @@ def read(run, source: Text) -> Value:
     if is_address(source):
         from .web import read_web
         return read_web(run, source)
+    if re.match(r"^www\.|^[\w-]+\.(com|org|net|dev|io|edu|gov)(/|$)", source.strip(), flags=re.IGNORECASE):
+        raise Problem(f'Start the web address with "https://", like "https://{source.strip()}".',
+                      "Without https:// at the start, Plain looks for a file with that name.",
+                      focus=f'"{source}"')
     return read_file(run, source)
 
 
@@ -270,9 +280,10 @@ def rename(run, file: Text, new_name: Text) -> None:
     target = path_for(run, new_name)
     if not target.parent.is_dir():
         folder = Path(new_name).parent.as_posix()
-        raise Problem(f'Check the folder name "{folder}", or make the folder first.',
-                      f'There\'s no folder "{folder}" next to your program.', focus=f'"{new_name}"')
+        raise Problem(f'Check the folder name "{folder}".',
+                      f'There\'s no folder "{folder}" next to your program. Saving a file into a folder '
+                      "makes the folder.", focus=f'"{new_name}"')
     if target.exists():
-        raise Problem(f'Choose a name that isn\'t taken, or remove "{new_name}" first.',
-                      f'There\'s already a file "{new_name}".')
+        raise Problem(f'Choose a new name that isn\'t taken, like "{alternative(new_name)}".',
+                      f'There\'s already a file "{new_name}", and Plain never replaces a file when it renames one.')
     path.rename(target)

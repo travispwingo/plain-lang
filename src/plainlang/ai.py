@@ -184,7 +184,8 @@ def make_client():
     try:
         import anthropic
     except ImportError:
-        raise Unavailable('Tip: Plain can also ask Claude for ideas. Install it with: pipx install "plainlang[ai]"')
+        raise Unavailable("Tip: Plain can also ask Claude for ideas. Add it with: pipx inject plainlang anthropic "
+                          "(see plain-lang.dev/install#ai)")
     try:
         return anthropic, anthropic.Anthropic(timeout=20, max_retries=1)
     except Exception:
@@ -216,7 +217,7 @@ def ask_claude(program, problem, file_name, client=None, tell=None):
             max_tokens=4000,
             system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
             messages=[{"role": "user", "content": message}],
-            output_config={"effort": "low", "format": {"type": "json_schema", "schema": SCHEMA}},
+            output_config={"effort": "medium", "format": {"type": "json_schema", "schema": SCHEMA}},
             betas=["server-side-fallback-2026-07-01"],
             fallbacks="default",
         )

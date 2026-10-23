@@ -342,12 +342,20 @@ class Reader:
         if k is not None:
             self.add_name(view[k + 3:], names, line, problems, quiet)
         # Names a broken line probably meant to set, so later lines don't pile up problems.
-        if len(view) >= 3 and first not in CORE_STARTS:
+        # Not when the line starts with a step, a habit word, or a slip on one of Plain's words.
+        if len(view) >= 3 and first not in CORE_STARTS and not self.starts_a_step(first):
             for m, tok in enumerate(view):
                 if tok.norm in ("is", "=", "+", "-") and m > 0 and all(name_word(t) for t in view[:m]):
                     if tok.norm in ("is", "=") or (m + 1 < len(view) and view[m + 1].norm == "="):
                         self.add_name(view[:m], names, line, problems, quiet=True)
                     break
+
+    def starts_a_step(self, word):
+        if word in HABIT_WORDS or word in self.step_index or SYNONYMS.get(word) in self.step_index:
+            return True
+        if word in getattr(self, "howto_index", {}):
+            return True
+        return any(near(word, core) for core in CORE_STARTS)
 
     @staticmethod
     def is_place(target, names):
@@ -523,7 +531,22 @@ class Reader:
                               '"set" keeps a value under a name: set NAME to VALUE.',
                               line=L, col=view[0].col, end=view[1].end)
             target = reader.read_place(1, k, declaring=True)
-            value = reader.one(reader.check(k + 1, n), k + 1, n, line)
+            try:
+                value = reader.one(reader.check(k + 1, n), k + 1, n, line)
+            except Problem:
+                # "set time to leave to 5pm": the name itself holds a "to".
+                last = max(m for m, w in enumerate(norms) if w == "to")
+                name_toks = view[1:last]
+                words = tuple(name_word(t) for t in name_toks)
+                special = {t.norm for t in name_toks if t.norm in SPECIAL_WORDS}
+                if last > k and None not in words and special == {"to"} and \
+                        all(t.kind == "word" for t in name_toks) and \
+                        len([r for r in reader.check(last + 1, n) if not isinstance(r, N.Bad)]) == 1:
+                    raise Problem(
+                        f'Rename "{" ".join(words)}", for example to "{suggest_rename(words)}".',
+                        '"to" is one of Plain\'s special words, so it can\'t be part of a name.',
+                        line=L, col=view[1].col, end=view[last - 1].end)
+                raise
             return N.SetStep(target, value, line=L)
 
         if first in ("if", "while", "until") and n == 1 or first == "otherwise" and norms[1:] == ["if"]:
@@ -907,6 +930,20 @@ def group_unknown_names(problems, source_lines):
     return [p for p in problems if id(p) not in drop]
 
 
+HABIT_WORDS = {"elif", "else", "print", "puts", "echo", "say", "write", "console", "open",
+               "download", "get", "load", "let", "var", "const", "def", "function", "return"}
+
+
+def near(a, b):
+    """One letter added, dropped or changed: iff and if, sett and set."""
+    if a == b or abs(len(a) - len(b)) > 1 or min(len(a), len(b)) < 2:
+        return False
+    if len(a) == len(b):
+        return sum(x != y for x, y in zip(a, b)) == 1
+    short, long_ = sorted((a, b), key=len)
+    return any(long_[:k] + long_[k + 1:] == short for k in range(len(long_)))
+
+
 def suggest_rename(words):
     words = list(words)
     if len(words) >= 3 and words[1] == "of" and words[0] == "number":
@@ -918,7 +955,12 @@ def suggest_rename(words):
         words = words[k + 1:] + words[:k]
     swaps = {"percent": "rate", "times": "count", "split": "share", "rounded": "round",
              "joined": "joint", "plus": "extra", "minus": "less"}
-    out = [swaps.get(w, w) for w in words if w in swaps or w not in SPECIAL_WORDS]
+    out = []
+    for w in words:
+        if w in swaps or w not in SPECIAL_WORDS:
+            w = swaps.get(w, w)
+            if w not in out:      # "rate in percent" becomes "rate", not "rate rate"
+                out.append(w)
     return " ".join(out) if out else "my value"
 
 
@@ -965,23 +1007,23 @@ class LineReader:
         splits = [x for x in (split_name(a, b), split_name(b, a)) if x is not None]
         split = max(splits, key=lambda x: x[0].end - x[0].col) if splits else None
         if split is None:
-            try_lines = [replace_span(line.raw, col, end, r.canonical()) for r in (a, b)]
+            try_lines = [indent + replace_span(line.raw, col, end, r.canonical()) for r in (a, b)]
             return Problem(
                 "Add brackets, or reword this, so it has only one meaning.",
                 "Plain can read it two ways, and it never guesses which one you mean.",
                 line=line.number, col=col, end=end, try_lines=try_lines,
-                ideas=[indent + t for t in try_lines])
+                ideas=list(try_lines), ask_claude=True)
         name, with_name, with_words = split
         try_lines = [replace_span(line.raw, col, end, with_words.canonical()),
                      replace_span(line.raw, col, end, same_as_text(with_name, name))]
-        try_lines = [t for t in try_lines if t != line.raw.strip()]
-        ideas = [] if self.r.quiet else [indent + t for t in try_lines if reads_cleanly(self, line, indent + t)]
+        try_lines = [indent + t for t in try_lines if t != line.raw.strip()]
+        ideas = [] if self.r.quiet else [t for t in try_lines if reads_cleanly(self, line, t)]
         words = name.canonical()
         return Problem(
             f'Rename "{words}" so this line has only one meaning.',
             f'Plain can read this line two ways: with your name "{words}", or with Plain\'s own words. '
             "Plain never guesses, so you choose.",
-            line=line.number, col=name.col, end=name.end, try_lines=try_lines, ideas=ideas)
+            line=line.number, col=name.col, end=name.end, try_lines=try_lines, ideas=ideas, ask_claude=True)
 
     def bad_problem(self, bad, line):
         problem = bad.problem
@@ -989,9 +1031,9 @@ class LineReader:
         if problem.col is None and bad.col is not None:
             problem.col, problem.end = bad.col, bad.end
         if bad.alts and bad.col is not None:
-            problem.try_lines = [replace_span(line.raw, bad.col, bad.end, alt) for alt in bad.alts]
             indent = line.raw[:len(line.raw) - len(line.raw.lstrip())]
-            problem.ideas = [indent + t for t in problem.try_lines]
+            problem.try_lines = [indent + replace_span(line.raw, bad.col, bad.end, alt) for alt in bad.alts]
+            problem.ideas = list(problem.try_lines)
         return problem
 
     def explain_failure(self, i, j, line, check=False):
@@ -1117,10 +1159,11 @@ class LineReader:
         fix = "Reword this line, or rename your step, so the line has only one meaning." if howto else \
             "Add brackets, or reword this, so it has only one meaning."
         indent = line.raw[:len(line.raw) - len(line.raw.lstrip())]
-        ideas = [] if not same or self.r.quiet else \
-            [indent + t for t in texts if reads_cleanly(self, line, indent + t)]
+        texts = [indent + t for t in texts]
+        ideas = [] if not same or self.r.quiet else [t for t in texts if reads_cleanly(self, line, t)]
         return Problem(fix, why + " Plain never guesses, so you choose.",
-                       line=line.number, col=self.t[0].col, end=self.t[-1].end, try_lines=texts, ideas=ideas)
+                       line=line.number, col=self.t[0].col, end=self.t[-1].end, try_lines=texts, ideas=ideas,
+                       ask_claude=True)
 
     # Matching a phrase's words and slots ----------------------------------------------
 

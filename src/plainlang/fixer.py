@@ -19,7 +19,7 @@ def gather_ideas(program, problem, path, options, notes, read=None, phrases="pla
     and to show a line."""
     ideas = [([idea], "", [], "Plain") for idea in problem.ideas]
     if len(ideas) >= 3 or not options.get("ai") or problem.running or problem.line is None \
-            or about_layout(program, problem):
+            or not problem.ask_claude or about_layout(program, problem):
         return ideas[:3]
     from . import ai
     try:

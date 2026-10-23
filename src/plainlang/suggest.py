@@ -111,14 +111,15 @@ def explain_unreadable(reader, i, j, line, check=False):
         slip = core_slip(reader, line)
         if slip:
             return repair_problem(slip, line, number)
+        body = re.sub(r"^(?:please|now|then|next|finally)\s+", "", stripped, flags=re.IGNORECASE)
         for pattern, replacement, why in HABITS:
-            m = re.match(pattern, stripped, flags=re.IGNORECASE)
+            m = re.match(pattern, body, flags=re.IGNORECASE)
             if not m or ("name" in m.groupdict() and not could_be_name(reader, m.group("name"))):
                 continue
             fixed = quote_singles(m.expand(replacement))
             if reads_cleanly(reader, line, indent + fixed):
                 return Problem(f'Write "{fixed}" instead.', why, line=number, col=col, end=end,
-                               try_lines=[fixed], ideas=[indent + fixed])
+                               try_lines=[indent + fixed], ideas=[indent + fixed])
         problem = inline_habit(reader, line)
         if problem:
             return problem
@@ -131,6 +132,18 @@ def explain_unreadable(reader, i, j, line, check=False):
                        "Plain keeps the single quote mark for words like sale's.",
                        line=number, col=tok.col, end=tok.end, try_lines=[fixed] if ok else [],
                        ideas=[indent + fixed] if ok else [])
+
+    # A web address written without quotes.
+    if whole:
+        bare = bare_address(raw)
+        if bare:
+            start, stop = bare
+            fixed = raw[:start] + '"' + raw[start:stop] + '"' + raw[stop:]
+            ok = reads_cleanly(reader, line, fixed)
+            return Problem("Put the web address in double quotes.",
+                           "A web address is text, so it goes inside double quotes like other text.",
+                           line=number, col=start, end=stop, try_lines=[fixed.rstrip()],
+                           ideas=[fixed] if ok else [])
 
     # Then or than, and other words that are easy to mix up.
     if number is not None:
@@ -150,7 +163,7 @@ def explain_unreadable(reader, i, j, line, check=False):
             "Start this line with a step Plain knows, like one of these." if close else
             "Start this line with a step Plain knows. Type plain phrases to see them all.",
             f'Plain doesn\'t know a step that starts with "{first.raw}".',
-            line=number, col=first.col, end=first.end, try_lines=close)
+            line=number, col=first.col, end=first.end, try_lines=close, ask_claude=True)
 
     if whole:
         problem = (step_inside(reader, line) or (check and where_problem(reader, line))
@@ -201,7 +214,7 @@ def explain_unreadable(reader, i, j, line, check=False):
         return Problem(
             f'Set "{said}" before this line uses it, or check the spelling.',
             f'Plain doesn\'t know a name "{said}". Nothing in your program sets it.',
-            line=number, col=ucol, end=uend)
+            line=number, col=ucol, end=uend, ask_claude=True)
 
     if whole:
         problem = howto_call_problem(reader, line) or phrasing_problem(reader, line)
@@ -213,7 +226,7 @@ def explain_unreadable(reader, i, j, line, check=False):
     close = closest_phrases(stripped)
     return Problem(
         "Reword this line using phrases Plain knows, like one of these." if close else "Reword this line.",
-        "Plain couldn't follow this line.", line=number, col=col, end=end, try_lines=close)
+        "Plain couldn't follow this line.", line=number, col=col, end=end, try_lines=close, ask_claude=True)
 
 
 def edit_distance(a, b):
@@ -267,7 +280,8 @@ def core_slip(reader, line):
         if edit_distance(tok.norm, core) == 1:
             text = line.raw[:tok.col] + core + line.raw[tok.end:]
             if reads_cleanly(reader, line, text):
-                return (f'Write "{core}" instead of "{tok.raw}".', text, tok, None)
+                return (f'Write "{core}" instead of "{tok.raw}".', text, tok,
+                        f'"{core}" starts one of Plain\'s own lines, and "{tok.raw}" is one letter away from it.')
     return None
 
 
@@ -895,7 +909,8 @@ def repair_options(reader, line, toks, confusables_only):
         for cut in range(2, len(tok.norm) - 1):
             if tok.norm[:cut] in vocabulary and tok.norm[cut:] in vocabulary:
                 split = tok.raw[:cut] + " " + tok.raw[cut:]
-                yield (f'Write "{split}" instead of "{tok.raw}".', raw[:tok.col] + split + raw[tok.end:], tok, None)
+                yield (f'Write "{split}" instead of "{tok.raw}".', raw[:tok.col] + split + raw[tok.end:], tok,
+                       f'Plain reads "{tok.raw}" as the two words "{split}".')
     tried = 0
     ordered = sorted(vocabulary)
     for tok in words:
@@ -904,7 +919,8 @@ def repair_options(reader, line, toks, confusables_only):
                 continue
             tried += 1
             yield (f'Write "{option}" instead of "{tok.raw}".', raw[:tok.col] + option + raw[tok.end:],
-                   tok, explain_swap(tok.norm, option))
+                   tok, explain_swap(tok.norm, option)
+                   or f'Plain doesn\'t know the word "{tok.raw}" here. "{option}" is close to it.')
         if tried > 60:
             break
     # Only words that mean nothing here, or the same word twice, are ever dropped.
@@ -913,7 +929,21 @@ def repair_options(reader, line, toks, confusables_only):
         if tok.kind == "word" and tok.norm not in CORE_STARTS and \
                 (tok.norm in FILLER_WORDS or tok.norm == toks[k - 1].norm):
             yield (f'Remove the word "{tok.raw}".', (raw[:tok.col].rstrip() + " " + raw[tok.end:].lstrip()).rstrip(),
-                   tok, None)
+                   tok, f'Plain can follow the line without "{tok.raw}".')
+
+
+def bare_address(raw):
+    """Where a web address sits outside quotes, as (start, stop), or None."""
+    inside = False
+    for k, ch in enumerate(raw):
+        if ch in '"“”':
+            inside = not inside if ch == '"' else ch == "“"
+        elif not inside and raw.startswith(("http://", "https://"), k) and (k == 0 or not raw[k - 1].isalnum()):
+            stop = k
+            while stop < len(raw) and not raw[stop].isspace():
+                stop += 1
+            return k, stop
+    return None
 
 
 def explain_swap(old, new):
@@ -925,7 +955,7 @@ def explain_swap(old, new):
 def repair_problem(repair, line, number):
     fix, text, tok, why = repair
     return Problem(fix, why, line=number, col=tok.col, end=tok.end,
-                   try_lines=[text.strip()], ideas=[text])
+                   try_lines=[text.rstrip()], ideas=[text])
 
 
 def closest_phrases(text, count=3):

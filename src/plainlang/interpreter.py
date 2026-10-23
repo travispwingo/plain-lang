@@ -73,6 +73,7 @@ class PlaceRef:
 
 
 MISSING = object()
+CHANGING_VERBS = {"add", "subtract", "remove", "sort", "reverse", "shuffle", "replace"}
 
 
 class Run:
@@ -230,6 +231,8 @@ class Run:
                     items = self.eval(stmt.items)
                     if isinstance(items, str):
                         name = stmt.items.canonical()
+                        if name.startswith('"'):
+                            name = "the text"
                         raise Problem(
                             f'Write "the lines of {name}", "the words of {name}" or "the characters of {name}" to say how to go through the text.',
                             f'"{name}" is text, so Plain needs to know which parts to go through.',
@@ -313,6 +316,11 @@ class Run:
     def slot_value(self, phrase, slot, node, written):
         if slot.kind == "field":
             return node
+        changes = phrase.main.template.split()[0] in CHANGING_VERBS
+        if changes and slot.kind == "place" and isinstance(node, N.Value):
+            self.must_be_kept(node.args.get("items"))
+        if changes and slot.kind == "list":
+            self.must_be_kept(node)
         if slot.kind == "place":
             return PlaceRef(self, node)
         if slot.kind == "items":
@@ -383,10 +391,23 @@ class Run:
                     raise Problem(
                         f'Use a record here. "{target.target.canonical()}" is {kind_name(record)}.',
                         "Only records have fields you can set.", col=target.col, end=target.end)
-                name = target.words[0] if target.quoted else " ".join(target.words)
+                name = target.words[0] if target.quoted else " ".join(getattr(target, "raw", None) or target.words)
                 record.set(name, value, exact=target.quoted)
             case N.Value():
-                items = self.eval(target.args.get("items"))
+                column = target.args.get("items")
+                if isinstance(column, N.Field) and not self.kept(column):
+                    # "item 1 of people's age": you mean the age of the first person.
+                    args = {k: N.arg_text(v) for k, v in target.args.items()}
+                    args["items"] = N.arg_text(column.target)
+                    row = target.phrase.main.render(args)
+                    field = N.field_text(column.words, column.quoted)
+                    raise Problem(
+                        f'Write "({row})\'s {field}" to change the {field} of one row.',
+                        f'"{column.canonical()}" is a list worked out from the table each time it\'s used, '
+                        "so changing an item of it wouldn't change the table.",
+                        col=target.col, end=target.end)
+                self.must_be_kept(column)
+                items = self.eval(column)
                 position = self.position_of(target, items)
                 items[position] = value
             case _:
@@ -405,6 +426,30 @@ class Run:
             raise Problem(f"Use a position from 1 to {len(items)}.",
                           f"The list has {things(len(items), 'item')}, so there is no item {n}.")
         return n - 1
+
+    def kept(self, node):
+        """Would changing this value change something you kept? A name, a field of a record, or
+        an item of one of those would. A column, a "where" result or a new list wouldn't."""
+        match node:
+            case N.Name():
+                return True
+            case N.Paren():
+                return self.kept(node.inner)
+            case N.Field():
+                return isinstance(self.eval(node.target), Record)
+            case N.Value() if "item" in node.phrase.main.template and "items" in node.args:
+                return self.kept(node.args["items"])
+        return False
+
+    def must_be_kept(self, node):
+        if node is None or self.kept(node):
+            return
+        text = node.canonical()
+        raise Problem(
+            "Keep this list under a name first, then change it.",
+            f'"{text}" is worked out from your other values each time it\'s used, so changing it '
+            "wouldn't change anything you kept.",
+            col=node.col, end=node.end, try_lines=[f"set my list to {text}"])
 
     def note_source(self, target, line, how):
         if isinstance(target, N.Name):
@@ -527,7 +572,7 @@ class Run:
             cannot = {"plus": f"add {R} to {L}", "minus": f"take {R} away from {L}",
                       "times": f"multiply {L} by {R}", "divided by": f"divide {L} by {R}"}[node.op]
             doing = {"plus": "add it", "minus": "take it away", "times": "multiply it",
-                     "divided by": "divide it"}[node.op]
+                     "divided by": "divide by it" if bad_node is node.right else "divide it"}[node.op]
             raise self.number_problem(
                 bad_node, bad, doing,
                 f"You can't {cannot}, because {described(bad_node, bad)} is {kind_name(bad)}, not a number.")
@@ -585,6 +630,11 @@ class Run:
             return column
         if isinstance(target, list) and not target:
             return []
+        if isinstance(target, (list, str)) and name.lower() in ("size", "count", "length", "len"):
+            word = "the number of" if isinstance(target, list) else "the length of"
+            raise Problem(f'Write "{word} {node.target.canonical()}" to count '
+                          + ("the items in a list." if isinstance(target, list) else "the characters in text."),
+                          f'{"Lists" if isinstance(target, list) else "Texts"} have no field "{name}".')
         raise Problem(
             f'Use a record or a table before "{name}".',
             f"{quoted(target)} is {kind_name(target)}, so it has no field \"{name}\".")

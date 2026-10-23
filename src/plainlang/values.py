@@ -212,6 +212,14 @@ class Record:
 
 # Comparing -----------------------------------------------------------------------
 
+def as_shown(n):
+    """A number as Plain shows it (at most 10 decimal places). Numbers that show the same are
+    the same, so 1 divided by 3 times 3 is 1."""
+    if places(n) <= MAX_PLACES:
+        return n
+    return n.quantize(Decimal(1).scaleb(-MAX_PLACES), context=CONTEXT)
+
+
 def same(a, b):
     """Friendly equality, used by `is`."""
     if isinstance(a, bool) or isinstance(b, bool):
@@ -224,7 +232,7 @@ def same(a, b):
         return False
     if isinstance(a, Decimal) or isinstance(b, Decimal):
         na, nb = as_number(a), as_number(b)
-        return na is not None and nb is not None and na == nb
+        return na is not None and nb is not None and as_shown(na) == as_shown(nb)
     if isinstance(a, str) and isinstance(b, str):
         return a.strip().casefold() == b.strip().casefold()
     if isinstance(a, list) and isinstance(b, list):
@@ -248,6 +256,7 @@ def order(a, b):
     """-1, 0 or 1. Numbers compare as numbers, text alphabetically ignoring capitals."""
     na, nb = as_number(a), as_number(b)
     if na is not None and nb is not None:
+        na, nb = as_shown(na), as_shown(nb)
         return (na > nb) - (na < nb)
     if isinstance(a, str) and isinstance(b, str):
         ka, kb = text_key(a), text_key(b)

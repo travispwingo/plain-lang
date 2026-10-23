@@ -162,11 +162,11 @@ class Ideas(unittest.TestCase):
         self.assertEqual([['display "Hello there"']], [i[0] for i in ideas])
 
     # tools-26
-    def test_effort_is_low(self):
+    def test_effort_is_medium(self):          # the approved plan: effort "medium"
         program, problem = problem_of(REPORT)
         client = FakeClient({"rewrites": [], "unsupported": None})
         ai.ask_claude(program, problem, "report.plain", client=client)
-        self.assertEqual("low", client.calls[0]["output_config"]["effort"])
+        self.assertEqual("medium", client.calls[0]["output_config"]["effort"])
 
 
 class Secrets(unittest.TestCase):
@@ -234,7 +234,7 @@ class Disclosure(unittest.TestCase):
         notes = set()
         _, out = self.gather(notes=notes)
         self.assertNotIn("This sends", out)
-        self.assertIn('Tip: Plain can also ask Claude for ideas. Install it with: pipx install "plainlang[ai]"', out)
+        self.assertIn("Tip: Plain can also ask Claude for ideas. Add it with: pipx inject plainlang anthropic", out)
         _, out = self.gather(notes=notes)
         self.assertEqual("", out)
 

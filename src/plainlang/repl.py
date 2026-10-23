@@ -6,7 +6,7 @@ from pathlib import Path
 
 from . import __version__
 from .interpreter import Run
-from .problems import Problem, layout
+from .problems import Problem, layout, things
 
 WELCOME = (f"Plain {__version__}. Type a step, like show \"Hello\", and press Enter. "
            "Type :help for help, or :quit to leave.")
@@ -279,7 +279,7 @@ class Session:
         except OSError:
             self.show(f'Check that you\'re allowed to change files in that folder. Plain couldn\'t save "{path.name}".')
             return
-        self.show(f"Saved {len(self.saved)} steps to {path.name}.")
+        self.show(f"Saved {things(len(self.saved), 'step')} to {path.name}.")
 
 
 class SessionRun(Run):

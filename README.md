@@ -25,7 +25,7 @@ Then write a file called `hello.plain` and run it:
 plain run hello.plain
 ```
 
-To let Plain ask Claude for ideas when it can't follow a line, install the optional helper and set your Anthropic key:
+To let Plain ask Claude for ideas when it can't follow a line, add the optional helper and set your Anthropic key (if Plain is already installed, use `pipx inject plainlang anthropic` instead):
 
 ```bash
 pipx install "plainlang[ai]"

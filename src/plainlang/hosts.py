@@ -104,7 +104,8 @@ class TestHost:
 
     can_use_any_folder = False
 
-    def __init__(self, folder, answers=(), seed=0, web=None, now=None):
+    def __init__(self, folder, answers=(), seed=0, web=None, now=None, answer_time=0.0):
+        self.answer_time = answer_time   # seconds each answer takes to type, on the fake clock
         self.folder = Path(folder)
         self.answers = list(answers)
         self.random = random.Random(seed)
@@ -122,6 +123,7 @@ class TestHost:
             raise Problem("Add more answers to the test.",
                           "The program asked a question but the test ran out of answers.")
         answer = self.answers.pop(0)
+        self.time += self.answer_time
         self.transcript.append(f"{question.rstrip()} {answer}")
         return answer
 

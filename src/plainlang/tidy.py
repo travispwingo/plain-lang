@@ -37,9 +37,9 @@ def explain(program):
     readings = line_readings(program.statements)
     lines = []
     for number in sorted(readings):
-        raw = program.source_lines[number - 1].strip()
+        raw = program.source_lines[number - 1].rstrip().expandtabs(4)   # keep the indent: it shows what belongs where
         left = f"{number:>3}  {raw}"
-        if len(left) < EXPLAIN_WIDTH:
+        if len(left) <= EXPLAIN_WIDTH - 2:
             lines.append(left.ljust(EXPLAIN_WIDTH) + readings[number])
         else:
             lines.append(left)
@@ -53,6 +53,17 @@ def collect_edits(statements, edits=None):
     for stmt in statements:
         for edit in stmt.synonym_edits:
             edits.setdefault(stmt.line, []).append(edit)
+        if isinstance(stmt, N.If):
+            # Each "otherwise" line keeps its own edits.
+            for number, extra in getattr(stmt, "branch_edits", {}).items():
+                edits.setdefault(number, []).extend(extra)
+            for index, (check, body) in enumerate(stmt.branches):
+                number = stmt.branch_lines[index] if index < len(stmt.branch_lines) else stmt.line
+                for node in nodes_of(check):
+                    for edit in getattr(node, "syn", []):
+                        edits.setdefault(number, []).append(edit)
+                collect_edits(body, edits)
+            continue
         for node in nodes_of(stmt):
             for edit in getattr(node, "syn", []):
                 edits.setdefault(stmt.line, []).append(edit)

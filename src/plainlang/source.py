@@ -79,6 +79,11 @@ def tokenize(text, start=0, stop=None, line_no=None, in_braces=False):
             i = read_number(text, i, stop, tokens, line_no)
         elif ch.isalpha() or ch == "_":
             i = read_word(text, i, stop, tokens)
+        elif ch in APOSTROPHES and tokens and tokens[-1].norm == ")" and tokens[-1].end == i \
+                and text[i + 1:i + 2] == "s" and not text[i + 2:i + 3].isalnum():
+            # (item 1 of people)'s age
+            tokens.append(Token("poss", text[i:i + 2], "'s", i, i + 2))
+            i += 2
         elif ch in APOSTROPHES:
             # A quote mark that isn't part of a word: 'text' written with single quotes.
             j = i + 1
@@ -265,7 +270,7 @@ def read_lines(text):
     return lines
 
 
-HEADER_STARTS = {"if", "otherwise", "else", "repeat", "for", "while", "until", "how", "try"}
+HEADER_STARTS = {"if", "otherwise", "else", "elif", "repeat", "for", "while", "until", "how", "try"}
 
 
 def looks_like_header(line):

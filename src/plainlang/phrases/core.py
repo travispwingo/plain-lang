@@ -20,3 +20,5 @@ core("how to WORDS (NAME)", "Makes a step of your own. Words in brackets are val
 core("give back VALUE", "Ends your own step and hands back a value.", "give back total")
 core("try", "Takes the steps under it. If one has a problem, Plain goes to \"if that fails\".", "try")
 core("if that fails", "The steps to take when a step under \"try\" had a problem. \"the problem\" says what went wrong.", "if that fails")
+core("N% of VALUE", "A part of a value, like 15% of a bill. \"N percent of VALUE\" works too.", "show 15% of 80",
+     topic="Numbers and text")

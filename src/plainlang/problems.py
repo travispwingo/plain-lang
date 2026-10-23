@@ -25,6 +25,7 @@ class Problem(Exception):
     ideas: list[str] = field(default_factory=list)
     focus: str | None = None      # text to underline, when the problem doesn't know its column
     guard: str | None = None      # a name to check is a number first (for "Try this")
+    ask_claude: bool = False      # design section 7: Claude may offer ideas for this problem
 
     def __str__(self):
         return self.fix

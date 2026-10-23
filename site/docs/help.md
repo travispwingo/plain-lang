@@ -51,7 +51,7 @@ four
 
 ```problem
 How many people are sharing the bill? four
-your program, line 2, while running: Check that "people" is a number before you divide it.
+your program, line 2, while running: Check that "people" is a number before you divide by it.
 
     show "Each person pays ${120 divided by people}."
                                             ^^^^^^

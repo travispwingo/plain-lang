@@ -1,0 +1,16 @@
+Pick a size
+  1) 10
+  2) 20
+  3) 30
+Type a number or a choice: 2
+You picked 20.
+Pick a color
+  1) Red
+  2) Green
+  3) Blue
+Type a number or a choice: 20
+Please type one of the choices, or a number from 1 to 3.
+Type a number or a choice: white
+Please type one of the choices, or a number from 1 to 3.
+Type a number or a choice: 3
+You picked Blue.

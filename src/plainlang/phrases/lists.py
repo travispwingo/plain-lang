@@ -112,8 +112,11 @@ def average(run, items: List) -> Number:
     """The total divided by how many numbers there are. Empty cells are skipped."""
     numbers = numbers_in(items, "average")
     if not numbers:
+        if items:
+            raise Problem("Check that some of the items are numbers before you average them.",
+                          "The list has no numbers in it (empty cells don't count), so there's no average.")
         raise Problem("Check that the list is not empty first, with: if LIST is not empty",
-                      "The list has no numbers, so there's no average.")
+                      "The list is empty, so there's no average.")
     result = sum(numbers, Decimal(0)) / len(numbers)
     return fit(result, max(places(n) for n in numbers))
 

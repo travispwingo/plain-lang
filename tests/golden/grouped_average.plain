@@ -1,0 +1,9 @@
+# Average spending in each category (blank amounts are skipped)
+read "expenses.csv" and call it expenses
+repeat for each category in the different categories of expenses
+    set rows to expenses where category is category and amount is not empty
+    if rows is empty
+        show "{category}: no amounts"
+    otherwise
+        show "{category}: {the average of the amounts of rows rounded to 2 places}"
+show "Total: {the total of the amounts of expenses}"

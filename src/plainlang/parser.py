@@ -78,13 +78,14 @@ def span_cols(tokens, i, j):
 
 # Program --------------------------------------------------------------------------
 
-@dataclass
+@dataclass(eq=False)
 class HowToDef:
     phrase: Phrase
     params: list
     line: object
     own_names: set = field(default_factory=set)
     gives: bool = False
+    body: list = field(default_factory=list)
 
 
 @dataclass
@@ -410,6 +411,7 @@ class Reader:
                 'Your own steps are written on their own, not inside other steps.',
                 line=line.number, col=0, end=line.indent))
         body = self.read_body(line.body, problems, howto)
+        howto.body = body
         return N.HowTo(howto.phrase, howto.params, body, frozenset(howto.own_names), line=line.number)
 
     def read_core(self, first, view, line, scope, problems, reader):
@@ -669,6 +671,7 @@ class LineReader:
         self.memo = {}
         self.synonym_edits = []
         self.max_name = max((len(n) for n in names), default=0)
+        self.boundaries = {len(tokens)} | {k for k, t in enumerate(tokens) if t.norm == ")"}
         depth, self.depth = 0, []
         for tok in tokens:
             if tok.kind == "symbol" and tok.norm == ")":
@@ -690,11 +693,13 @@ class LineReader:
             raise self.explain_failure(i, j, line, check=check)
         col, end = span_cols(self.t, i, j)
         a, b = readings[0].canonical(), readings[1].canonical()
+        try_lines = [replace_span(line.raw, col, end, a), replace_span(line.raw, col, end, b)]
+        indent = line.raw[:len(line.raw) - len(line.raw.lstrip())]
         raise Problem(
             "Add brackets, or reword this, so it has only one meaning.",
             "Plain can read it two ways, and it never guesses which one you mean.",
-            line=line.number, col=col, end=end,
-            try_lines=[replace_span(line.raw, col, end, a), replace_span(line.raw, col, end, b)])
+            line=line.number, col=col, end=end, try_lines=try_lines,
+            ideas=[indent + t for t in try_lines])
 
     def bad_problem(self, bad, line):
         problem = bad.problem
@@ -703,7 +708,8 @@ class LineReader:
             problem.col, problem.end = bad.col, bad.end
         if bad.alts and bad.col is not None:
             problem.try_lines = [replace_span(line.raw, bad.col, bad.end, alt) for alt in bad.alts]
-            problem.ideas = list(problem.try_lines)
+            indent = line.raw[:len(line.raw) - len(line.raw.lstrip())]
+            problem.ideas = [indent + t for t in problem.try_lines]
         return problem
 
     def explain_failure(self, i, j, line, check=False):
@@ -732,10 +738,28 @@ class LineReader:
                               None, line=line.number, col=self.t[k].col, end=self.t[j - 1].end)
             call_it = words
             j = k
+            self.boundaries.add(k)
+        self.mark_step_boundaries(i, j)
         readings = self.step_readings(i, j)
         stmt = self.choose_step(readings, i, j, line)
         stmt.call_it = call_it
         return stmt
+
+    def mark_step_boundaries(self, i, j):
+        """A "where" check can end right before one of a step's own words, like "to" in save … to."""
+        first = self.t[i]
+        if first.kind != "word":
+            return
+        phrases = []
+        for w in {first.norm, SYNONYMS.get(first.norm)}:
+            phrases += self.r.step_index.get(w, [])
+        phrases += [h.phrase for h in self.r.howto_index.get(first.norm, [])]
+        for phrase in phrases:
+            for element in phrase.elements[1:]:
+                if isinstance(element, Word):
+                    for k in range(i + 1, j):
+                        if word_matches(self.t[k], element.alts):
+                            self.boundaries.add(k)
 
     def step_readings(self, i, j):
         first = self.t[i]
@@ -1260,6 +1284,8 @@ class LineReader:
                 if words is None:
                     continue
                 for base in self.ofv(i, k, w):
+                    if isinstance(base, N.Value) and isinstance(base.phrase.elements[-1], Slot):
+                        continue   # "the first item of places's results": 's belongs to places
                     if isinstance(base, (N.Name, N.Field, N.Paren, N.It, N.Value, N.RowField)) and \
                             not (isinstance(base, N.Field) and base.of_form):
                         out.append(self.field_node(base, words, col, end))
@@ -1304,8 +1330,11 @@ class LineReader:
                         out.append(target)
                     else:
                         out.append(N.Field(target, words, of_form=True, col=col, end=end))
-        # sales where amount is more than 100
+        # sales where amount is more than 100. The check runs to the end of the line, a closing
+        # bracket, or the next word of the step.
         for k in range(i + 1, j - 1):
+            if j not in self.boundaries:
+                break
             if is_word(t[k], "where") and self.depth[k] == self.depth[i]:
                 bases = [b for b in self.ofv(i, k, w)
                          if isinstance(b, (N.Name, N.Paren)) or (isinstance(b, N.Field) and not b.of_form)]

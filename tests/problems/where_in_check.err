@@ -1,0 +1,11 @@
+where_in_check.plain, line 2: Put brackets around the "where" part, or keep the matching rows under a name first.
+
+    if the number of sales where amount is more than 100 is at least 2
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Try this:
+    set matching rows to the sales where amount is more than 100
+    if the number of matching rows is at least 5
+    if the number of (sales where amount is more than 100) is at least 5
+Why: "where" checks each row up to the end of the line, so here it took in the comparison after it too.
+
+Plain found 1 thing to fix, so it hasn't run your program yet.

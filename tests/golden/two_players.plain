@@ -1,0 +1,10 @@
+set player 1 to 0
+set player 2 to 0
+repeat 3 times
+    set roll to (a random number from 1 to 6) plus (a random number from 1 to 6)
+    add roll to player 1
+    add a random number from 1 to 6 to player 2
+if player 1 is more than player 2
+    show "Player 1 wins with {player 1}."
+otherwise
+    show "Player 2 wins with {player 2}."

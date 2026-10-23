@@ -1,0 +1,14 @@
+# set makes a copy; your own steps get the very list you hand them
+set todos to a list of "a" and "b"
+set backup to todos
+add "c" to todos
+show backup
+show todos
+set copy to a copy of todos
+remove "a" from copy
+show todos
+clear out todos
+show todos
+how to clear out (things)
+    repeat for each thing in things
+        remove thing from things

@@ -1,0 +1,15 @@
+show 0.1 plus 0.2
+show 80 times 0.20
+show 2.50 times 3
+show 1 divided by 3
+show 10 divided by 4
+show 6.375 rounded to 2 places
+show 7.9 rounded down
+show 7.1 rounded up
+show 0 times -1
+show 15% of 40
+show 100
+set balance to 1000
+repeat for each year from 1 to 3
+    set balance to balance times 1.05 rounded to 2 places
+    show "Year {year}: ${balance}"

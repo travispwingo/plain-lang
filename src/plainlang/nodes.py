@@ -125,7 +125,11 @@ class Field(Node):
     def canonical(self):
         if self.of_form:
             return f"the {field_text(self.words, self.quoted)} of {self.target.canonical()}"
-        return f"{wrap(self.target, 9)}'s {field_text(self.words, self.quoted)}"
+        target = self.target.canonical()
+        if isinstance(self.target, (Value, Where, PercentOf, Math, Postfix)) or \
+                (isinstance(self.target, Field) and self.target.of_form):
+            target = f"({target})"
+        return f"{target}'s {field_text(self.words, self.quoted)}"
 
 
 @dataclass(eq=False)

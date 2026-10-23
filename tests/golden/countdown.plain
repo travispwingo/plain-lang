@@ -1,0 +1,6 @@
+repeat for each n from 3 down to 1
+    show n
+    wait 1 second
+show "Go! That took {the timer} seconds."
+repeat for each n from 5 to 1
+    show "never shown"

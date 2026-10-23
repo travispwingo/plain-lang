@@ -1,0 +1,6 @@
+set secret to 3
+set tries to 0
+repeat until guess is secret
+    ask "Your guess?" and call it guess
+    add 1 to tries
+show "Got it in {tries}."

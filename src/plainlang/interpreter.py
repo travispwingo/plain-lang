@@ -234,7 +234,7 @@ class Run:
         self.frames.append((frame, howto))
         self.depth += 1
         try:
-            self.exec_body(howto_body(self.program, howto))
+            self.exec_body(howto.body)
         except GiveBackSignal as signal:
             return signal.value
         finally:
@@ -396,7 +396,7 @@ class Run:
             case N.PercentOf():
                 pct = self.number(node.percent, "work out a percent of")
                 base = self.number(node.value, "work out a percent of")
-                return fit(pct * base, max(places(pct), places(base)))
+                return fit(pct * base, max(self.places_of(node.percent, pct), places(base)))
             case N.Field():
                 return self.field(node)
             case N.Value():
@@ -499,7 +499,14 @@ class Run:
                     result = a / b
         except (InvalidOperation, DivisionByZero):
             raise Problem("Check the numbers in this sum.", f"Plain couldn't {verb} them.")
-        return fit(result, max(places(a), places(b)))
+        return fit(result, max(self.places_of(node.left, a), self.places_of(node.right, b)))
+
+    def places_of(self, node, value):
+        """A written percent counts the places you wrote: 15% has none, 2.5% has one."""
+        if isinstance(node, N.Lit) and node.percent and node.raw:
+            digits = node.raw.lstrip("$€£").rstrip("%")
+            return places(Decimal(digits)) if digits.replace(".", "").isdigit() else places(value)
+        return places(value)
 
     def field(self, node):
         target = self.eval(node.target)
@@ -622,23 +629,6 @@ class Run:
                           col=node.col if node is not None else None,
                           end=node.end if node is not None else None)
         return int(n)
-
-
-def howto_body(program, howto):
-    cache = program.__dict__.setdefault("_howto_bodies", {})
-    if id(howto) not in cache:
-        for stmt in all_statements(program.statements):
-            if isinstance(stmt, N.HowTo) and stmt.phrase is howto.phrase:
-                cache[id(howto)] = stmt.body
-        cache.setdefault(id(howto), [])
-    return cache[id(howto)]
-
-
-def all_statements(statements):
-    for stmt in statements:
-        yield stmt
-        if isinstance(stmt, N.HowTo):
-            yield from all_statements(stmt.body)
 
 
 def data_problem(error):

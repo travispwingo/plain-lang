@@ -148,6 +148,29 @@ def word_matches(token, alts):
     return token.norm in alts or SYNONYMS.get(token.norm) in alts
 
 
+PLACEHOLDERS = {
+    "file": "FILE", "source": "FILE", "address": "ADDRESS", "folder": "FOLDER", "question": "QUESTION",
+    "choices": "LIST", "field": "FIELD", "table": "TABLE", "items": "LIST", "text": "TEXT",
+    "separator": "TEXT", "old": "TEXT", "new": "TEXT", "n": "NUMBER", "places": "NUMBER",
+    "seconds": "NUMBER", "minutes": "NUMBER", "low": "NUMBER", "high": "NUMBER", "value": "VALUE",
+    "data": "VALUE", "place": "NAME", "page": "PAGE", "new_name": "FILE",
+}
+
+
+def wording(template):
+    """A template with its slots as capital placeholders: "sort LIST by FIELD"."""
+    out = []
+    for part in template.split():
+        if part.startswith("{"):
+            name = part.strip("{}")
+            out.append(PLACEHOLDERS.get(name, name.upper()))
+        elif part.startswith("["):
+            out.append("[" + part.strip("[]") + "]")
+        else:
+            out.append(part)
+    return " ".join(out)
+
+
 def catalog():
     """Every built-in phrase in main wording, grouped by topic, in a stable order."""
     import plainlang.phrases  # noqa: F401  (registers everything)
@@ -158,7 +181,8 @@ def catalog():
         seen.add(id(phrase))
         others = [p.template for p in REGISTRY if p.main is phrase and p is not phrase]
         out.append({
-            "topic": phrase.topic, "wording": phrase.template, "doc": phrase.doc,
-            "example": phrase.example, "also": others, "effects": sorted(phrase.effects),
+            "topic": phrase.topic, "wording": wording(phrase.template), "doc": phrase.doc,
+            "example": phrase.example, "also": [wording(o) for o in others], "effects": sorted(phrase.effects),
+            "template": phrase.template,
         })
     return out

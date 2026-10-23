@@ -100,7 +100,7 @@ def date_today(run) -> Text:
 @value("a random number from {low} to {high}", "a random number between {low} and {high}",
        example="set roll to a random number from 1 to 6", topic=TOPIC_TIME)
 def random_number(run, low: Number, high: Number) -> Number:
-    """A whole number from low to high, both included."""
+    """A whole number between the two numbers, both included."""
     for n in (low, high):
         if n != n.to_integral_value():
             raise Problem("Use whole numbers for a random number, like 1 and 6.",

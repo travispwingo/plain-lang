@@ -1,0 +1,4 @@
+ask "Pick a size" with choices 10, 20 and 30 and call it size
+show "You picked {size}."
+ask "Pick a color" with choices "Red", "Green" and "Blue" and call it color
+show "You picked {color}."

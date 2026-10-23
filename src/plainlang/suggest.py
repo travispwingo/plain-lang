@@ -119,6 +119,16 @@ def explain_unreadable(reader, i, j, line, check=False):
             f'Plain doesn\'t know a step that starts with "{first.raw}".',
             line=number, col=first.col, end=first.end, try_lines=close)
 
+    # A "where" with another comparison after it, inside an if or until.
+    if any(t.norm == "where" for t in toks) and check:
+        return Problem(
+            'Put brackets around the "where" part, or keep the matching rows under a name first.',
+            '"where" checks each row up to the end of the line, so here it took in the comparison after it too.',
+            line=number, col=col, end=end,
+            try_lines=["set matching rows to the sales where amount is more than 100",
+                       "if the number of matching rows is at least 5",
+                       "if the number of (sales where amount is more than 100) is at least 5"])
+
     # Words that aren't any name you set.
     unknown = unknown_runs(reader, toks)
     if unknown:
@@ -157,13 +167,6 @@ def explain_unreadable(reader, i, j, line, check=False):
     repair = repairs(reader, line, toks, limit=3) if number else []
     if repair:
         return repair_problem(repair[0], line, number)
-    if any(t.norm == "where" for t in toks) and check:
-        return Problem(
-            'Put brackets around the "where" part, or keep the matching rows under a name first.',
-            '"where" checks each row up to the end of the line, so here it took in the comparison after it too.',
-            line=number, col=col, end=end,
-            try_lines=["set matching rows to the sales where amount is more than 100",
-                       "if the number of matching rows is at least 5"])
     close = closest_phrases(stripped)
     return Problem(
         "Reword this line using phrases Plain knows, like one of these." if close else "Reword this line.",

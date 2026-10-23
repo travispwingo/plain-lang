@@ -1,0 +1,1 @@
+{"GET https://geocoding-api.open-meteo.com/v1/search?name=New%20York&count=1": {"body": {"results": [{"name": "New York", "latitude": 40.71, "longitude": -74.01}]}}}

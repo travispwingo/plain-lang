@@ -1,0 +1,4 @@
+set text to "the cat and the hat and the bat"
+set words to the words of text
+repeat for each word in the different items of words
+    show "{word}: {the number of words where it is word}"

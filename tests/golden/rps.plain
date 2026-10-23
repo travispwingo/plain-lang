@@ -1,0 +1,10 @@
+set moves to a list of "rock", "paper" and "scissors"
+ask "Rock, paper or scissors?" and call it mine
+set theirs to a random item from moves
+show "I picked {theirs}."
+if mine is theirs
+    show "A draw!"
+otherwise if mine is "rock" and theirs is "scissors" or "lizard"
+    show "You win!"
+otherwise
+    show "Good game."

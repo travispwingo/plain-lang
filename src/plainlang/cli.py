@@ -78,17 +78,25 @@ def main(argv=None):
     if len(rest) < 2:
         say(f"Type the name of the file to {command}, like this: plain {command} hello.plain", err=True)
         return 2
-    path = Path(rest[1])
+    return open_and_run(command, rest[1], options)
+
+
+def open_and_run(command, name, options):
+    """Read the file NAME and run, check, fix, tidy or explain it. The REPL's :run uses this too."""
+    path = Path(name)
     if not path.exists():
-        say(f'Check the file name "{rest[1]}". There\'s no file with that name here.', err=True)
+        say(f'Check the file name "{name}". There\'s no file with that name here.', err=True)
         return 2
     if path.is_dir():
-        say(f'Type the name of a file, not a folder: "{rest[1]}" is a folder.', err=True)
+        say(f'Type the name of a file, not a folder: "{name}" is a folder.', err=True)
         return 2
     try:
         text = path.read_bytes().decode("utf-8-sig")
     except UnicodeDecodeError:
         say(f'Save "{path.name}" as plain text (UTF-8), then try again.', err=True)
+        return 2
+    except OSError:
+        say(f'Check that you\'re allowed to read "{path.name}". Plain can\'t open it.', err=True)
         return 2
     try:
         return run_command(command, path, text, options)
@@ -124,9 +132,14 @@ def run_command(command, path, text, options):
         if not changes:
             say(f"{name} is already tidy.")
             return 0
+        from .fixer import cant_save, write_atomic
         backup = path.with_name(path.name + ".bak")
-        backup.write_text(text, encoding="utf-8")
-        write_atomic(path, new_text)
+        try:
+            backup.write_text(text, encoding="utf-8")
+            write_atomic(path, new_text)
+        except OSError:
+            say(cant_save(path), err=True)
+            return 1
         say(f"Tidied {name}:")
         for change in changes:
             say(f"  {change}")
@@ -168,13 +181,8 @@ def run_program(program, path, options):
     return 0
 
 
-def write_atomic(path, text):
-    temp = path.with_name(path.name + ".tmp")
-    temp.write_text(text, encoding="utf-8", newline="")
-    os.replace(temp, path)
-
-
-def phrases(words):
+def phrases(words, again="plain phrases"):
+    """List Plain's phrases, or the ones about WORDS. `again` is how to list them all."""
     from .registry import CORE_FORMS, catalog
     entries = catalog()
     wanted = [w.lower() for w in words]
@@ -184,15 +192,15 @@ def phrases(words):
 
     topics = {}
     for core in CORE_FORMS:
-        if not wanted or matches(core["wording"] + " " + core["doc"]):
-            topics.setdefault(core["topic"], []).append((core["wording"], core["doc"], core["example"], []))
+        also = other_words(core["wording"])
+        if not wanted or matches(" ".join([core["wording"], core["doc"]] + also)):
+            topics.setdefault(core["topic"], []).append((core["wording"], core["doc"], core["example"], also))
     for entry in entries:
-        text = " ".join([entry["wording"], entry["doc"]] + entry["also"])
-        if not wanted or matches(text):
-            topics.setdefault(entry["topic"], []).append(
-                (entry["wording"], entry["doc"], entry["example"], entry["also"]))
+        also = entry["also"] + [w for w in other_words(entry["template"]) if w not in entry["also"]]
+        if not wanted or matches(" ".join([entry["wording"], entry["doc"]] + also)):
+            topics.setdefault(entry["topic"], []).append((entry["wording"], entry["doc"], entry["example"], also))
     if not topics:
-        say(f"Plain has no phrases about \"{' '.join(words)}\". Type plain phrases to see them all.")
+        say(f"Plain has no phrases about \"{' '.join(words)}\". Type {again} to see them all.")
         return 1
     for topic, items in topics.items():
         say(topic)
@@ -208,3 +216,18 @@ def phrases(words):
         say("Plain's special words (they can't be part of a name):")
         say("  " + " ".join(sorted(w for w in SPECIAL_WORDS)))
     return 0
+
+
+def other_words(template):
+    """The same phrase with each of its words swapped for a word that means the same (display for show)."""
+    from .registry import wording
+    from .words import SYNONYMS
+    parts = template.split()
+    out = []
+    for k, part in enumerate(parts):
+        if part.startswith(("{", "[")):
+            continue
+        for other, main in SYNONYMS.items():
+            if main in part.lower().split("|"):
+                out.append(wording(" ".join(parts[:k] + [other] + parts[k + 1:])))
+    return out

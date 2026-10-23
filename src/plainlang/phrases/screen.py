@@ -1,6 +1,6 @@
 """Showing, asking, waiting, time and chance."""
 
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from ..problems import Problem
 from ..registry import Items, List, Number, Text, Value, step, value
@@ -81,8 +81,8 @@ def start_timer(run) -> None:
 @value("the timer", example="show the timer", topic=TOPIC_TIME)
 def timer(run) -> Number:
     """Seconds since "start the timer", or since the program began, to 1 decimal place."""
-    seconds = Decimal(str(run.host.clock() - run.timer_start))
-    return seconds.quantize(Decimal("0.1"))
+    seconds = Decimal(repr(round(run.host.clock() - run.timer_start, 6)))    # no float noise
+    return seconds.quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
 
 
 @value("the time now", example='show "It is {the time now}."', topic=TOPIC_TIME)

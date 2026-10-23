@@ -8,7 +8,7 @@ from urllib.parse import quote, urlsplit
 from ..problems import Problem
 from ..registry import List, Text, Value, step, value
 from ..values import Record, show_value
-from .files import decode, parse_json, to_json
+from .files import decode, json_text, parse_json
 
 TOPIC = "The web"
 
@@ -30,7 +30,10 @@ def status_problem(reply, url):
         text = decode(reply.body).strip()
         if text.startswith("{"):
             data = json.loads(text)
-            said = str(data.get("message") or data.get("error") or "")
+            said = data.get("message") or data.get("error") or ""
+            if isinstance(said, dict):      # {"error": {"code": 400, "message": "..."}}
+                said = said.get("message") or said.get("error_description") or ""
+            said = said if isinstance(said, str) else ""
         elif text and len(text) < 120 and "<" not in text:
             said = text
     except (ValueError, AttributeError):
@@ -83,7 +86,7 @@ def send(run, data: Value, address: Text) -> Value:
     """Sends records and lists as JSON, and anything else as text. The reply comes back the way "read" gives it."""
     check_address(address)
     if isinstance(data, (Record, list)):
-        body, kind = json.dumps(to_json(data)).encode(), "application/json"
+        body, kind = json_text(data).encode(), "application/json"
     else:
         body, kind = show_value(data).encode(), "text/plain; charset=utf-8"
     reply = run.host.web("POST", clean_address(address), body, kind)
@@ -94,6 +97,8 @@ def send(run, data: Value, address: Text) -> Value:
 
 class PageText(HTMLParser):
     SKIP = {"script", "style", "noscript", "head"}
+    BLOCKS = {"p", "br", "div", "li", "ul", "ol", "table", "tr", "h1", "h2", "h3", "h4", "h5", "h6"}
+    CELLS = {"td", "th"}
 
     def __init__(self):
         super().__init__()
@@ -106,12 +111,18 @@ class PageText(HTMLParser):
             href = dict(attrs).get("href")
             if href:
                 self.links.append(href)
-        if tag in ("p", "br", "div", "li", "h1", "h2", "h3", "tr"):
+        if tag in self.BLOCKS:
             self.parts.append("\n")
+        elif tag in self.CELLS:
+            self.parts.append(" ")
 
     def handle_endtag(self, tag):
         if tag in self.SKIP and self.skipping:
             self.skipping -= 1
+        if tag in self.BLOCKS:
+            self.parts.append("\n")
+        elif tag in self.CELLS:
+            self.parts.append(" ")
 
     def handle_data(self, data):
         if not self.skipping:

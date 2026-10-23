@@ -4,6 +4,8 @@ Only this module (and browser.py) talks to the outside world, so the same core r
 terminal, in tests and in the browser.
 """
 
+import http.client
+import os
 import random
 import ssl
 import sys
@@ -36,7 +38,13 @@ class TerminalHost:
         self.started = time.monotonic()
 
     def show(self, text):
-        print(text, flush=True)
+        try:
+            print(text, flush=True)
+        except BrokenPipeError:
+            # Whatever was reading the output (like "head") has stopped, so stop quietly.
+            os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+            from .interpreter import StopProgramSignal
+            raise StopProgramSignal() from None
 
     def ask(self, question):
         try:
@@ -84,6 +92,9 @@ class TerminalHost:
         except TimeoutError:
             raise Problem("Check your internet connection, then run this again.",
                           f"The website didn't answer within {WEB_TIMEOUT} seconds.")
+        except (http.client.HTTPException, OSError):
+            raise Problem("Check your internet connection and the address, then run this again.",
+                          "The website stopped answering before it finished.")
         except ValueError:
             raise Problem("Check the web address.", "Plain couldn't use it as an address.")
 

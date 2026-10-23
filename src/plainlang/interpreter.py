@@ -4,17 +4,33 @@ import copy
 import csv
 import json
 import sys
-from decimal import Decimal, DivisionByZero, InvalidOperation
+from dataclasses import dataclass
+from decimal import Decimal, DivisionByZero, InvalidOperation, Overflow
+from pathlib import Path
 from urllib.parse import quote
 
 from . import nodes as N
-from .parser import HowToDef
-from .problems import Problem
+from .parser import HowToDef, Reader
+from .problems import Problem, things
 from .registry import Phrase
 from .values import (Record, as_number, contains, exactly, fit, is_empty, kind_name,
                      order, places, quoted, same, show_value)
 
 MAX_DEPTH = 100
+
+# Where a name's value came from, for messages: "got its value on line 2, from what was typed".
+HOW = {"typed": "from what was typed", "read": "from what was read", "web": "from the website's reply",
+       "set": "from a set step", "how to": "from your own step"}
+GIVES = {"ask": "typed", "read": "read", "send": "web"}    # the steps that give back a value
+
+TEXT_EXAMPLES = {"file": '"notes.txt"', "source": '"notes.txt"', "new_name": '"notes.txt"',
+                 "folder": '"photos"', "address": '"https://example.com"', "separator": '", "'}
+
+
+@dataclass(eq=False)
+class JoinTextProblem(Problem):
+    """Text put together with plus. Plain offers the same line with one text instead."""
+    joined: str = ""
 
 
 class StopRepeatingSignal(Exception):
@@ -70,6 +86,8 @@ class Run:
         self.timer_start = host.clock()
         self.depth = 0
         self.came_from = {}      # name -> (line, how)
+        self.current = None      # the step being run
+        self.phrase_args = {}    # the written parts of the phrase being run, for messages
 
     # Running ---------------------------------------------------------------------
 
@@ -90,6 +108,7 @@ class Run:
             self.exec(stmt)
 
     def exec(self, stmt):
+        self.current = stmt
         try:
             self._exec(stmt)
         except Problem as problem:
@@ -117,8 +136,8 @@ class Run:
                 if stmt.call_it:
                     target = N.Name(stmt.call_it, stmt.call_it in self.own_names())
                     self.assign(target, result)
-                    how = "typed" if stmt.phrase.main.template.startswith("ask") else \
-                        "read" if stmt.phrase.main.template.startswith("read") else "how to"
+                    how = "how to" if isinstance(stmt.phrase.run, HowToDef) else \
+                        GIVES.get(stmt.phrase.main.template.split()[0], "set")
                     self.note_source(target, stmt.line, how)
             case N.If():
                 for check, body in stmt.branches:
@@ -139,8 +158,12 @@ class Run:
                 try:
                     self.exec_body(stmt.body)
                 except Problem as problem:
+                    before = self.problem_text
                     self.problem_text = problem.fix + (f" {problem.why}" if problem.why else "")
-                    self.exec_body(stmt.fallback)
+                    try:
+                        self.exec_body(stmt.fallback)
+                    finally:
+                        self.problem_text = before    # "the problem" means something only in here
             case N.HowTo():
                 pass
             case N.ErrorBlock():
@@ -156,9 +179,25 @@ class Run:
             elif raw.strip():
                 problem.col = len(raw) - len(raw.lstrip())
                 problem.end = len(raw.rstrip())
-        if problem.guard and not problem.try_lines and raw.strip():
+        if isinstance(problem, JoinTextProblem) and problem.col is not None and not problem.try_lines:
+            start, stop, joined = problem.col, problem.end, problem.joined
+            if raw[start - 1:start] == "{" and raw[stop:stop + 1] == "}":   # a whole {…} piece
+                start, stop, joined = start - 1, stop + 1, joined[1:-1]
+            line = (raw[:start] + joined + raw[stop:]).strip()
+            if self.line_works(stmt.line, line):
+                problem.try_lines, problem.ideas = [line], [line]
+        if problem.guard and not problem.try_lines and raw.strip() and not isinstance(stmt, (N.If, N.Repeat)):
             problem.try_lines = [f"if {problem.guard} is a number", "    " + raw.strip(), "otherwise",
                                  '    show "Please type a number."']
+
+    def line_works(self, number, new_line):
+        """Whether the program still reads cleanly with new_line in place of line `number`."""
+        lines = list(self.program.source_lines)
+        if not 0 < number <= len(lines):
+            return False
+        old = lines[number - 1]
+        lines[number - 1] = old[:len(old) - len(old.lstrip())] + new_line
+        return not Reader().read("\n".join(lines)).problems
 
     def exec_repeat(self, stmt):
         def round_(body):
@@ -242,16 +281,19 @@ class Run:
             self.frames.pop()
         return None
 
-    def call_phrase(self, phrase, args, operand=MISSING):
+    def call_phrase(self, phrase, args, operand=MISSING, operand_node=None):
         values = {}
+        written = dict(args)
         for slot in phrase.slots:
             if operand is not MISSING and slot is phrase.slots[0]:
-                values[slot.name] = self.check_kind(phrase, slot, operand, None)
+                written[slot.name] = operand_node
+                values[slot.name] = self.check_kind(phrase, slot, operand, operand_node, written)
                 continue
             node = args.get(slot.name)
             if node is None:
                 continue
-            values[slot.name] = self.slot_value(phrase, slot, node)
+            values[slot.name] = self.slot_value(phrase, slot, node, written)
+        self.phrase_args = written
         try:
             return phrase.run(self, **values)
         except Problem:
@@ -261,47 +303,54 @@ class Run:
         except RecursionError:
             raise
         except Exception as error:   # data problems become messages, not crashes
-            raise data_problem(error) from error
+            raise data_problem(error, self.host.folder) from error
 
-    def slot_value(self, phrase, slot, node):
+    def written_name(self, slot):
+        """Your name, when you wrote one of your names in that part of the phrase being run."""
+        node = self.phrase_args.get(slot)
+        return node.canonical() if isinstance(node, N.Name) else None
+
+    def slot_value(self, phrase, slot, node, written):
         if slot.kind == "field":
             return node
         if slot.kind == "place":
             return PlaceRef(self, node)
         if slot.kind == "items":
             return [self.eval(item) for item in node]
-        return self.check_kind(phrase, slot, self.eval(node), node)
+        return self.check_kind(phrase, slot, self.eval(node), node, written)
 
-    def check_kind(self, phrase, slot, value, node):
-        verb = phrase.main.template.split()[0]
+    def check_kind(self, phrase, slot, value, node, written):
+        label = phrase_label(phrase)
         col = node.col if node is not None else None
         end = node.end if node is not None else None
+        given = f"{described(node, value)} is {kind_name(value)}"
+        if isinstance(value, (list, Record)) and not isinstance(node, N.Name):
+            given = f"this is {quoted(value)}"
         if slot.kind == "number":
             n = as_number(value)
             if n is None:
-                raise Problem(
-                    f"Use a number here, like 3.",
-                    f'"{verb}" needs a number for this part, and {quoted(value)} is {kind_name(value)}.',
-                    col=col, end=end)
+                raise Problem("Use a number here, like 3.",
+                              f'"{label}" needs a number for this part, and {given}.', col=col, end=end)
             return n
         if slot.kind == "text":
             if isinstance(value, Decimal):
                 return show_value(value)
             if not isinstance(value, str):
-                raise Problem(
-                    'Use text here, in double quotes, like "notes.txt".',
-                    f'"{verb}" needs text for this part, and {quoted(value)} is {kind_name(value)}.',
-                    col=col, end=end)
+                example = TEXT_EXAMPLES.get(slot.name, '"hello"')
+                raise Problem(f"Use text here, in double quotes, like {example}.",
+                              f'"{label}" needs text for this part, and {given}.', col=col, end=end)
             return value
         if slot.kind == "list":
             if not isinstance(value, list):
                 hint = ""
-                if isinstance(value, str) and verb in ("the", "item"):
+                if isinstance(value, str) and phrase.main.template == "the number of {items}":
                     hint = ' To count the characters in text, write "the length of".'
-                raise Problem(
-                    "Use a list here.",
-                    f'"{phrase.main.template.split("{")[0].strip()}" needs a list, and {quoted(value)} is {kind_name(value)}.{hint}',
-                    col=col, end=end)
+                elif isinstance(value, str) and "item" in label and isinstance(node, (N.Name, N.TextLit)):
+                    parts = {k: v.canonical() for k, v in written.items() if isinstance(v, N.Node)}
+                    parts[slot.name] = f"the characters of {node.canonical()}"
+                    hint = f" To pick from the characters of text, write: {phrase.main.render(parts)}"
+                raise Problem("Use a list here.", f'"{label}" needs a list, and {given}.{hint}',
+                              col=col, end=end)
             return value
         return value
 
@@ -354,7 +403,7 @@ class Run:
         n = self.whole(target.args["n"], "item")
         if not 1 <= n <= len(items):
             raise Problem(f"Use a position from 1 to {len(items)}.",
-                          f"The list has {len(items)} items, so there is no item {n}.")
+                          f"The list has {things(len(items), 'item')}, so there is no item {n}.")
         return n - 1
 
     def note_source(self, target, line, how):
@@ -390,19 +439,20 @@ class Run:
                                   f"{quoted(item)} is {kind_name(item)}, so it has no fields.")
                 return item.get(node.words[0] if node.quoted else " ".join(node.words), exact=node.quoted)
             case N.Neg():
-                return -self.number(node.value, "make negative")
+                return -self.number(node.value, "make it negative")
             case N.Math():
                 return self.math(node)
             case N.PercentOf():
-                pct = self.number(node.percent, "work out a percent of")
-                base = self.number(node.value, "work out a percent of")
+                pct = self.number(node.percent, "work out a percent with it")
+                base = self.number(node.value, "work out a percent of it")
                 return fit(pct * base, max(self.places_of(node.percent, pct), places(base)))
             case N.Field():
                 return self.field(node)
             case N.Value():
                 return self.call_phrase(node.phrase, node.args)
             case N.Postfix():
-                return self.call_phrase(node.phrase, node.args, operand=self.eval(node.value))
+                return self.call_phrase(node.phrase, node.args, operand=self.eval(node.value),
+                                        operand_node=node.value)
             case N.Where():
                 return self.where(node)
             case N.Compare():
@@ -437,52 +487,50 @@ class Run:
         value = self.eval(node)
         n = as_number(value)
         if n is None:
-            raise self.not_a_number(node, value, doing)
+            raise self.number_problem(node, value, doing,
+                                      f"{described(node, value)} is {kind_name(value)}, not a number.")
         return n
 
-    def not_a_number(self, node, value, doing, other=None):
-        why = f"You can't {doing} {quoted(value)}, because {quoted(value)} is {kind_name(value)}, not a number."
-        fix = f"Check that {quoted(value)} is a number before you {doing.split()[0]} it."
-        try_lines = []
-        if isinstance(node, N.Name):
-            fix = f'Check that "{node.canonical()}" is a number before you use it here.'
-            came = self.came_from.get(node.words)
-            if came:
-                how = {"typed": "from what was typed", "read": "from what was read",
-                       "set": "from a set step", "how to": "from your own step"}[came[1]]
-                why += f' "{node.canonical()}" got its value on line {came[0]}, {how}.'
-        return Problem(fix, why, col=node.col, end=node.end, try_lines=try_lines)
+    def number_problem(self, node, value, doing, why):
+        """A value that isn't a number where one is needed. It names your name, says where its
+        value came from, and offers the "Please type a number" check only for typed answers."""
+        name = node.canonical() if isinstance(node, N.Name) else None
+        subject = f'"{name}"' if name else quoted(value)
+        if isinstance(value, (list, Record, bool)) or isinstance(node, N.TextLit):
+            fix = f"Use a number here instead of {subject}."
+        else:
+            fix = f"Check that {subject} is a number before you {doing}."
+        problem = Problem(fix, why, col=node.col, end=node.end)
+        came = self.came_from.get(node.words) if name else None
+        if came:
+            problem.why += f' "{name}" got its value on line {came[0]}, {HOW[came[1]]}.'
+            if came[1] == "typed":
+                problem.guard = name
+        return problem
 
     def math(self, node):
-        left, right = self.eval(node.left), self.eval(node.right)
+        if node.op == "plus" and any(written_text(part) for part in plus_parts(node)):
+            raise self.join_problem(node)
+        try:
+            left, right = self.eval(node.left), self.eval(node.right)
+        except JoinTextProblem:
+            if node.op != "plus":
+                raise
+            raise self.join_problem(node) from None    # offer the whole run of plus signs as one text
         a, b = as_number(left), as_number(right)
         verb = {"plus": "add", "minus": "take away", "times": "multiply", "divided by": "divide"}[node.op]
         if a is None or b is None:
-            if node.op == "plus" and (isinstance(left, str) or isinstance(right, str)) \
-                    and (a is None) != (b is None) and not isinstance(left, list):
-                pass
             if isinstance(left, str) and isinstance(right, str) and node.op == "plus":
-                raise Problem(
-                    'Use { } to join text, like "{first}{second}".',
-                    '"plus" only adds numbers. To put text together, write both parts inside one text.',
-                    col=node.col, end=node.end)
+                raise self.join_problem(node)
             bad_node, bad = (node.left, left) if a is None else (node.right, right)
-            L, R = quoted(left), quoted(right)
+            L, R = described(node.left, left), described(node.right, right)
             cannot = {"plus": f"add {R} to {L}", "minus": f"take {R} away from {L}",
                       "times": f"multiply {L} by {R}", "divided by": f"divide {L} by {R}"}[node.op]
-            why = f"You can't {cannot}, because {quoted(bad)} is {kind_name(bad)}, not a number."
-            problem = Problem(f"Check that {quoted(bad)} is a number before you {verb} it.", why,
-                              col=bad_node.col, end=bad_node.end)
-            if isinstance(bad_node, N.Name):
-                name = bad_node.canonical()
-                problem.fix = f'Check that "{name}" is a number before you {verb} it.'
-                problem.guard = name
-                came = self.came_from.get(bad_node.words)
-                if came:
-                    how = {"typed": "from what was typed", "read": "from what was read",
-                           "set": "from a set step", "how to": "from your own step"}[came[1]]
-                    problem.why += f' "{name}" got its value on line {came[0]}, {how}.'
-            raise problem
+            doing = {"plus": "add it", "minus": "take it away", "times": "multiply it",
+                     "divided by": "divide it"}[node.op]
+            raise self.number_problem(
+                bad_node, bad, doing,
+                f"You can't {cannot}, because {described(bad_node, bad)} is {kind_name(bad)}, not a number.")
         try:
             match node.op:
                 case "plus":
@@ -492,6 +540,9 @@ class Run:
                 case "times":
                     result = a * b
                 case "divided by":
+                    if b == 0 and isinstance(node.right, N.Lit):
+                        raise Problem("Divide by a number other than 0.", "Plain can't divide by 0.",
+                                      col=node.right.col, end=node.right.end)
                     if b == 0:
                         raise Problem(
                             f'Check that "{node.right.canonical()}" is not 0 before you divide by it.',
@@ -499,7 +550,16 @@ class Run:
                     result = a / b
         except (InvalidOperation, DivisionByZero):
             raise Problem("Check the numbers in this sum.", f"Plain couldn't {verb} them.")
+        except Overflow:
+            raise Problem("Use smaller numbers here.", "The answer is too big for Plain to work with.")
         return fit(result, max(self.places_of(node.left, a), self.places_of(node.right, b)))
+
+    def join_problem(self, node):
+        joined = joined_text(plus_parts(node))
+        return JoinTextProblem(
+            f"Write {joined} to put the text together.",
+            "Adding only works with numbers. To put text together, write it all inside one pair of "
+            "quotes, with each value in { }.", col=node.col, end=node.end, joined=joined)
 
     def places_of(self, node, value):
         """A written percent counts the places you wrote: 15% has none, 2.5% has one."""
@@ -568,13 +628,13 @@ class Run:
             case "not exact":
                 return not exactly(left, right)
             case "more":
-                return order(left, right) > 0
+                return self.ordered(node, left, right) > 0
             case "less":
-                return order(left, right) < 0
+                return self.ordered(node, left, right) < 0
             case "at least":
-                return order(left, right) >= 0
+                return self.ordered(node, left, right) >= 0
             case "at most":
-                return order(left, right) <= 0
+                return self.ordered(node, left, right) <= 0
             case "in":
                 return contains(right, left)
             case "not in":
@@ -591,6 +651,19 @@ class Run:
                 result = l.startswith(r) if op.endswith("starts") else l.endswith(r)
                 return result != op.startswith("not")
         raise Problem("Plain itself went wrong while comparing.")
+
+    def ordered(self, node, left, right):
+        """order(left, right), with a message that uses your names."""
+        try:
+            return order(left, right)
+        except Problem:
+            bad_node, bad, good_node, good = (node.left, left, node.right, right) \
+                if as_number(left) is None else (node.right, right, node.left, left)
+            bad_text = described(bad_node, bad)
+            raise self.number_problem(
+                bad_node, bad, "compare it",
+                f"You can't compare {bad_text} with {described(good_node, good)}, because {bad_text} "
+                f"is {kind_name(bad)}, not a number.") from None
 
     def type_check(self, node):
         value = self.eval(node.value)
@@ -631,7 +704,63 @@ class Run:
         return int(n)
 
 
-def data_problem(error):
+def phrase_label(phrase):
+    """The words that name a phrase in messages: "the words of", "in uppercase", "rounded to"."""
+    words = []
+    for part in phrase.main.template.split():
+        if part.startswith("{"):
+            if words:
+                break
+        elif not part.startswith("["):
+            words.append(part.split("|")[-1])
+    return " ".join(words)
+
+
+def described(node, value):
+    """A value in a message: as you'd see it, or by your name for a list, table or record."""
+    if isinstance(node, N.Name) and isinstance(value, (list, Record)):
+        return f'"{node.canonical()}"'
+    return quoted(value)
+
+
+def written_text(node):
+    """Text written in quotes that isn't a number, like "Score: "."""
+    if not isinstance(node, N.TextLit):
+        return False
+    return not all(isinstance(p, str) for p in node.pieces) or as_number("".join(node.pieces)) is None
+
+
+def plus_parts(node):
+    """The parts of a run of plus signs: a plus b plus c gives a, b and c."""
+    if isinstance(node, N.Math) and node.op == "plus":
+        return plus_parts(node.left) + plus_parts(node.right)
+    return [node]
+
+
+def joined_text(parts):
+    """One text that holds every part, the way Plain puts text together: "Score: {score}"."""
+    pieces = []
+    for part in parts:
+        if isinstance(part, N.TextLit):
+            pieces += part.pieces
+        elif isinstance(part, N.Lit) and isinstance(part.value, Decimal) and not part.percent:
+            pieces.append(part.canonical())
+        else:
+            pieces.append(part.inner if isinstance(part, N.Paren) else part)
+    return N.TextLit(pieces).canonical()
+
+
+def file_name(path, folder):
+    """A file name the way you'd write it in your program, never a full path."""
+    if not path:
+        return ""
+    try:
+        return Path(path).relative_to(folder).as_posix()
+    except (TypeError, ValueError):
+        return Path(path).name
+
+
+def data_problem(error, folder=None):
     """Turn a Python error caused by your data into a message in Plain's words."""
     match error:
         case json.JSONDecodeError():
@@ -643,7 +772,7 @@ def data_problem(error):
         case csv.Error():
             return Problem("Check that the file is a CSV file.", "Plain couldn't read it as a CSV table.")
         case FileNotFoundError():
-            return Problem(f'Check the file name "{getattr(error, "filename", "")}".',
+            return Problem(f'Check the file name "{file_name(error.filename, folder)}".',
                            "There's no file with that name.")
         case IsADirectoryError():
             return Problem("Use a file name here, not a folder name.", None)
@@ -654,4 +783,6 @@ def data_problem(error):
             return Problem("Check the file name and try again.", f"Plain couldn't use the file.")
         case InvalidOperation() | DivisionByZero():
             return Problem("Check the numbers in this step.", "Plain couldn't work out the result.")
+        case Overflow() | OverflowError():
+            return Problem("Use a smaller number here.", "The number is too big for this step.")
     raise error

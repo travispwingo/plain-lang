@@ -121,7 +121,21 @@ def read_word(text, i, stop, tokens):
             tokens.append(Token("poss", text[j:k], "'s", j, k))
             return k
     tokens.append(Token("word", word, word.lower(), i, j))
+    # players' score: the apostrophe after a final "s" makes it belong to the word before.
+    if word[-1:].lower() == "s" and j < stop and text[j] in APOSTROPHES \
+            and (j + 1 >= stop or not (text[j + 1].isalnum() or text[j + 1] in APOSTROPHES)):
+        tokens.append(Token("poss", text[j], "'s", j, j + 1))
+        return j + 1
     return j
+
+
+def read_possessive(text, i, stop, tokens):
+    """player 1's score: 's right after a number."""
+    if i + 1 < stop and text[i] in APOSTROPHES and text[i + 1] in "sS" \
+            and (i + 2 >= stop or not (text[i + 2].isalnum() or text[i + 2] == "_")):
+        tokens.append(Token("poss", text[i:i + 2], "'s", i, i + 2))
+        return i + 2
+    return i
 
 
 def read_number(text, i, stop, tokens, line_no):
@@ -148,7 +162,7 @@ def read_number(text, i, stop, tokens, line_no):
         # A word that starts with digits, like 2nd. Read it as a word.
         return read_word(text, i, stop, tokens)
     tokens.append(Token("number", raw, digits, i, end, value, percent))
-    return end
+    return read_possessive(text, end, stop, tokens)
 
 
 def read_text(text, i, stop, line_no):
@@ -259,24 +273,44 @@ def looks_like_header(line):
     if not words:
         return False
     first = words[0]
-    if line.tokens and line.tokens[-1].norm == ":":
-        return True
+    norms = [t.norm for t in line.tokens]
+    if first in ("otherwise", "else"):
+        rest = norms[1:]
+        while rest and rest[-1] in ".:!;,":
+            rest.pop()
+        if not rest:
+            return True
+        if rest[0] != "if":
+            return False   # one-line form: otherwise STEP
+        first = "if"
     if first == "if":
         if words[1:3] in (["that", "fails"], ["it", "fails"]):
             return True
         # One-line form: if CHECK then STEP
-        norms = [t.norm for t in line.tokens]
         if "then" in norms:
             k = norms.index("then")
-            return k == len(norms) - 1 or all(t.norm in ".:!" for t in line.tokens[k + 1:])
-        return True
-    if first in ("otherwise", "else"):
-        norms = [t.norm for t in line.tokens]
-        if len(norms) > 1 and norms[1] == "if" and "then" in norms:
-            k = norms.index("then")
-            return k == len(norms) - 1
+            return all(t.norm in ".:!" for t in line.tokens[k + 1:])
         return True
     return first in HEADER_STARTS
+
+
+def inline_break(line):
+    """The "," or ":" written where "then" belongs, as in: if score is 10, show "Yes"."""
+    toks = line.tokens
+    steps = step_words()
+    for k in range(1, len(toks) - 1):
+        if toks[k].kind == "symbol" and toks[k].norm in ",:" and toks[k + 1].kind == "word" \
+                and toks[k + 1].norm in steps:
+            return toks[k]
+    return None
+
+
+def step_words():
+    """The words that start one of Plain's steps."""
+    from .registry import REGISTRY
+    from .words import CORE_STARTS, SYNONYMS
+    words = {w for p in REGISTRY if p.kind == "step" for w in p.first_words}
+    return words | {s for s, main in SYNONYMS.items() if main in words} | (CORE_STARTS - {"end"})
 
 
 def is_end_line(line):
@@ -309,8 +343,10 @@ def build_blocks(lines):
             if previous is not None and not previous.is_header and previous.problem is None \
                     and first_word(previous) in ("if", "otherwise", "else") and line.indent > previous.indent:
                 previous.is_header = True   # "if … then …" with steps under it
-            if previous is not None and previous.is_header and line.indent > previous.indent \
+            if previous is not None and line.indent > previous.indent \
                     and stack[-1][1] and stack[-1][1][-1] is previous:
+                # Steps under a line that isn't a header are still read. The reader reports
+                # them when that line reads fine, and hides them when it has a problem itself.
                 stack.append((line.indent, previous.body, previous))
             else:
                 problems.append(indent_problem(line, previous))
@@ -334,12 +370,8 @@ def indent_problem(line, previous):
 
 def check_empty_headers(lines, problems, following=None):
     for index, line in enumerate(lines):
-        if line.is_header and not line.body:
-            word = first_word(line)
-            if word in ("for", "while", "until"):
-                word = "repeat"
-            if word == "else":
-                word = "otherwise"
+        if line.is_header and not line.body and not (first_word(line) == "if" and inline_break(line)):
+            word = header_words(line)
             nxt = lines[index + 1] if index + 1 < len(lines) else None
             if nxt is not None:
                 problems.append(Problem(
@@ -350,9 +382,24 @@ def check_empty_headers(lines, problems, following=None):
             else:
                 problems.append(Problem(
                     f'Add the steps that belong to this "{word}" on the lines below it, moved 4 spaces to the right.',
-                    f'A "{word}" line needs at least one step under it.',
+                    f'{"An" if word[0] in "aeiou" else "A"} "{word}" line needs at least one step under it.',
                     line=line.number, col=line.indent, end=len(line.raw.rstrip())))
         check_empty_headers(line.body, problems)
+
+
+def header_words(line):
+    """How a header line starts, in main words: "if", "how to", "if that fails", "repeat"."""
+    words = [t.norm for t in line.tokens if t.kind == "word"]
+    word = words[0]
+    if word in ("for", "while", "until"):
+        return "repeat"
+    if word == "else":
+        return "otherwise"
+    if word == "how":
+        return "how to"
+    if word == "if" and words[1:3] in (["that", "fails"], ["it", "fails"]):
+        return "if that fails"
+    return word
 
 
 def first_word(line):

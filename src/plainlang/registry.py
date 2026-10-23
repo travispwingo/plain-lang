@@ -87,8 +87,11 @@ class Phrase:
                 out.append(args.get(name, part))
             elif part.startswith("["):
                 continue
+            elif "|" in part:   # second|seconds: "1 second", "2 seconds"
+                alts = part.split("|")
+                out.append(alts[0] if out and out[-1] in ("1", "one") else alts[-1])
             else:
-                out.append(part.split("|")[-1] if "|" in part else part)
+                out.append(part)
         return " ".join(out)
 
 

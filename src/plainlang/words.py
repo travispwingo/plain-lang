@@ -16,7 +16,7 @@ NUMBER_WORDS = {
 ARTICLES = frozenset({"a", "an", "the"})
 
 # Dropped only at the very start of a line.
-POLITE_STARTS = frozenset({"please", "now", "then", "next", "finally"})
+POLITE_STARTS = frozenset({"please", "now", "then", "next", "first", "finally"})
 
 CONTRACTIONS = {
     "isn't": ("is", "not"), "doesn't": ("does", "not"), "don't": ("do", "not"),

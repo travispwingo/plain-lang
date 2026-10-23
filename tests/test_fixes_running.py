@@ -211,10 +211,9 @@ class Messages(unittest.TestCase):
                        "Check that the list is not empty first.")
 
     def test_text_joined_with_plus_offers_one_text(self):                # running-11
-        out = self.assertWhy('set score to 5\nshow "Score: " + score\n',
-                             "Adding only works with numbers. To put text together, write it all inside one "
-                             "pair of quotes, with each value in { }.",
-                             'Write "Score: {score}" to put the text together.')
+        # Written text joined with + is caught before running (spec 3.3), with a checked fix.
+        out, _, _ = run_source('set score to 5\nshow "Score: " + score\n')
+        self.assertIn("hasn't run your program yet", out)
         self.assertIn('Try this:\n    show "Score: {score}"\n', out)
         out = self.assertWhy('set a to "x"\nset b to "y"\nset c to "z"\nshow a + b + c\n',
                              "Adding only works with numbers. To put text together, write it all inside one "

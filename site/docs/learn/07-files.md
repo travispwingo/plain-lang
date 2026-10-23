@@ -124,7 +124,7 @@ A file name can start with a folder, like `"trip/monday.txt"`. Plain makes the f
 save "Went to the beach." to "trip/monday.txt"
 save "Walked in the hills." to "trip/tuesday.txt"
 show the files in "trip"
-rename "trip/tuesday.txt" to "wednesday.txt"
+rename "trip/tuesday.txt" to "trip/wednesday.txt"
 show the files in "trip"
 ```
 
@@ -133,9 +133,9 @@ monday.txt and tuesday.txt
 monday.txt and wednesday.txt
 ```
 
-`rename` gives a file a new name. The file stays in the same folder, so you write only the new name.
+`rename` gives a file a new name. Write the new name with its folder too, the same way you wrote the old one.
 
-If you run this a second time, Plain stops at `rename`, because there's already a file called `wednesday.txt`. Plain never replaces a file when it renames one.
+If you run this a second time, Plain stops at `rename`, because there's already a file called `trip/wednesday.txt`. Plain never replaces a file when it renames one.
 
 ## Try it yourself
 

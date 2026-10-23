@@ -33,7 +33,7 @@ class Precedence(unittest.TestCase):
 
     def test_of_slot_takes_one_value(self):
         self.check("set guests to an empty list\nset x to the number of guests plus 1",
-                   "set x to the number of guests plus 1")
+                   "set x to (the number of guests) plus 1")
 
     def test_where_belongs_to_the_list_before_it(self):
         self.check('set sales to an empty list\nshow the number of sales where amount is more than 100',

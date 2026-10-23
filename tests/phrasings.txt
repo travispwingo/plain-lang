@@ -45,7 +45,7 @@ show project's open issues count => show project's open issues count
 show the name of project => show the name of project
 set roll to (a random number from 1 to 6) plus (a random number from 1 to 6) => set roll to (a random number from 1 to 6) plus (a random number from 1 to 6)
 set top to a random number from 1 to (max plus 1) => set top to a random number from 1 to (max plus 1)
-show the number of guests plus 1 => show the number of guests plus 1
+show the number of guests plus 1 => show (the number of guests) plus 1
 show item 2 of colors => show item 2 of colors
 show the first 2 items of colors => show the first 2 items of colors
 add 1 to player 1 => add 1 to player 1
@@ -61,7 +61,7 @@ read "sales.csv" and call it sales => read "sales.csv" and call it sales
 load "sales.csv" and call it sales => read "sales.csv" and call it sales
 ask "What is your name?" and call it name => ask "What is your name?" and call it name
 wait 2 seconds => wait 2 seconds
-wait 1 second => wait 1 seconds
+wait 1 second => wait 1 second
 set a to 3 => set a to 3
 quit => stop the program
 

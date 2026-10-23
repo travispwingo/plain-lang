@@ -124,7 +124,7 @@ class Repairs(unittest.TestCase):
 
 class TextWithoutQuotes(unittest.TestCase):
     def test_unknown_name_in_arithmetic_is_not_quoted(self):  # messages-3
-        p = problem_on("add 1 to tally\nshow tally plus 1\n", 2)
+        p = problem_on("show tally plus 1\n", 1)
         self.assertEqual('Set "tally" before this line uses it, or check the spelling.', p.fix)
         self.assertEqual([], p.try_lines)
 

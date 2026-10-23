@@ -1807,6 +1807,8 @@ def text_inside(node):
     """How a value is written inside text: the words of a text, or {value}."""
     if isinstance(node, N.TextLit):
         return node.canonical()[1:-1]
+    if isinstance(node, N.Paren):
+        node = node.inner      # the braces already group it
     return "{" + node.canonical() + "}"
 
 

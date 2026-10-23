@@ -144,9 +144,12 @@ def markdown(text):
             if m:
                 flush()
                 level, words = len(m.group(1)), m.group(2).strip()
+                given = re.search(r"\s*\{#([a-z0-9-]+)\}$", words)
+                if given:
+                    words = words[:given.start()]
                 if level == 1 and title is None:
                     title = words
-                anchor = slug(words)
+                anchor = given.group(1) if given else slug(words)
                 headings.append(words)
                 out.append(f'<h{level} id="{anchor}">{inline(words)}</h{level}>')
             elif re.match(r"^\s*[-*]\s+", line):

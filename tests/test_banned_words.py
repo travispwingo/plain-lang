@@ -51,6 +51,20 @@ class BannedWords(unittest.TestCase):
                         self.assertNotIn(word.lower(), BANNED_WORDS, text)
 
 
+class SiteWords(unittest.TestCase):
+    """The website's pages follow the same rule (design section 0)."""
+
+    def test_site_pages(self):
+        docs = ROOT / "site" / "docs"
+        for path in sorted(docs.rglob("*.md")):
+            text = path.read_text(encoding="utf-8")
+            prose = re.sub(r"```.*?```", "", text, flags=re.S)      # code isn't prose
+            prose = re.sub(r"`[^`]*`", "", prose)
+            for word in re.findall(r"[A-Za-z][A-Za-z-]*", prose):
+                with self.subTest(page=str(path.relative_to(ROOT)), word=word):
+                    self.assertNotIn(word.lower(), BANNED_WORDS)
+
+
 class OnlyHostsTouchTheWorld(unittest.TestCase):
     def test_io_guard(self):
         pattern = re.compile(r"\b(print\(|input\(|time\.sleep|urllib\.request|urlopen)")

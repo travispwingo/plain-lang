@@ -182,7 +182,7 @@ Find the message you see, then follow the fix.
 
 If you're still stuck, see [Get help](/help/).
 
-## Ask Claude for ideas (optional)
+## Ask Claude for ideas (optional) {#ai}
 
 Plain can ask Claude, an AI made by Anthropic, for ideas when it can't follow a line. You don't need this to use Plain. Without it, Plain still offers its own ideas.
 

@@ -118,11 +118,14 @@ class BrowserHost:
 
     def unreachable(self, url):
         site = url.split("://", 1)[-1].split("/", 1)[0]
+        if not js.navigator.onLine:
+            return Problem("Check your internet connection, then run your program again.",
+                           f"Plain couldn't reach {site}, and this browser says it's offline.")
         return Problem(
-            "Check your internet connection, then run your program again.",
-            f"Plain couldn't read {site} from this page. Some websites don't let pages in a browser "
-            "read them. If that's the case, run your program on your computer with plain run "
-            "(see plain-lang.dev/install).")
+            "Run this program on your computer with plain run to read this website "
+            "(see plain-lang.dev/install).",
+            f"{site} doesn't let pages in a browser read it, or it didn't answer. "
+            "Plain on your computer isn't held back by this.")
 
 
 def stopped():
@@ -145,10 +148,10 @@ def settle(action):
 # The worker calls these -------------------------------------------------------------
 
 def reset_folder(files):
-    FOLDER.mkdir(parents=True, exist_ok=True)
-    for path in FOLDER.iterdir():
-        if path.is_file():
-            path.unlink()
+    import shutil
+    if FOLDER.exists():
+        shutil.rmtree(FOLDER)
+    FOLDER.mkdir(parents=True)
     for name, text in json.loads(files).items():
         target = FOLDER / name
         target.parent.mkdir(parents=True, exist_ok=True)

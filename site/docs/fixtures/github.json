@@ -1,0 +1,2 @@
+{"GET https://api.github.com/repos/python/cpython": {"status": 200, "kind": "application/json",
+  "body": {"name": "cpython", "stargazers_count": 70123, "open_issues_count": 9001, "owner": {"login": "python"}}}}

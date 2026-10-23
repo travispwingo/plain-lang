@@ -140,7 +140,7 @@ def missing_file(run, name, path):
     import difflib
     folder = path.parent
     try:
-        names = [p.name for p in folder.iterdir() if p.is_file()]
+        names = [p.name for p in folder.iterdir() if p.is_file() and p.suffix != ".plain"]
     except OSError:
         names = []
     close = difflib.get_close_matches(path.name, names, n=1, cutoff=0.6)

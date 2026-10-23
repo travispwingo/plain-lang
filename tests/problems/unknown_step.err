@@ -2,7 +2,7 @@ unknown_step.plain, line 1: Start this line with a step Plain knows, like one of
 
     count up the sales over 100
     ^^^^^
-Try this:
+For example:
     set count to the number of sales
 Why: Plain doesn't know a step that starts with "count".
 

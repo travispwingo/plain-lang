@@ -55,7 +55,85 @@ VERB_HINTS = {
 # Habits from other languages, and everyday wordings Plain writes another way:
 # (pattern on the whole line, replacement, why). Line-start habits come before the ones
 # that read the start of the line as a name, so "elif x is 2" never becomes "set elif x to 2".
+def habit_problem(reader, line):
+    """A fix for a habit from another language, checked to read cleanly in place."""
+    raw = line.raw
+    stripped = raw.strip()
+    indent = raw[:len(raw) - len(raw.lstrip())]
+    toks = reader.t
+    col, end = (toks[0].col, toks[-1].end) if toks else (len(indent), len(raw.rstrip()))
+    body = re.sub(r"^(?:please|now|then|next|first|finally)\s+", "", stripped, flags=re.IGNORECASE)
+    for pattern, replacement, why in HABITS:
+        m = re.match(pattern, body, flags=re.IGNORECASE)
+        if not m or ("name" in m.groupdict() and m.group("name") and not could_be_name(reader, m.group("name"))):
+            continue
+        fixed = quote_singles(replacement(m) if callable(replacement) else m.expand(replacement))
+        named = tuple(m.group("name").lower().split()) if "name" in m.groupdict() and m.group("name") else None
+        ok = reads_cleanly(reader, line, indent + fixed) or \
+            (named is not None and reads_with_name(reader, line, indent + fixed, named)) or \
+            (fixed.startswith("how to ") and header_reads(reader, line, indent + fixed))
+        if ok:
+            return Problem(f'Write "{fixed}" instead.', why, line=line.number, col=col, end=end,
+                           try_lines=[indent + fixed], ideas=[indent + fixed])
+    return None
+
+
+def header_reads(reader, line, text):
+    """Does this read as the first line of a how-to?"""
+    from .parser import make_view
+    from .source import Line, tokenize
+    try:
+        tokens, _, _ = tokenize(text, line_no=line.number)
+    except Problem:
+        return False
+    problems = []
+    candidate = Line(line.number, line.indent, text, tokens)
+    return reader.r.read_howto_header(candidate, problems) is not None and not problems
+
+
+def python_range(m):
+    """for i in range(10): counts 0 to 9."""
+    a, b = (int(m["a"]), int(m["b"])) if m["b"] else (0, int(m["a"]))
+    return f"repeat for each {m['name']} from {a} to {b - 1}"
+
+
+def python_def(m):
+    """def greet(name, place): becomes how to greet (name) and (place)."""
+    names = [n.strip() for n in m["args"].split(",") if n.strip()]
+    words = m["f"].replace("_", " ")
+    return "how to " + words + "".join((" " if k == 0 else " and ") + f"({n})" for k, n in enumerate(names))
+
+
+def dotted_field(m):
+    return f"{m['a']}{m['o']}'s {m['f'].replace('_', ' ')}{m['b']}"
+
+
 HABITS = [
+    (r"^(?:var|let|const|my|local)\s+(?P<name>[A-Za-z][\w ]*?)\s*=\s*(?P<v>[^=].*?);?$", r"set \g<name> to \g<v>",
+     '"var", "let" and "const" come from other languages. In Plain you keep a value with "set".'),
+    (r"^set\s+(?P<name>[A-Za-z][\w ]*?)\s*=\s*(?P<v>[^=].*)$", r"set \g<name> to \g<v>",
+     'A set step uses "to", not "=": set NAME to VALUE.'),
+    (r"^(?P<name>[A-Za-z][\w ]*?)\s*\+\+;?$", r"add 1 to \g<name>",
+     '"++" comes from other languages. In Plain you add to a value with "add".'),
+    (r"^(?P<name>[A-Za-z][\w ]*?)\s*--;?$", r"subtract 1 from \g<name>",
+     '"--" comes from other languages. In Plain you take away with "subtract".'),
+    (r"^for\s+(?P<name>[A-Za-z]\w*)\s+in\s+range\(\s*(?P<a>\d+)\s*(?:,\s*(?P<b>\d+)\s*)?\)\s*:?$", python_range,
+     '"range" comes from other languages. In Plain you count with: repeat for each NAME from A to B.'),
+    (r"^for\s+(?P<name>[A-Za-z]\w*)\s+in\s+(?P<v>[A-Za-z][\w ]*?)\s*:$", r"repeat for each \g<name> in \g<v>",
+     'Plain says "repeat for each NAME in LIST" to go through a list.'),
+    (r"^def\s+(?P<f>[A-Za-z]\w*)\s*\((?P<args>[^)]*)\)\s*:?$", python_def,
+     '"def" comes from other languages. In Plain you make a step of your own with "how to".'),
+    (r"^(?P<a>if|while|otherwise if|else if)\s+(?P<c>.+?)\s*\{$", r"\g<a> \g<c>",
+     'Plain shows which steps belong together by moving them to the right, so it doesn\'t use { }.'),
+    (r"^(?P<a>.*?)(?<!\band)\s+call (?P<w>it|them)\s+(?P<n>.+)$", r"\g<a> and call \g<w> \g<n>",
+     'Plain says "and call it" to keep what a step gives back.'),
+    (r"^wait\s+(?P<n>[\d.]+)\s*(?:s|sec|secs|second|seconds)?\.?$", r"wait \g<n> seconds",
+     'Say what to wait for: seconds or minutes.'),
+    (r"^(?P<a>[^\"“]*?)\b(?:None|nil|null|undefined|NULL)\b(?P<b>.*)$", r"\g<a>nothing\g<b>",
+     'Plain says "nothing" when there\'s no value.'),
+    (r"^(?P<a>[^\"“]*?)\b(?P<o>[A-Za-z]\w*)\.(?P<f>(?!(?:csv|txt|json|md|html|tsv|log|plain)\b)[A-Za-z]\w*)\b"
+     r"(?P<b>(?!\s*\().*)$", dotted_field,
+     '"." comes from other languages. In Plain you write a field like this: sale\'s amount.'),
     (r"^elif\b(?P<v>.*)$", r"otherwise if\g<v>", 'Plain says "otherwise if".'),
     (r"^else\s+if\b(?P<v>.*)$", r"otherwise if\g<v>", 'Plain says "otherwise if".'),
     (r"^break$", "stop repeating", '"break" comes from other languages. Plain says "stop repeating".'),
@@ -113,15 +191,9 @@ def explain_unreadable(reader, i, j, line, check=False):
         slip = core_slip(reader, line)
         if slip:
             return repair_problem(slip, line, number)
-        body = re.sub(r"^(?:please|now|then|next|first|finally)\s+", "", stripped, flags=re.IGNORECASE)
-        for pattern, replacement, why in HABITS:
-            m = re.match(pattern, body, flags=re.IGNORECASE)
-            if not m or ("name" in m.groupdict() and not could_be_name(reader, m.group("name"))):
-                continue
-            fixed = quote_singles(m.expand(replacement))
-            if reads_cleanly(reader, line, indent + fixed):
-                return Problem(f'Write "{fixed}" instead.', why, line=number, col=col, end=end,
-                               try_lines=[indent + fixed], ideas=[indent + fixed])
+        problem = habit_problem(reader, line)
+        if problem is not None:
+            return problem
         problem = inline_habit(reader, line)
         if problem:
             return problem
@@ -178,11 +250,13 @@ def explain_unreadable(reader, i, j, line, check=False):
         if repair:
             return repair_problem(repair[0], line, number)
         close = closest_phrases(stripped, names=reader.names)
+        fits = [indent + c for c in close if number is not None and reads_cleanly(reader, line, indent + c)
+                and any(w in c.split() for w in stripped.lower().split()[1:] if w not in STOP_WORDS)]
         return Problem(
             "Start this line with a step Plain knows, like one of these." if close else
             "Start this line with a step Plain knows. Type plain phrases to see them all.",
             f'Plain doesn\'t know a step that starts with "{first.raw}".',
-            line=number, col=first.col, end=first.end, try_lines=close, ask_claude=True)
+            line=number, col=first.col, end=first.end, examples=close, ideas=fits, ask_claude=True)
 
     if whole:
         problem = (step_inside(reader, line) or (check and where_problem(reader, line))
@@ -236,7 +310,8 @@ def explain_unreadable(reader, i, j, line, check=False):
             line=number, col=ucol, end=uend, ask_claude=True)
 
     if whole:
-        problem = howto_call_problem(reader, line) or phrasing_problem(reader, line)
+        problem = howto_call_problem(reader, line) or phrasing_problem(reader, line) \
+            or never_set(reader, line)
         if problem:
             return problem
     repair = repairs(reader, line, toks, limit=3) if number else []
@@ -245,7 +320,7 @@ def explain_unreadable(reader, i, j, line, check=False):
     close = closest_phrases(stripped, names=reader.names)
     return Problem(
         "Reword this line using phrases Plain knows, like one of these." if close else "Reword this line.",
-        "Plain couldn't follow this line.", line=number, col=col, end=end, try_lines=close, ask_claude=True)
+        "Plain couldn't follow this line.", line=number, col=col, end=end, examples=close, ask_claude=True)
 
 
 def edit_distance(a, b):
@@ -427,7 +502,7 @@ def inline_habit(reader, line):
                     '"len( )" comes from other languages. Plain says "the number of" for the items '
                     'in a list, and "the length of" for the characters in text.',
                     line=line.number, col=tok.col, end=toks[close].end,
-                    try_lines=[t.strip() for t in texts], ideas=texts)
+                    try_lines=[t.rstrip() for t in texts], choices=[[t.rstrip()] for t in texts], ideas=texts)
         if tok.kind == "symbol" and tok.norm == "[":
             close = closing(toks, k, "[", "]")
             if close is None:
@@ -443,7 +518,7 @@ def inline_habit(reader, line):
                     f'Square brackets come from other languages, where "{raw[toks[k - 1].col:toks[close].end]}" '
                     f'usually means item {n}. Plain counts from 1, so the first item is "item 1 of {name}".',
                     line=line.number, col=toks[k - 1].col, end=toks[close].end,
-                    try_lines=[text.strip()] if reads_cleanly(reader, line, text) else [])
+                    try_lines=[text.rstrip()] if reads_cleanly(reader, line, text) else [])
             items, start = [], k + 1
             for m in range(k + 1, close + 1):
                 if toks[m].norm in (",", "]") and toks[m].kind == "symbol" and m > start:
@@ -458,7 +533,7 @@ def inline_habit(reader, line):
                     f'Write "{new}" instead of "{old}".',
                     'Square brackets come from other languages. Plain makes a list with "a list of".',
                     line=line.number, col=tok.col, end=toks[close].end,
-                    try_lines=[text.strip()], ideas=[text])
+                    try_lines=[text.rstrip()], ideas=[text])
     return None
 
 
@@ -481,6 +556,39 @@ def with_article(raw, view, k):
     if m and not any(t.col == m.start() for t in view):
         return m.start()
     return col
+
+
+def never_set(reader, line):
+    """add 5 to total, when nothing sets total: a word like "total" that Plain also uses in its
+    own phrases, written where one of your names belongs."""
+    view = reader.t
+    if not view or view[0].kind != "word":
+        return None
+    for phrase in reader.r.step_index.get(SYNONYMS.get(view[0].norm, view[0].norm), []):
+        elements, pos, spans = phrase.elements, 1, {}
+        for k, el in enumerate(elements[1:], start=1):
+            if isinstance(el, Word):
+                at = next((m for m in range(pos, len(view)) if view[m].norm in el.alts), None)
+                if at is None:
+                    break
+                if k > 1 and isinstance(elements[k - 1], Slot):
+                    spans[elements[k - 1]] = (pos, at)
+                pos = at + 1
+        else:
+            if isinstance(elements[-1], Slot):
+                spans[elements[-1]] = (pos, len(view))
+            for slot, (a, b) in spans.items():
+                if slot.kind not in ("place", "list") or a >= b:
+                    continue
+                toks = view[a:b]
+                words = tuple(t.norm for t in toks)
+                if all(t.kind == "word" and t.norm not in SPECIAL_WORDS for t in toks) and words not in reader.names:
+                    name = " ".join(words)
+                    start = "an empty list" if slot.kind == "list" or any(t.kind == "text" for t in view) else "0"
+                    return Problem(f'Set "{name}" to a starting value before this line, like: set {name} to {start}',
+                                   f'Nothing in your program sets "{name}" before this line uses it.',
+                                   line=line.number, col=toks[0].col, end=toks[-1].end, ask_claude=True)
+    return None
 
 
 def step_inside(reader, line):
@@ -642,7 +750,7 @@ def file_name_problem(reader, line):
                 return Problem("Put the file name in double quotes.",
                                "A file name is text, and text goes in double quotes.",
                                line=line.number, col=a.col, end=ext.end,
-                               try_lines=[fixed.strip()], ideas=[fixed])
+                               try_lines=[fixed.rstrip()], ideas=[fixed])
     return None
 
 
@@ -663,7 +771,7 @@ def its_problem(reader, line, unknown):
                 f'Write "its {said}" instead of "{said}".',
                 'Inside "where", a word on its own is a field of each row only at the start of a check. '
                 'Anywhere else, write "its" in front of it.',
-                line=line.number, col=run[0].col, end=run[-1].end, try_lines=[fixed.strip()], ideas=[fixed])
+                line=line.number, col=run[0].col, end=run[-1].end, try_lines=[fixed.rstrip()], ideas=[fixed])
     return None
 
 
@@ -684,7 +792,7 @@ def inner_quotes(reader, line, run_toks):
     return Problem('Write "" for each quote mark inside text.',
                    'A single " ends the text, so Plain needs two of them, "", to show one quote mark.',
                    line=line.number, col=before.end - 1, end=after.col + 1,
-                   try_lines=[fixed.strip()], ideas=[fixed])
+                   try_lines=[fixed.rstrip()], ideas=[fixed])
 
 
 def text_problem(reader, line, run_toks):
@@ -724,7 +832,7 @@ def text_problem(reader, line, run_toks):
         "Put the text in double quotes.",
         f'Words in double quotes are {how} just as you wrote them. Without quotes, Plain looks '
         f'for a name "{said}", and you haven\'t set one.',
-        line=line.number, col=s, end=e, try_lines=[fixed.strip()], ideas=[fixed])
+        line=line.number, col=s, end=e, try_lines=[fixed.rstrip()], ideas=[fixed])
 
 
 # Your own steps ("how to") ------------------------------------------------------------
@@ -838,7 +946,7 @@ def elided_type(reader, line):
                 return Problem(
                     f'Write "{tok.raw} is {old[len(tok.raw):].strip()}" instead of "{old}".',
                     f'After "and" or "or", write "is" again before a word like "{nxt.raw}".',
-                    line=line.number, col=tok.col, end=nxt.end, try_lines=[text.strip()], ideas=[text])
+                    line=line.number, col=tok.col, end=nxt.end, try_lines=[text.rstrip()], ideas=[text])
     return None
 
 
@@ -857,7 +965,7 @@ def add_items(reader, line):
     return Problem('Write "a list of" before the items, to add each one.',
                    'To add several items at once, make them into a list with "a list of".',
                    line=line.number, col=view[1].col, end=view[to - 1].end,
-                   try_lines=[text.strip()], ideas=[text])
+                   try_lines=[text.rstrip()], ideas=[text])
 
 
 def list_brackets(reader, line):
@@ -879,7 +987,7 @@ def list_brackets(reader, line):
             text, stop = found[-1]
             return Problem('Put brackets around the list.',
                            'A list takes in everything after "a list of", so brackets show Plain where it ends.',
-                           line=line.number, col=start, end=stop, try_lines=[text.strip()], ideas=[text])
+                           line=line.number, col=start, end=stop, try_lines=[text.rstrip()], ideas=[text])
     return None
 
 
@@ -918,7 +1026,7 @@ def join_text(reader, line):
         return None
     return Problem("Put the value inside the text, in { }.",
                    "To show a value as part of text, write it in { } inside the quotes.",
-                   line=line.number, col=slot[0].col, end=slot[-1].end, try_lines=[text.strip()], ideas=[text])
+                   line=line.number, col=slot[0].col, end=slot[-1].end, try_lines=[text.rstrip()], ideas=[text])
 
 
 def bare_possessive(reader, line):
@@ -975,6 +1083,8 @@ def repair_options(reader, line, toks, confusables_only):
     tried = 0
     ordered = sorted(vocabulary)
     for tok in words:
+        if tok.norm in vocabulary or tok.norm in SPECIAL_WORDS:
+            continue   # never swap a word Plain knows ("times" is not a typo of "timer")
         for option in difflib.get_close_matches(tok.norm, ordered, n=3, cutoff=0.75):
             if option == tok.norm:
                 continue

@@ -27,6 +27,7 @@ class Problem(Exception):
     guard: str | None = None      # a name to check is a number first (for "Try this")
     ask_claude: bool = False      # design section 7: Claude may offer ideas for this problem
     choices: list = field(default_factory=list)   # different fixes to choose from, each a list of lines
+    examples: list = field(default_factory=list)  # phrases that might fit; not checked against your line
 
     def __str__(self):
         return self.fix
@@ -61,6 +62,9 @@ def layout(problem, file_name, source_lines):
     elif problem.try_lines:
         out.append("Try this:")
         out += ["    " + line for line in problem.try_lines]
+    if problem.examples:
+        out.append("For example:")
+        out += ["    " + line for line in problem.examples]
     if problem.why:
         why = problem.why
         out.append(f"Why: {why[:1].upper() + why[1:]}")

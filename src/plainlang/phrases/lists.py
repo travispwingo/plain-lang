@@ -261,11 +261,18 @@ def remove(run, value: Value, items: List) -> None:
     raise Problem(fix, f"There's no {quoted(value)} in the list.")
 
 
+def blanks_last(a, b):
+    """Order two values for sorting, with blank cells (nothing) after everything else."""
+    if a is None or b is None:
+        return (a is None) - (b is None)
+    return order(a, b)
+
+
 def sort_key_order(items, key):
     keys = [key(item) for item in items]     # a missing field is a problem of its own
     pairs = list(zip(keys, items))
     try:
-        pairs.sort(key=functools.cmp_to_key(lambda a, b: order(a[0], b[0])))
+        pairs.sort(key=functools.cmp_to_key(lambda a, b: blanks_last(a[0], b[0])))
     except Problem as problem:
         problem.fix = "Check that the items are all numbers, or all text, before you sort them."
         raise

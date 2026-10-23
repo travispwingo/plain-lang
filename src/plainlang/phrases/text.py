@@ -15,7 +15,8 @@ def rounded(run, value: Number) -> Number:
     return round_to(value, 0)
 
 
-@value("{value} rounded to {places} [decimal] place|places", example="show 6.375 rounded to 2 places",
+@value("{value} rounded to {places} [decimal] place|places", "{value} rounded to {places} decimal|decimals",
+       example="show 6.375 rounded to 2 places",
        topic=TOPIC)
 def rounded_to(run, value: Number, places: Number) -> Number:
     """Rounds to that many decimal places. Halves go up."""

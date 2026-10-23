@@ -191,6 +191,7 @@ class Reader:
 
         # Declare names: shared names come from the main steps, own names from each how-to.
         self.main_names = set(self.known_names)
+        self.worked_on, self.really_set = {}, set(self.known_names)
         for line in self.walk_main(top):
             self.declare(line, self.main_names, problems)
         for line, howto in howto_lines:
@@ -200,9 +201,28 @@ class Reader:
                 self.declare(inner, names, problems)
             howto.own_names = {p for p in params if keeps_name(p)} | (names - self.main_names - params)
 
+        self.source_lines = source_lines
+        params = {name for h in self.howtos for name in h.params}
+        from .suggest import closest_name
+        set_names = [" ".join(n) for n in self.really_set]
+        for words in list(self.worked_on):
+            if words not in self.really_set and closest_name(" ".join(words), set_names):
+                # add 1 to totl, when total is set: a typo, reported once with all its lines
+                self.main_names.discard(words)
+                del self.worked_on[words]
+        self.never_set = {w: n for w, n in self.worked_on.items() if w not in self.really_set and w not in params}
         statements = self.read_body(top, problems, scope=None)
         self.check_placement(statements, problems, in_repeat=False, in_howto=False)
-        problems = [p for p in problems if not getattr(p, "follows_clash", False)]   # amendment 11
+        for p in problems:
+            if getattr(p, "follows_clash", None) is not None:
+                p.follows_clash.users = getattr(p.follows_clash, "users", []) + [p.line]
+        for p in problems:
+            users = sorted(set(getattr(p, "users", [])))
+            if users:
+                lines = f"line {users[0]}" if len(users) == 1 else \
+                    "lines " + ", ".join(map(str, users[:-1])) + f" and {users[-1]}"
+                p.why += f" When you change the words, change {lines} too, which {'uses' if len(users) == 1 else 'use'} it."
+        problems = [p for p in problems if getattr(p, "follows_clash", None) is None]   # amendment 11
         misplaced = {p.line for p in problems if p.fix.startswith("Move this line 4 spaces")}
         problems = [p for p in problems if p.line not in misplaced or p.fix.startswith("Move this line")]
         problems.sort(key=lambda p: (p.line or 0, p.col or 0))
@@ -288,7 +308,7 @@ class Reader:
         return howto
 
     def check_shapes(self, howto_lines, problems):
-        self.clashing = set()
+        self.clashing = {}     # id of a how-to whose words clash -> its problem
         builtin_shapes = {p.shape: p for p in REGISTRY if p.kind == "step"}
         seen = {}
         for line, howto in howto_lines:
@@ -307,7 +327,7 @@ class Reader:
                     + (f", as in {example}" if example else "") + ", so Plain couldn't tell them apart.",
                     line=line.number, col=line.indent, end=len(line.raw.rstrip()),
                     try_lines=reworded(howto.phrase, line)))
-                self.clashing.add(id(howto))
+                self.clashing[id(howto)] = problems[-1]
             elif (other := builtin_overlap(howto.phrase)) is not None:
                 theirs = " ".join("..." if s == "_" else s for s in other.shape)
                 problems.append(Problem(
@@ -316,7 +336,7 @@ class Reader:
                     f"{other.example}, so Plain couldn't tell them apart.",
                     line=line.number, col=line.indent, end=len(line.raw.rstrip()),
                     try_lines=reworded(howto.phrase, line)))
-                self.clashing.add(id(howto))
+                self.clashing[id(howto)] = problems[-1]
             seen[shape] = howto.phrase
 
     # Declaring names ---------------------------------------------------------------
@@ -358,6 +378,17 @@ class Reader:
             self.add_name(view[k + 3:], names, line, problems, quiet)
         # Names a broken line probably meant to set, so later lines don't pile up problems.
         # Not when the line starts with a step, a habit word, or a slip on one of Plain's words.
+        if first in ("add", "subtract") and ("to" in norms or "from" in norms):
+            # add 5 to total: if nothing sets total, that line gets the problem; later lines don't.
+            k = len(norms) - 1 - norms[::-1].index("to" if "to" in norms else "from")
+            target = view[k + 1:]
+            if target and all(t.kind == "word" and t.norm not in SPECIAL_WORDS for t in target) \
+                    and norms[k + 1:k + 2] != ["file"]:
+                self.add_name(target, names, line, problems, quiet=True, worked_on=True)
+        if first in ("var", "let", "const", "set") and "=" in norms and "to" not in norms:
+            k = norms.index("=")
+            if k > 1 and all(name_word(t) for t in view[1:k]):
+                self.add_name(view[1:k], names, line, problems, quiet=True)
         if len(view) >= 3 and first not in CORE_STARTS and not self.starts_a_step(first):
             for m, tok in enumerate(view):
                 if tok.norm in ("is", "=", "+", "-") and m > 0 and all(name_word(t) for t in view[:m]):
@@ -385,10 +416,16 @@ class Reader:
         after = tuple(name_word(t) for t in target[last_of + 1:])
         return norms[0] in ("item", "first", "last") or after in names
 
-    def add_name(self, toks, names, line, problems, quiet=False):
+    def add_name(self, toks, names, line, problems, quiet=False, worked_on=False):
         words = tuple(name_word(t) for t in toks)
         if not toks or None in words or toks[0].kind != "word":
             return
+        # Names that only add or subtract lines work on, and nothing sets: the first such line
+        # gets "Set NAME to a starting value", and later lines aren't flagged as well.
+        if worked_on:
+            self.worked_on.setdefault(words, line.number)
+        else:
+            self.really_set.add(words)
         problem = name_problem(words, line.number, toks[0].col, toks[-1].end)
         if problem is not None and not quiet:
             problems.append(problem)
@@ -418,7 +455,10 @@ class Reader:
                 continue
             except Problem as problem:
                 problems.append(problem.at(line.number))
-                statements.append(N.ErrorBlock(self.read_body(line.body, problems, scope), line=line.number))
+                inner = []
+                body = self.read_body(line.body, inner, scope)
+                problems += [p for p in inner if not p.fix.startswith(("Set \"", "Write \""))]   # amendment 11
+                statements.append(N.ErrorBlock(body, line=line.number))
                 failed = self.first(line)
                 continue
             after_failed, failed = failed, None
@@ -501,7 +541,15 @@ class Reader:
             first = "otherwise"
         if first == "return":
             edits.append((view[0].col, view[0].end, "give back"))
-        stmt = self.read_core(first, view, line, scope, problems, reader)
+        try:
+            stmt = self.read_core(first, view, line, scope, problems, reader)
+        except Problem as problem:
+            if not self.quiet:
+                from .suggest import habit_problem
+                habit = habit_problem(reader, line)
+                if habit is not None:
+                    raise habit
+            raise problem
         if stmt is NotCore:
             if first == "how":
                 return self.read_howto(line, problems)
@@ -611,7 +659,7 @@ class Reader:
                     raise Problem('Write "otherwise if" to check something else.',
                                   '"otherwise" on its own takes the steps for when nothing above was true. '
                                   '"otherwise if" checks something new first.',
-                                  line=L, col=view[0].col, end=view[0].end, try_lines=[fixed.strip()],
+                                  line=L, col=view[0].col, end=view[0].end, try_lines=[fixed.rstrip()],
                                   ideas=[fixed] if not self.quiet and reads_cleanly(reader, line, fixed) else [])
                 if line.body:
                     raise Problem('Put the step after "otherwise" on its own line, above the other steps.',
@@ -707,12 +755,17 @@ class Reader:
                           line=line.number, col=view[then].col, end=view[-1].end,
                           try_lines=[raw[:view[then].col].strip(), "    " + step])
         other = next((m for m in range(then + 1, len(view))
-                      if is_word(view[m], "otherwise") and reader.depth[m] == 0), None)
+                      if is_word(view[m], "otherwise", "else") and reader.depth[m] == 0), None)
         if other is not None:
+            indent = raw[:len(raw) - len(raw.lstrip())]
+            first = raw[:view[other].col].rstrip()
+            second = indent + raw[view[other].col:].strip()
+            if view[other].norm == "else":
+                second = indent + "otherwise" + raw[view[other].end:].rstrip()
             raise Problem('Put "otherwise" and its step on the next line.',
                           'Each line has one step, so "otherwise" starts a line of its own.',
                           line=line.number, col=view[other].col, end=view[-1].end,
-                          try_lines=[raw[:view[other].col].strip(), raw[view[other].col:].strip()])
+                          try_lines=[first, second], ideas=[first + "\n" + second])
 
     def check_then_missing(self, line, reader):
         """if score is 10, show "Yes": a comma or colon where "then" belongs."""
@@ -723,7 +776,7 @@ class Reader:
         ok = not self.quiet and reads_cleanly(reader, line, fixed)
         raise Problem(f'Write "then" in place of the "{mark.raw}".',
                       '"then" shows where the check ends and the step begins.',
-                      line=line.number, col=mark.col, end=mark.end, try_lines=[fixed.strip()],
+                      line=line.number, col=mark.col, end=mark.end, try_lines=[fixed.rstrip()],
                       ideas=[fixed] if ok else [])
 
     def read_repeat(self, view, line, reader, body, problems):
@@ -784,6 +837,29 @@ class Reader:
 
     def check_placement(self, statements, problems, in_repeat, in_howto):
         for stmt in statements:
+            if isinstance(stmt, N.Step) and stmt.phrase.main.template.split()[0] in ("add", "subtract"):
+                place = stmt.args.get("place")
+                if isinstance(place, N.Name) and self.never_set.get(place.words) == stmt.line:
+                    name = place.canonical()
+                    from .suggest import closest_name
+                    known = {" ".join(n): n for n in self.really_set}
+                    close = closest_name(name, list(known))
+                    if close:   # add points to scor: a typo of score
+                        where = self.origins.get(known[close[0]])
+                        raw = self.source_lines[stmt.line - 1]
+                        fixed = raw[:place.col] + close[0] + raw[place.end:]
+                        problems.append(Problem(
+                            f'Write "{close[0]}" instead of "{name}".',
+                            (f'You set "{close[0]}" on line {where}. ' if where else "")
+                            + f'Nothing in your program sets "{name}".',
+                            line=stmt.line, col=place.col, end=place.end, try_lines=[fixed.rstrip()], ideas=[fixed]))
+                        continue
+                    problems.append(Problem(
+                        f'Set "{name}" to a starting value before this line, like: set {name} to 0',
+                        f'Nothing in your program sets "{name}", so there\'s nothing to {stmt.phrase.main.template.split()[0]} to.'
+                        if stmt.phrase.main.template.startswith("add") else
+                        f'Nothing in your program sets "{name}", so there\'s nothing to take away from.',
+                        line=stmt.line, col=place.col, end=place.end))
             if isinstance(stmt, (N.StopRepeating, N.Skip)) and not in_repeat:
                 word = "stop repeating" if isinstance(stmt, N.StopRepeating) else "skip to the next round"
                 problems.append(Problem(
@@ -910,11 +986,14 @@ def tokens_before_problem(line):
     """The tokens of a line up to the place where it has a problem, like an unclosed quote."""
     if line.problem.col is None:
         return []
-    try:
-        tokens, _, _ = tokenize(line.raw[:line.problem.col], line_no=line.number)
-    except Problem:
-        return []
-    return tokens
+    text = line.raw[:line.problem.col]
+    for cut in (text, text[:text.rfind('"')] if '"' in text else text):   # drop an unfinished text
+        try:
+            tokens, _, _ = tokenize(cut, line_no=line.number)
+            return tokens
+        except Problem:
+            continue
+    return []
 
 
 def find_call_it(view):
@@ -1209,11 +1288,11 @@ class LineReader:
 
     def step_tie(self, a, b, line, why):
         clash = [r[0].run for r in (a, b) if isinstance(r[0].run, HowToDef)
-                 and id(r[0].run) in getattr(self.r, "clashing", set())]
+                 and id(r[0].run) in getattr(self.r, "clashing", {})]
         if clash:
             # The "how to" line already has the problem; this line only follows from it.
             problem = Problem("Use different words for your step.", line=line.number)
-            problem.follows_clash = True
+            problem.follows_clash = self.r.clashing[id(clash[0])]
             return problem
         texts = []
         same = a[0].main is b[0].main
@@ -1345,6 +1424,13 @@ class LineReader:
             problem = name_problem(words, col=col, end=end)
             if problem is not None:
                 raise problem
+        poss = next((k for k, t in enumerate(toks) if t.kind == "poss"), None)
+        if poss:
+            base = tuple(name_word(t) for t in toks[:poss])
+            if None not in base and base not in self.names:
+                record = " ".join(base)
+                raise Problem(f'Set "{record}" to a new record first, like: set {record} to a new record',
+                              f'"{record}" has no value yet, so it has no fields to set.', col=col, end=end)
         raise Problem(
             "Write a name here, like score, or a field, like sale's amount.",
             "This is where Plain keeps the value, so it needs a name, a field or an item of a list.",

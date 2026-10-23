@@ -228,8 +228,8 @@ class Recovery(unittest.TestCase):
 
     def test_each_unknown_name_once(self):   # reader-15, reader-20, reader-29
         found = problems("add 1 to tally\nadd 2 to tally\nshow tally plus 1")
-        self.assertEqual(1, len(found))
-        self.assertIn('You also use "tally" on lines 2 and 3.', found[0].why)
+        self.assertEqual(1, len(found))      # only the first line that uses it without a start
+        self.assertEqual('Set "tally" to a starting value before this line, like: set tally to 0', found[0].fix)
         found = problems('set total to 1\nshow totl\nadd 1 to totl\nshow "{totl}"')
         self.assertEqual(['Write "total" instead of "totl".'], [p.fix for p in found])
         self.assertIn("lines 3 and 4", found[0].why)

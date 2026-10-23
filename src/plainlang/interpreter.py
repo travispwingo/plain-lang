@@ -14,7 +14,7 @@ from .parser import HowToDef, Reader
 from .problems import Problem, things
 from .registry import Phrase
 from .values import (Percent, Record, as_number, contains, exactly, fit, is_empty, kind_name, order,
-                     percent, places, quoted, same, show_value)
+                     number_text, percent, places, quoted, same, show_value)
 
 MAX_DEPTH = 100
 
@@ -320,7 +320,8 @@ class Run:
         if slot.kind == "field":
             return node
         changes = phrase.main.template.split()[0] in CHANGING_VERBS
-        if changes and slot.kind == "place" and isinstance(node, N.Value) and "items" in node.args:
+        if changes and slot.kind == "place" and isinstance(node, N.Value) and "items" in node.args \
+                and "item" in node.phrase.main.template.split():
             self.must_be_kept(node.args.get("items"))
         elif changes and slot.kind == "place":
             if isinstance(node, N.Field) and not self.kept(node):
@@ -391,6 +392,11 @@ class Run:
             return MISSING
         name = node.canonical()
         line = self.program.origins.get(node.words)
+        if self.current is not None and line == getattr(self.current, "line", None):
+            # set total to total plus 1, with no starting value
+            raise Problem(f'Set "{name}" to a starting value before this line, like: set {name} to 0',
+                          f'"{name}" has no value yet, so this line has nothing to start from.',
+                          col=node.col, end=node.end)
         where = f' It gets a value on line {line}, which hasn\'t run yet.' if line else ""
         raise Problem(
             f'Give "{name}" a value before this line uses it.',
@@ -458,7 +464,7 @@ class Run:
                 return self.kept(node.inner)
             case N.Field():
                 return isinstance(self.eval(node.target), Record)
-            case N.Value() if "item" in node.phrase.main.template and "items" in node.args:
+            case N.Value() if "item" in node.phrase.main.template.split() and "items" in node.args:
                 return self.kept(node.args["items"])
         return False
 
@@ -589,6 +595,15 @@ class Run:
             raise self.join_problem(node) from None    # offer the whole run of plus signs as one text
         a, b = as_number(left), as_number(right)
         verb = {"plus": "add", "minus": "take away", "times": "multiply", "divided by": "divide"}[node.op]
+        if node.op in ("plus", "minus") and isinstance(right, Percent) and not isinstance(left, Percent) \
+                and not isinstance(node.right, N.Lit):
+            L, R = node.left.canonical(), node.right.canonical()
+            shown = format((right * 100).normalize(), "f") + "%"
+            lines = [self.line_with(node, f"{L} {node.op} {L} times {R}"),
+                     self.line_with(node, f"{L} {node.op} {number_text(right)}")]
+            raise Problem(f"Write what the {shown} is a part of.",
+                          f'"{L} {node.op} {R}" could mean {node.op} {shown} of {L}, or {node.op} {number_text(right)}.',
+                          col=node.col, end=node.end, try_lines=lines, choices=[[l] for l in lines])
         if a is None or b is None:
             if isinstance(left, str) and isinstance(right, str) and node.op == "plus":
                 raise self.join_problem(node)
@@ -634,6 +649,13 @@ class Run:
             "Adding only works with numbers. To put text together, write it all inside one pair of "
             "quotes, with each value in { }.", col=node.col, end=node.end, joined=joined)
 
+    def line_with(self, node, text):
+        """The line being run, with this part of it written another way."""
+        raw = self.program.source_lines[self.current.line - 1] if self.current is not None else ""
+        if not raw or node.col is None:
+            return text
+        return (raw[:node.col] + text + raw[node.end:]).rstrip()
+
     def typed(self, node):
         """Was this value typed as an answer (so it might be meant as a number)?"""
         came = self.came_from.get(node.words) if isinstance(node, N.Name) else None
@@ -647,7 +669,7 @@ class Run:
 
     def field(self, node):
         target = self.eval(node.target)
-        name = node.words[0] if node.quoted else " ".join(node.words)
+        name = node.words[0] if node.quoted else " ".join(getattr(node, "raw", None) or node.words)
         if isinstance(target, Record):
             return target.get(name, exact=node.quoted)
         if isinstance(target, list) and target and all(isinstance(r, Record) for r in target):
@@ -662,11 +684,12 @@ class Run:
             return column
         if isinstance(target, list) and not target:
             return []
-        if isinstance(target, list) and not node.quoted:
+        if isinstance(target, (list, str)) and not node.quoted:
             close = close_property(name)
             if close:   # "the nmber of xs": a slip on one of Plain's words, not a field
                 raise Problem(f'Write "the {close} of {node.target.canonical()}" instead.',
-                              f'"{name}" is close to "{close}", and lists have no field "{name}".')
+                              f'"{name}" is close to "{close}", and {"lists" if isinstance(target, list) else "texts"} '
+                              f'have no field "{name}".')
         if isinstance(target, (list, str)) and name.lower() in ("size", "count", "length", "len"):
             word = "the number of" if isinstance(target, list) else "the length of"
             raise Problem(f'Write "{word} {node.target.canonical()}" to count '

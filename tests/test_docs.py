@@ -12,7 +12,7 @@ import json
 import sys
 import unittest
 
-from .support import ROOT, run_source
+from .support import ROOT, UPDATE, run_source
 from plainlang.parser import Reader
 
 DOCS = ROOT / "site" / "docs"
@@ -31,13 +31,34 @@ def doc_examples():
                 k += 1
                 continue
             example = {"path": path, "code": body + "\n", "options": options,
-                       "answers": None, "output": None, "problem": None}
+                       "answers": None, "output": None, "problem": None, "expected_fence": None}
             m = k + 1
             while m < len(parts) and block_options(parts[m][1])["kind"] in ("answers", "output", "problem"):
-                example[block_options(parts[m][1])["kind"]] = parts[m][2] + "\n"
+                kind = block_options(parts[m][1])["kind"]
+                example[kind] = parts[m][2] + "\n"
+                if kind in ("output", "problem"):
+                    example["expected_fence"] = m
                 m += 1
             yield example
             k = m
+
+
+def rewrite_fence(path, index, body):
+    """PLAIN_UPDATE=1: put what Plain really shows into the index-th fenced block of a page."""
+    lines = path.read_text(encoding="utf-8").split("\n")
+    count, k = -1, 0
+    while k < len(lines):
+        if lines[k].startswith("```"):
+            count += 1
+            end = k + 1
+            while end < len(lines) and not lines[end].startswith("```"):
+                end += 1
+            if count == index:
+                lines[k + 1:end] = body.rstrip("\n").split("\n")
+                path.write_text("\n".join(lines), encoding="utf-8")
+                return
+            k = end
+        k += 1
 
 
 class DocExamples(unittest.TestCase):
@@ -63,6 +84,9 @@ class DocExamples(unittest.TestCase):
                 out, host, _ = run_source(ex["code"], answers=answers, web=web, data=files,
                                           name="your program", seed=int(options.get("seed", 0)))
                 expected = ex["output"] if ex["output"] is not None else ex["problem"]
+                if UPDATE and ex["expected_fence"] is not None and expected.rstrip("\n") != out.rstrip("\n"):
+                    rewrite_fence(ex["path"], ex["expected_fence"], out)
+                    continue
                 self.assertEqual(expected.rstrip("\n"), out.rstrip("\n"))
         self.assertGreater(count, 0, "The website has no Plain examples yet.")
 

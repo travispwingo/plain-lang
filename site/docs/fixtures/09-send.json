@@ -1,0 +1,11 @@
+{
+  "POST https://jsonplaceholder.typicode.com/posts": {
+    "status": 201,
+    "kind": "application/json; charset=utf-8",
+    "body": {
+      "title": "Buy milk",
+      "done": false,
+      "id": 101
+    }
+  }
+}

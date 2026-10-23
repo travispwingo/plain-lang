@@ -1,0 +1,10 @@
+Type a city to see its weather. Press Enter on its own to stop.
+Which city? New York
+It's 16.2°C in New York, United States.
+Which city? Hogwarts
+Plain couldn't find a place called Hogwarts.
+Which city? Tokyo
+Sorry, Plain couldn't get the weather for Tokyo.
+Try again later. api.open-meteo.com had a problem of its own (code 503).
+Which city? 
+Goodbye!

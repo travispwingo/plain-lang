@@ -1,0 +1,12 @@
+{
+  "GET https://geocoding-api.open-meteo.com/v1/search?name=New%20York&count=1": {"status": 200, "kind": "application/json",
+    "body": {"results": [{"id": 5128581, "name": "New York", "latitude": 40.71427, "longitude": -74.00597, "elevation": 10.0, "feature_code": "PPL", "country_code": "US", "timezone": "America/New_York", "population": 8804190, "country": "United States", "admin1": "New York"}], "generationtime_ms": 0.269413}},
+  "GET https://api.open-meteo.com/v1/forecast?latitude=40.71427&longitude=-74.00597&current=temperature_2m": {"status": 200, "kind": "application/json",
+    "body": {"latitude": 40.710335, "longitude": -73.99308, "generationtime_ms": 0.019, "utc_offset_seconds": 0, "timezone": "GMT", "timezone_abbreviation": "GMT", "elevation": 51.0, "current_units": {"time": "iso8601", "interval": "seconds", "temperature_2m": "°C"}, "current": {"time": "2026-10-23T18:30", "interval": 900, "temperature_2m": 16.2}}},
+  "GET https://geocoding-api.open-meteo.com/v1/search?name=Hogwarts&count=1": {"status": 200, "kind": "application/json",
+    "body": {"generationtime_ms": 0.06067753}},
+  "GET https://geocoding-api.open-meteo.com/v1/search?name=Tokyo&count=1": {"status": 200, "kind": "application/json",
+    "body": {"results": [{"id": 1850147, "name": "Tokyo", "latitude": 35.6895, "longitude": 139.69171, "elevation": 44.0, "feature_code": "PPLC", "country_code": "JP", "timezone": "Asia/Tokyo", "population": 9733276, "country": "Japan", "admin1": "Tokyo"}], "generationtime_ms": 0.05555153}},
+  "GET https://api.open-meteo.com/v1/forecast?latitude=35.6895&longitude=139.69171&current=temperature_2m": {"status": 503, "kind": "text/plain",
+    "body": "Service Unavailable"}
+}

@@ -8,7 +8,8 @@ from pathlib import Path
 
 from ..problems import Problem
 from ..registry import List, Text, Value, step, value
-from ..values import Record, auto_number, kind_name, quoted, show_inline, show_value
+from ..values import (Record, auto_number, kind_name, number_text, quoted, show_inline, show_table,
+                      show_value)
 
 TOPIC = "Files"
 SPREADSHEET_ENDINGS = {".xlsx", ".xls", ".numbers", ".ods"}
@@ -53,14 +54,26 @@ def from_json(value):
     return value
 
 
-def to_json(value):
+def json_text(value, indent=None, depth=0):
+    """A value as JSON. Numbers keep the exact digits Plain shows, never going through float."""
     if isinstance(value, Record):
-        return {str(k): to_json(v) for k, v in value.data.items()}
+        parts = [f"{json.dumps(str(k), ensure_ascii=False)}: {json_text(v, indent, depth + 1)}"
+                 for k, v in value.data.items()]
+        return json_group("{", parts, "}", indent, depth)
     if isinstance(value, list):
-        return [to_json(v) for v in value]
+        return json_group("[", [json_text(v, indent, depth + 1) for v in value], "]", indent, depth)
     if isinstance(value, Decimal):
-        return int(value) if value == value.to_integral_value() and "." not in str(value) else float(value)
-    return value
+        return number_text(value)
+    return json.dumps(value, ensure_ascii=False)
+
+
+def json_group(start, parts, stop, indent, depth):
+    if not parts:
+        return start + stop
+    if indent is None:
+        return start + ", ".join(parts) + stop
+    inside = "\n" + " " * (indent * (depth + 1))
+    return start + inside + ("," + inside).join(parts) + "\n" + " " * (indent * depth) + stop
 
 
 def parse_json(text):
@@ -68,26 +81,36 @@ def parse_json(text):
 
 
 def parse_csv(text):
-    lines = text.splitlines()
+    lines = [line for line in text.splitlines() if line.strip()]
     if not lines:
         return []
-    header = lines[0]
-    counts = {d: header.count(d) for d in (",", ";", "\t")}
-    delimiter = max(counts, key=counts.get) if any(counts.values()) else ","
-    rows = list(csv.reader(io.StringIO(text), delimiter=delimiter))
+    # The delimiter is the one that splits the header line into the most fields. Commas
+    # inside quotes don't count. A tie goes to the comma.
+    delimiter = max((",", ";", "\t"), key=lambda d: len(next(csv.reader([lines[0]], delimiter=d))))
+    rows = [row for row in csv.reader(io.StringIO(text), delimiter=delimiter) if any(c.strip() for c in row)]
     if not rows:
         return []
-    keys = [k.strip() or f"column {n}" for n, k in enumerate(rows[0], start=1)]
+    keys = unique_keys([k.strip() or f"column {n}" for n, k in enumerate(rows[0], start=1)])
     table = []
     for row in rows[1:]:
-        if not any(cell.strip() for cell in row):
-            continue
         record = Record()
         for n, key in enumerate(keys):
             cell = row[n] if n < len(row) else ""
             record.data[key] = None if not cell.strip() else auto_number(cell)
         table.append(record)
     return table
+
+
+def unique_keys(keys):
+    """Column names, with a number added to a repeated one ("a", "a 2") so no column is lost."""
+    out = []
+    for key in keys:
+        name, n = key, 1
+        while name in out:
+            n += 1
+            name = f"{key} {n}"
+        out.append(name)
+    return out
 
 
 def read_file(run, name):
@@ -117,7 +140,8 @@ def missing_file(run, name, path):
     close = difflib.get_close_matches(path.name, names, n=1, cutoff=0.6)
     where = "in the same folder as your program"
     if close:
-        return Problem(f'Write "{close[0]}" instead of "{name}".', f'There\'s no file "{name}" {where}.',
+        better = (Path(name).parent / close[0]).as_posix()    # keep the folder you wrote
+        return Problem(f'Write "{better}" instead of "{name}".', f'There\'s no file "{name}" {where}.',
                        focus=f'"{name}"')
     return Problem(f'Check the file name "{name}".', f'There\'s no file "{name}" {where}.', focus=f'"{name}"')
 
@@ -148,10 +172,19 @@ def read_lines(run, source: Text) -> List:
     return [auto_number(line) for line in text.splitlines()]
 
 
+def is_table(value):
+    return isinstance(value, list) and bool(value) and all(isinstance(v, Record) for v in value)
+
+
+def file_text(value):
+    """A value as text for a file: the way "show" shows it, but a table keeps every row."""
+    return show_table(value, limit=None) if is_table(value) else show_value(value)
+
+
 def as_lines(value):
-    if isinstance(value, list) and not (value and all(isinstance(v, Record) for v in value)):
+    if isinstance(value, list) and not is_table(value):
         return "\n".join(show_inline(v) for v in value) + ("\n" if value else "")
-    text = show_value(value)
+    text = file_text(value)
     return text if text.endswith("\n") or not text else text + "\n"
 
 
@@ -188,7 +221,7 @@ def save(run, value: Value, file: Text) -> None:
     if ending == ".csv":
         text = csv_text(value)
     elif ending == ".json":
-        text = json.dumps(to_json(value), indent=2, ensure_ascii=False) + "\n"
+        text = json_text(value, indent=2) + "\n"
     else:
         text = as_lines(value)
     if not path.parent.exists():
@@ -201,7 +234,8 @@ def save(run, value: Value, file: Text) -> None:
 def add_to_file(run, value: Value, file: Text) -> None:
     """Adds one line at the end of the file, and makes the file if needed."""
     path = path_for(run, file)
-    line = show_value(value)
+    line = file_text(value)
+    path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "a", encoding="utf-8", newline="") as handle:
         handle.write(line + "\n")
 
@@ -233,7 +267,11 @@ def rename(run, file: Text, new_name: Text) -> None:
     path = path_for(run, file)
     if not path.exists():
         raise missing_file(run, file, path)
-    target = path.parent / new_name if not Path(new_name).is_absolute() else Path(new_name)
+    target = path_for(run, new_name)
+    if not target.parent.is_dir():
+        folder = Path(new_name).parent.as_posix()
+        raise Problem(f'Check the folder name "{folder}", or make the folder first.',
+                      f'There\'s no folder "{folder}" next to your program.', focus=f'"{new_name}"')
     if target.exists():
         raise Problem(f'Choose a name that isn\'t taken, or remove "{new_name}" first.',
                       f'There\'s already a file "{new_name}".')

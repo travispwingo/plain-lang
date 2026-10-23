@@ -8,7 +8,7 @@ import re
 from decimal import (ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_UP, Context, Decimal,
                      InvalidOperation, localcontext)
 
-from .problems import Problem
+from .problems import Problem, things
 
 CONTEXT = Context(prec=28, rounding=ROUND_HALF_UP)
 MAX_PLACES = 10
@@ -26,16 +26,40 @@ def places(d):
     return max(0, -exponent) if isinstance(exponent, int) else 0
 
 
+def needed_places(d):
+    """The decimal places d needs: its places without the zeros at the end."""
+    if d.is_zero():
+        return 0
+    digits = "".join(map(str, d.as_tuple().digits))
+    return max(0, places(d) - (len(digits) - len(digits.rstrip("0"))))
+
+
+def round_places(d, p):
+    """d rounded to p decimal places, halves up, however many digits it has."""
+    context = Context(prec=max(CONTEXT.prec, len(d.as_tuple().digits) + p), rounding=ROUND_HALF_UP)
+    return d.quantize(Decimal(1).scaleb(-p), context=context)
+
+
 def fit(d, min_places):
-    """Keep at least min_places decimal places, and more only when the value needs them."""
+    """Keep at least min_places decimal places, and more only when the value needs them.
+
+    A long result that rounds to a short one at MAX_PLACES (99.999…9 is 100) becomes the
+    short one. More than MAX_PLACES places only come from such long results, so they set
+    no minimum.
+    """
     if not d.is_finite():
         return d
     if d.is_zero():
         d = abs(d)
-    needed = places(d.normalize(CONTEXT))
-    p = max(needed, min_places)
+    needed = needed_places(d)
+    if needed > MAX_PLACES:
+        short = needed_places(round_places(d, MAX_PLACES))
+        if short < MAX_PLACES:
+            needed = short
+    if min_places > MAX_PLACES:
+        min_places = 0
     try:
-        return d.quantize(Decimal(1).scaleb(-p), context=CONTEXT)
+        return round_places(d, max(needed, min_places))
     except InvalidOperation:
         return d
 
@@ -44,11 +68,10 @@ def number_text(d):
     if d.is_zero():
         d = abs(d)
     if places(d) > MAX_PLACES:
-        d = d.quantize(Decimal(1).scaleb(-MAX_PLACES), context=CONTEXT).normalize(CONTEXT)
+        d = round_places(d, MAX_PLACES)
         if d.is_zero():
             d = abs(d)
-    text = format(d, "f")
-    return text
+    return format(d, "f")
 
 
 def auto_number(text):
@@ -102,9 +125,17 @@ def kind_name(v):
 
 
 def quoted(v):
-    """A value as you'd see it in a message."""
+    """A value as you'd see it in a message. Lists, tables and records are described, not shown."""
     if isinstance(v, str):
         return f'"{v}"'
+    if isinstance(v, list):
+        if not v:
+            return "an empty list"
+        if kind_name(v) == "a table":
+            return f"a table with {things(len(v), 'row')}"
+        return f"a list of {things(len(v), 'item')}"
+    if isinstance(v, Record):
+        return f"a record with {things(len(v.data), 'field')}" if v.data else "an empty record"
     return show_value(v)
 
 
@@ -276,19 +307,20 @@ def show_inline(v):
     return show_value(v)
 
 
-def show_table(rows):
+def show_table(rows, limit=TABLE_ROWS):
+    """Lined-up columns. With limit=None every row is shown, as when saving to a file."""
     columns = []
     for row in rows:
         for key in row.data:
             if key not in columns:
                 columns.append(key)
-    shown = rows[:TABLE_ROWS]
+    shown = rows if limit is None else rows[:limit]
     cells = [[str(c) for c in columns]] + [
         [show_inline(row.data.get(c)) if c in row.data else "" for c in columns] for row in shown]
     widths = [max(len(r[i]) for r in cells) for i in range(len(columns))]
     lines = ["  ".join(cell.ljust(widths[i]) for i, cell in enumerate(r)).rstrip() for r in cells]
-    if len(rows) > TABLE_ROWS:
-        lines.append(f"…and {len(rows) - TABLE_ROWS} more")
+    if limit is not None and len(rows) > limit:
+        lines.append(f"…and {len(rows) - limit} more")
     return "\n".join(lines)
 
 

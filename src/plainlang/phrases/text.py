@@ -41,8 +41,10 @@ def as_a_number(run, value: Value) -> Number:
     """Turns text like "42" into the number 42."""
     n = as_number(value)
     if n is None:
-        raise Problem(f"Check that {quoted(value)} is a number first, with: if VALUE is a number",
-                      f"{quoted(value)} is {kind_name(value)}, and it doesn't read as a number.")
+        name = run.written_name("value")
+        fix = f'Check that "{name}" is a number first, with: if {name} is a number' if name else \
+            'Use text that reads as a number here, like "42".'
+        raise Problem(fix, f"{quoted(value)} is {kind_name(value)}, and it doesn't read as a number.")
     return n
 
 

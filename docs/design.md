@@ -808,10 +808,10 @@ def random_number(run: Run, low: Number, high: Number) -> Number:
 - **Plain's own bugs.** Any other Python error prints "Plain itself went wrong. This is a mistake in Plain, not in your program. Please tell us at plain-lang.dev/help." The traceback appears only when `PLAIN_DEBUG=1` is set.
 - **Limits and stopping.** How-to depth is capped at 100. `KeyboardInterrupt` prints `Stopped.`
 
-### 6.8 Repository layout (`~/plain`)
+### 6.8 Repository layout (`~/plain-lang`)
 The PyPI distribution is **`plainlang`**, the command is **`plain`**, and the import package is **`plainlang`**.
 ```
-~/plain/
+~/plain-lang/
 ├── pyproject.toml          # plainlang; requires-python >=3.13; dependencies = []; extra ai = ["anthropic"]; script plain = plainlang.cli:main; dependency group "site" = ["markdown-it-py"]
 ├── README.md               # what Plain is, pipx install, first program, link to plain-lang.dev
 ├── src/plainlang/
@@ -1326,8 +1326,8 @@ Every page opens with what you can do on it. Headings are tasks starting with ve
 
 ### Critical Files for Implementation
 These files don't exist yet (the repo is new):
-- /Users/Travis/plain/src/plainlang/parser.py
-- /Users/Travis/plain/src/plainlang/registry.py
-- /Users/Travis/plain/src/plainlang/words.py
-- /Users/Travis/plain/src/plainlang/hosts.py
-- /Users/Travis/plain/site/static/worker.js
+- /Users/Travis/plain-lang/src/plainlang/parser.py
+- /Users/Travis/plain-lang/src/plainlang/registry.py
+- /Users/Travis/plain-lang/src/plainlang/words.py
+- /Users/Travis/plain-lang/src/plainlang/hosts.py
+- /Users/Travis/plain-lang/site/static/worker.js

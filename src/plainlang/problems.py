@@ -44,17 +44,28 @@ def layout(problem, file_name, source_lines):
         where += ", while running"
     out = [f"{where}: {problem.fix}"]
     if problem.line and 0 < problem.line <= len(source_lines):
-        text = source_lines[problem.line - 1].rstrip("\n").expandtabs(4)
-        out += ["", "    " + text]
+        raw = source_lines[problem.line - 1].rstrip("\n")
+        out += ["", "    " + widen(raw)]
         if problem.col is not None:
             end = problem.end if problem.end and problem.end > problem.col else problem.col + 1
-            out.append("    " + " " * problem.col + "^" * (end - problem.col))
+            start, stop = column(raw, problem.col), column(raw, end)
+            out.append("    " + " " * start + "^" * (stop - start))
     if problem.try_lines:
         out.append("Try this:")
         out += ["    " + line for line in problem.try_lines]
     if problem.why:
         out.append(f"Why: {problem.why}")
     return "\n".join(out)
+
+
+def widen(text):
+    """A Tab counts as 4 spaces."""
+    return text.replace("\t", "    ")
+
+
+def column(raw, col):
+    """Where a column of the line as written lands once Tabs are shown as 4 spaces."""
+    return len(widen(raw[:col])) + max(0, col - len(raw))
 
 
 def layout_all(problems, file_name, source_lines):

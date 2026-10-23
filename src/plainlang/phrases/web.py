@@ -30,9 +30,11 @@ def status_problem(reply, url):
         text = decode(reply.body).strip()
         if text.startswith("{"):
             data = json.loads(text)
-            said = data.get("message") or data.get("error") or ""
+            said = data.get("message") or data.get("error") or data.get("errors") or ""
             if isinstance(said, dict):      # {"error": {"code": 400, "message": "..."}}
                 said = said.get("message") or said.get("error_description") or ""
+            if isinstance(said, list):      # {"errors": [{"message": "..."}]} or {"error": ["a", "b"]}
+                said = "; ".join(x.get("message", "") if isinstance(x, dict) else str(x) for x in said)
             said = said if isinstance(said, str) else ""
         elif text and len(text) < 120 and "<" not in text:
             said = text
@@ -44,14 +46,14 @@ def status_problem(reply, url):
                        "The website answered, but it has no page at that address.")
     if code in (401, 403):
         return Problem(f"Check whether {site} lets you read this. It refused the request (code {code}).",
-                       f"It said: {said}" if said else None)
+                       f"It said: {said}" if said else "Some websites need a sign-in or a key before they answer.")
     if code == 429:
         return Problem("Wait a minute, then run this again.",
                        f"{site} says you've asked too often (code 429).")
     if code >= 500:
         return Problem("Try again later.", f"{site} had a problem of its own (code {code}).")
-    return Problem(f"Check the address and try again. {site} answered with code {code}.",
-                   f"It said: {said}" if said else None)
+    return Problem(f"Check the address and what you send, then try again. {site} answered with code {code}.",
+                   f"It said: {said}" if said else f"{site} turned the request down, but didn't say why.")
 
 
 def check_address(url):

@@ -13,8 +13,8 @@ from . import nodes as N
 from .parser import HowToDef, Reader
 from .problems import Problem, things
 from .registry import Phrase
-from .values import (Record, as_number, contains, exactly, fit, is_empty, kind_name,
-                     order, places, quoted, same, show_value)
+from .values import (Percent, Record, as_number, contains, exactly, fit, is_empty, kind_name, order,
+                     percent, places, quoted, same, show_value)
 
 MAX_DEPTH = 100
 
@@ -230,13 +230,16 @@ class Run:
                 case "each":
                     items = self.eval(stmt.items)
                     if isinstance(items, str):
-                        name = stmt.items.canonical()
-                        if name.startswith('"'):
-                            name = "the text"
+                        raw = self.program.source_lines[stmt.line - 1].rstrip()
+                        col = stmt.items.col
+                        order = ("lines", "words", "characters") if "\n" in items else \
+                            ("words", "characters", "lines") if " " in items.strip() else ("characters", "words", "lines")
+                        choices = [[raw[:col] + f"the {part} of " + raw[col:]] for part in order]
                         raise Problem(
-                            f'Write "the lines of {name}", "the words of {name}" or "the characters of {name}" to say how to go through the text.',
-                            f'"{name}" is text, so Plain needs to know which parts to go through.',
-                            col=stmt.items.col, end=stmt.items.end)
+                            'Say which parts of the text to go through: its characters, its words or its lines.',
+                            "Text isn't a list, so Plain needs to know which parts you mean.",
+                            col=stmt.items.col, end=stmt.items.end,
+                            try_lines=[c[0] for c in choices], choices=choices)
                     if isinstance(items, Record):
                         raise Problem("Go through a list here. A record has fields, not items.",
                                       None, col=stmt.items.col, end=stmt.items.end)
@@ -317,8 +320,21 @@ class Run:
         if slot.kind == "field":
             return node
         changes = phrase.main.template.split()[0] in CHANGING_VERBS
-        if changes and slot.kind == "place" and isinstance(node, N.Value):
+        if changes and slot.kind == "place" and isinstance(node, N.Value) and "items" in node.args:
             self.must_be_kept(node.args.get("items"))
+        elif changes and slot.kind == "place":
+            if isinstance(node, N.Field) and not self.kept(node):
+                # "add 1 to people's age": change each row's age.
+                rows = N.arg_text(node.target)
+                args = {k: N.arg_text(v, wrap_math=False) for k, v in self.phrase_args_for(phrase, written).items()}
+                args[slot.name] = "row's " + N.field_text(node.words, node.quoted)
+                raise Problem(
+                    "Go through the rows to change each one.",
+                    f'"{node.canonical()}" is a list worked out from the table each time it\'s used, so '
+                    "changing it wouldn't change the table.",
+                    col=node.col, end=node.end,
+                    try_lines=[f"repeat for each row in {rows}", "    " + phrase.main.render(args)])
+            self.must_be_kept(node)
         if changes and slot.kind == "list":
             self.must_be_kept(node)
         if slot.kind == "place":
@@ -416,16 +432,21 @@ class Run:
     def position_of(self, target, items):
         template = target.phrase.main.template
         if not isinstance(items, list) or not items:
-            raise Problem("Use a list with at least one item here.")
+            raise Problem("Use a list with at least one item here.",
+                          "The list is empty, so it has no item to change.")
         if "first" in template:
             return 0
         if "last" in template:
             return len(items) - 1
         n = self.whole(target.args["n"], "item")
         if not 1 <= n <= len(items):
-            raise Problem(f"Use a position from 1 to {len(items)}.",
+            raise Problem("Use item 1." if len(items) == 1 else f"Use a position from 1 to {len(items)}.",
                           f"The list has {things(len(items), 'item')}, so there is no item {n}.")
         return n - 1
+
+    @staticmethod
+    def phrase_args_for(phrase, written):
+        return {slot.name: written[slot.name] for slot in phrase.slots if slot.name in written}
 
     def kept(self, node):
         """Would changing this value change something you kept? A name, a field of a record, or
@@ -468,6 +489,10 @@ class Run:
     def _eval(self, node):
         match node:
             case N.Lit():
+                if node.percent and node.raw and isinstance(node.value, Decimal):
+                    digits = node.raw.lstrip("$€£").rstrip("%")
+                    if digits.replace(".", "").isdigit():
+                        return percent(node.value, places(Decimal(digits)))
                 return node.value
             case N.TextLit():
                 return self.text(node)
@@ -567,6 +592,8 @@ class Run:
         if a is None or b is None:
             if isinstance(left, str) and isinstance(right, str) and node.op == "plus":
                 raise self.join_problem(node)
+            if node.op == "plus" and not self.typed(node.left if a is None else node.right):
+                raise self.join_problem(node)    # "Score: " kept under a name, plus a number
             bad_node, bad = (node.left, left) if a is None else (node.right, right)
             L, R = described(node.left, left), described(node.right, right)
             cannot = {"plus": f"add {R} to {L}", "minus": f"take {R} away from {L}",
@@ -585,7 +612,8 @@ class Run:
                 case "times":
                     result = a * b
                 case "divided by":
-                    if b == 0 and isinstance(node.right, N.Lit):
+                    if b == 0 and (isinstance(node.right, N.Lit) or
+                                   isinstance(node.right, N.Neg) and isinstance(node.right.value, N.Lit)):
                         raise Problem("Divide by a number other than 0.", "Plain can't divide by 0.",
                                       col=node.right.col, end=node.right.end)
                     if b == 0:
@@ -606,11 +634,15 @@ class Run:
             "Adding only works with numbers. To put text together, write it all inside one pair of "
             "quotes, with each value in { }.", col=node.col, end=node.end, joined=joined)
 
+    def typed(self, node):
+        """Was this value typed as an answer (so it might be meant as a number)?"""
+        came = self.came_from.get(node.words) if isinstance(node, N.Name) else None
+        return came is not None and came[1] in ("typed", "read", "web")
+
     def places_of(self, node, value):
-        """A written percent counts the places you wrote: 15% has none, 2.5% has one."""
-        if isinstance(node, N.Lit) and node.percent and node.raw:
-            digits = node.raw.lstrip("$€£").rstrip("%")
-            return places(Decimal(digits)) if digits.replace(".", "").isdigit() else places(value)
+        """A percent counts the places you wrote: 15% has none, 2.5% has one."""
+        if isinstance(value, Percent):
+            return value.written_places
         return places(value)
 
     def field(self, node):
@@ -630,6 +662,11 @@ class Run:
             return column
         if isinstance(target, list) and not target:
             return []
+        if isinstance(target, list) and not node.quoted:
+            close = close_property(name)
+            if close:   # "the nmber of xs": a slip on one of Plain's words, not a field
+                raise Problem(f'Write "the {close} of {node.target.canonical()}" instead.',
+                              f'"{name}" is close to "{close}", and lists have no field "{name}".')
         if isinstance(target, (list, str)) and name.lower() in ("size", "count", "length", "len"):
             word = "the number of" if isinstance(target, list) else "the length of"
             raise Problem(f'Write "{word} {node.target.canonical()}" to count '
@@ -659,8 +696,10 @@ class Run:
         value = self.eval(node)
         if not isinstance(value, bool):
             text = node.canonical()
+            # A hint that fits the value: "n is not 0" for a number, "is not empty" for the rest.
+            hint = f"{text} is not 0" if isinstance(value, Decimal) else f"{text} is not empty"
             raise Problem(
-                f"Write a check with a yes or no answer here, like: {text} is not empty",
+                f"Write a check with a yes or no answer here, like: {hint}",
                 f"{quoted(value)} is {kind_name(value)}, not yes or no.",
                 col=node.col, end=node.end)
         return value
@@ -810,6 +849,14 @@ def file_name(path, folder):
         return Path(path).name
 
 
+def close_property(name):
+    """One of the words that work after "the … of", when NAME is one letter or two away from it."""
+    import difflib
+    words = ["number", "total", "average", "largest", "smallest", "length", "words", "lines", "characters"]
+    found = difflib.get_close_matches(name.lower(), words, n=1, cutoff=0.75)
+    return found[0] if found and found[0] != name.lower() else None
+
+
 def data_problem(error, folder=None):
     """Turn a Python error caused by your data into a message in Plain's words."""
     match error:
@@ -825,7 +872,8 @@ def data_problem(error, folder=None):
             return Problem(f'Check the file name "{file_name(error.filename, folder)}".',
                            "There's no file with that name.")
         case IsADirectoryError():
-            return Problem("Use a file name here, not a folder name.", None)
+            return Problem("Use a file name here, not a folder name.",
+                           "That name belongs to a folder, and Plain can only read or change files.")
         case PermissionError():
             return Problem("Check that you're allowed to use this file.",
                            "Your computer didn't let Plain open it.")

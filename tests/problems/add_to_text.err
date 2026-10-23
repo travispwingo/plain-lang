@@ -2,7 +2,9 @@ add_to_text.plain, line 2, while running: Make "todos" a list to add items to it
 
     add "walk the dog" to todos
     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Try this:
+Try one of these:
     set todos to a list of "buy milk"
+    add "walk the dog" to todos
+  or
     set todos to "{todos}walk the dog"
 Why: "todos" is the text "buy milk", and "add" only adds numbers or puts items on a list.

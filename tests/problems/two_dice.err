@@ -2,8 +2,9 @@ two_dice.plain, line 1: Add brackets to show which numbers go together.
 
     set roll to a random number from 1 to 6 plus a random number from 1 to 6
                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Try this:
+Try one of these:
     set roll to (a random number from 1 to 6) plus a random number from 1 to 6
+  or
     set roll to a random number from 1 to (6 plus a random number from 1 to 6)
 Why: Plain can read this two ways: the plus could belong to the last number of "a random number from …", or come after it.
 

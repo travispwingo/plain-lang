@@ -21,6 +21,19 @@ NUMBERISH = re.compile(
     r"(?P<digits>\d+(?:\.\d+)?|\d{1,3}(?:,\d{3})+(?:\.\d+)?)(?P<pct>%?)$")
 
 
+class Percent(Decimal):
+    """A number written as a percent, like 15%. It keeps the decimal places you wrote (none
+    for 15%, one for 2.5%), so it shows the same whether it's written in a line or kept
+    under a name."""
+    written_places = 0
+
+
+def percent(value, written_places):
+    p = Percent(value)
+    p.written_places = written_places
+    return p
+
+
 def places(d):
     exponent = d.as_tuple().exponent
     return max(0, -exponent) if isinstance(exponent, int) else 0
@@ -145,12 +158,10 @@ class Quoted(str):
 
 # Records -------------------------------------------------------------------------
 
-CAMEL = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
-
-
 def norm_key(key):
-    key = CAMEL.sub(" ", str(key))
-    return " ".join(re.split(r"[\s_\-]+", key.lower())).strip()
+    """Field names ignore capitals, spaces, _, - and camelCase: "userId", "user_id" and
+    "user id" are the same field."""
+    return "".join(re.split(r"[\s_\-]+", str(key).lower()))
 
 
 def plural_forms(name):
@@ -173,7 +184,7 @@ class Record:
 
     def find(self, name, exact=False):
         """The original key for a field name, or None."""
-        if exact:
+        if exact or name in self.data:          # an exact name always wins
             return name if name in self.data else None
         wanted = norm_key(name)
         for form in plural_forms(wanted):

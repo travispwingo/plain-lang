@@ -21,6 +21,10 @@ def line_readings(statements, out=None):
                         continue
                 else:
                     out[number] = "otherwise" if check is None else "otherwise if " + check.canonical()
+                    if body and body[0].line == number:   # one-line form: otherwise show "lose"
+                        joiner = " " if check is None else " then "
+                        out[number] += joiner + body[0].canonical()
+                        continue
                 line_readings(body, out)
             continue
         if isinstance(stmt, N.ErrorBlock):
@@ -102,7 +106,8 @@ def nodes_of(thing):
 
 
 def tidy(text, program):
-    """Returns (new text, list of changes in words)."""
+    """Returns (new text, list of changes in words). The file keeps its BOM and line endings."""
+    bom, crlf = text.startswith("\ufeff"), "\r\n" in text
     lines = normalize(text).split("\n")
     edits = collect_edits(program.statements)
     changes = []
@@ -165,7 +170,9 @@ def tidy(text, program):
     result = "\n".join(out)
     if not result.endswith("\n"):
         result += "\n"
-    return result, changes
+    if crlf:
+        result = result.replace("\n", "\r\n")
+    return ("\ufeff" if bom else "") + result, changes
 
 
 def is_howto(text):

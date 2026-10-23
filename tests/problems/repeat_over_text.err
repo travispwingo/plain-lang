@@ -1,5 +1,11 @@
-repeat_over_text.plain, line 2, while running: Write "the lines of guests", "the words of guests" or "the characters of guests" to say how to go through the text.
+repeat_over_text.plain, line 2, while running: Say which parts of the text to go through: its characters, its words or its lines.
 
     repeat for each guest in guests
                              ^^^^^^
-Why: "guests" is text, so Plain needs to know which parts to go through.
+Try one of these:
+    repeat for each guest in the words of guests
+  or
+    repeat for each guest in the characters of guests
+  or
+    repeat for each guest in the lines of guests
+Why: Text isn't a list, so Plain needs to know which parts you mean.

@@ -2,8 +2,9 @@ and_or_mixed.plain, line 4: Add brackets, or reword this, so it has only one mea
 
     if a and b or c
        ^^^^^^^^^^^^
-Try this:
+Try one of these:
     if a and (b or c)
+  or
     if (a and b) or c
 Why: Plain can read it two ways, and it never guesses which one you mean.
 

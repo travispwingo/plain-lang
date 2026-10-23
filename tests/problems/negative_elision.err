@@ -2,8 +2,9 @@ negative_elision.plain, line 2: Write the whole check again after "or", so it ha
 
     if answer is not "y" or "yes"
        ^^^^^^^^^^^^^^^^^^^^^^^^^^
-Try this:
+Try one of these:
     if answer is not "y" and answer is not "yes"
+  or
     if answer is not in a list of "y" and "yes"
 Why: After "is not" or "between", leaving out the first part could mean two different things.
 

@@ -1,6 +1,7 @@
 """The plain command. All of its text is written by hand, in plain words."""
 
 import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -88,13 +89,16 @@ def open_and_run(command, name, options):
     """Read the file NAME and run, check, fix, tidy or explain it. The REPL's :run uses this too."""
     path = Path(name)
     if not path.exists():
-        say(f'Check the file name "{name}". There\'s no file with that name here.', err=True)
+        if path.suffix == "" and path.with_suffix(".plain").exists():
+            say(f'Type plain {command} {name}.plain to {command} it. Plain files end in .plain.', err=True)
+        else:
+            say(f'Check the file name "{name}". There\'s no file with that name here.', err=True)
         return 2
     if path.is_dir():
         say(f'Type the name of a file, not a folder: "{name}" is a folder.', err=True)
         return 2
     try:
-        text = path.read_bytes().decode("utf-8-sig")
+        text = path.read_bytes().decode("utf-8")      # a BOM stays, so fix and tidy keep it
         if text.lstrip().startswith("{\\rtf"):
             say(f'Save "{path.name}" as plain text, then try again. In TextEdit, choose Format > Make Plain Text.',
                 err=True)
@@ -142,7 +146,7 @@ def run_command(command, path, text, options):
         from .fixer import cant_save, write_atomic
         backup = path.with_name(path.name + ".bak")
         try:
-            backup.write_text(text, encoding="utf-8")
+            shutil.copyfile(path, backup)         # the file exactly as it was
             write_atomic(path, new_text)
         except OSError:
             say(cant_save(path), err=True)
@@ -237,4 +241,6 @@ def other_words(template):
         for other, main in SYNONYMS.items():
             if main in part.lower().split("|"):
                 out.append(wording(" ".join(parts[:k] + [other] + parts[k + 1:])))
+    if template.startswith("give back"):
+        out.append(template.replace("give back", "return", 1))   # return is read as give back
     return out

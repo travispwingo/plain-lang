@@ -153,10 +153,11 @@ def read_number(text, i, stop, tokens, line_no):
         while re.match(r",\d{3}(?!\d)", text[j:stop]):
             j += 4
         raw_all = text[i:j]
+        fixed = text[:i] + raw_all.replace(",", "") + text[j:]
         raise Problem(
             f"Write {raw_all.replace(',', '').lstrip(CURRENCY)} without the comma.",
             "Plain uses commas to separate items in a list, so numbers are written without them.",
-            line=line_no, col=i, end=j)
+            line=line_no, col=i, end=j, try_lines=[fixed.rstrip()], ideas=[fixed])
     digits = raw.lstrip(CURRENCY)
     percent = digits.endswith("%")
     digits = digits.rstrip("%")
@@ -383,7 +384,8 @@ def check_empty_headers(lines, problems, following=None):
                     f'Move this line 4 spaces to the right (or press Tab), so it belongs to the "{word}" on line {line.number}.',
                     f'Steps that belong to "{word}" sit further right than the "{word}" line itself.',
                     line=nxt.number, col=nxt.indent, end=nxt.indent + 1,
-                    try_lines=[line.raw.strip(), "    " + nxt.raw.strip()]))
+                    try_lines=[line.raw.strip(), "    " + nxt.raw.strip()],
+                    ideas=[line.raw[:len(line.raw) - len(line.raw.lstrip())] + "    " + nxt.raw.strip()]))
             else:
                 problems.append(Problem(
                     f'Add the steps that belong to this "{word}" on the lines below it, moved 4 spaces to the right.',

@@ -26,6 +26,7 @@ class Problem(Exception):
     focus: str | None = None      # text to underline, when the problem doesn't know its column
     guard: str | None = None      # a name to check is a number first (for "Try this")
     ask_claude: bool = False      # design section 7: Claude may offer ideas for this problem
+    choices: list = field(default_factory=list)   # different fixes to choose from, each a list of lines
 
     def __str__(self):
         return self.fix
@@ -51,11 +52,18 @@ def layout(problem, file_name, source_lines):
             end = problem.end if problem.end and problem.end > problem.col else problem.col + 1
             start, stop = column(raw, problem.col), column(raw, end)
             out.append("    " + " " * start + "^" * (stop - start))
-    if problem.try_lines:
+    if len(problem.choices) > 1:
+        out.append("Try one of these:")
+        for k, choice in enumerate(problem.choices):
+            if k:
+                out.append("  or")
+            out += ["    " + line for line in choice]
+    elif problem.try_lines:
         out.append("Try this:")
         out += ["    " + line for line in problem.try_lines]
     if problem.why:
-        out.append(f"Why: {problem.why}")
+        why = problem.why
+        out.append(f"Why: {why[:1].upper() + why[1:]}")
     return "\n".join(out)
 
 

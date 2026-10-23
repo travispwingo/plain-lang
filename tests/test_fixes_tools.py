@@ -147,10 +147,10 @@ class Ideas(unittest.TestCase):
         self.assertEqual(1, len(ideas))
 
     # tools-15
-    def test_claudes_indent_fix_is_kept(self):
+    def test_indent_fix_is_offered(self):
+        # Plain now offers the indent fix itself, so Claude isn't needed (or asked) for it.
         source = 'set x to 1\nif x is 1\nshow "one"\n'
-        ideas = self.ideas([['    show "one"']], source=source)
-        self.assertEqual([['    show "one"']], [i[0] for i in ideas])
+        self.assertEqual(['    show "one"'], Reader().read(source).problems[0].ideas)
 
     # tools-25
     def test_ideas_that_mean_the_same_count_once(self):

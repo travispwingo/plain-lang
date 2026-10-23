@@ -2,6 +2,7 @@
 
 import os
 import re
+import shutil
 import sys
 
 from .problems import layout
@@ -17,7 +18,7 @@ def gather_ideas(program, problem, path, options, notes, read=None, phrases="pla
 
     The REPL passes its own way to read a whole candidate program, to list Plain's phrases
     and to show a line."""
-    ideas = [([idea], "", [], "Plain") for idea in problem.ideas]
+    ideas = [(idea.split("\n"), "", [], "Plain") for idea in problem.ideas]   # an idea can be a step plus its use
     if len(ideas) >= 3 or not options.get("ai") or problem.running or problem.line is None \
             or not problem.ask_claude or about_layout(program, problem):
         return ideas[:3]
@@ -155,7 +156,7 @@ def fix_file(path, text, program, options, interactive=True, ask=input):
         new_text = splice(text, problem.line, chosen)
         try:
             if not backup_made:
-                path.with_name(path.name + ".bak").write_text(text, encoding="utf-8")
+                shutil.copyfile(path, path.with_name(path.name + ".bak"))   # the file exactly as it was
                 backup_made = True
             write_atomic(path, new_text)
         except OSError:

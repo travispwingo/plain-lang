@@ -163,7 +163,7 @@ def user_message(program, problem, file_name):
     howtos = "; ".join("how to " + h.phrase.template.replace("{", "(").replace("}", ")")
                        for h in program.howtos)
     from .suggest import closest_phrases
-    close = closest_phrases(lines[n - 1])
+    close = closest_phrases(lines[n - 1], names=program.names)
     text = (f"File: {file_name}\n"
             f"Names you set: {names or 'none'}\n"
             f"Your own steps: {howtos or 'none'}\n\n"
@@ -404,8 +404,8 @@ def places_are_safe(statements, program, original, folder, own_file):
             if isinstance(phrase.run, HowToDef):
                 # Plain can't tell which value your own step sends or saves, so none may be built here.
                 if isinstance(node, N.Name) and node.words in changed or \
-                        pieced(node) and not in_original(node, original):
-                    return False
+                        isinstance(node, N.TextLit) and not in_original(node, original):
+                    return False   # any new text could become an address or a file name inside it
             elif slot.kind != "text":
                 continue
             elif isinstance(node, N.Name):

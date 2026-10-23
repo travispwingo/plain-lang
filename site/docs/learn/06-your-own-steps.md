@@ -117,6 +117,8 @@ your program, line 1: Use different words for this "how to".
 
     how to read (book)
     ^^^^^^^^^^^^^^^^^^
+Try this:
+    how to look at (book)
 Why: It uses the same words in the same places as Plain's own phrase "read ...", as in read "sales.csv" and call it sales, so Plain couldn't tell them apart.
 
 Plain found 1 thing to fix, so it hasn't run your program yet.

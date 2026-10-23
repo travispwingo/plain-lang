@@ -104,10 +104,10 @@ def parse_csv(text):
 
 def unique_keys(keys):
     """Column names, with a number added to a repeated one ("a", "a 2") so no column is lost."""
-    out = []
+    out, taken = [], set(keys)
     for key in keys:
         name, n = key, 1
-        while name in out:
+        while name in out or (name != key and name in taken):
             n += 1
             name = f"{key} {n}"
         out.append(name)
@@ -123,7 +123,7 @@ def read_file(run, name):
         raise missing_file(run, name, path)
     if path.is_dir():
         raise Problem(f'Write "the files in "{name}"" to list a folder.', f'"{name}" is a folder, not a file.')
-    text = decode(path.read_bytes())
+    text = decode(path.read_bytes()).replace("\r\n", "\n")
     if ending == ".csv":
         return parse_csv(text)
     if ending == ".json":

@@ -175,7 +175,7 @@ class StepsInsideLines(unittest.TestCase):
         p = problem_on(source, 2)
         self.assertEqual(["work out the tip on lunch at 15% and call it tip", "show tip"], p.try_lines)
         out, _, _ = run_source(with_line(source, 2, "\n".join(p.try_lines)))
-        self.assertEqual("6.00\n", out)
+        self.assertEqual("6\n", out)      # 15% keeps the places you wrote, even handed to your step
 
     def test_how_to_inside_set(self):  # messages-5, messages-11
         p = problem_on("set lunch to 40\nset t to work out the tip on lunch at 15%\n" + self.TIP, 2)

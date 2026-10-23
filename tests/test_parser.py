@@ -61,7 +61,7 @@ class Ties(unittest.TestCase):
 
     def test_howto_and_builtin(self):
         p = self.problem('set board to a list of 1\nshow board\nhow to show the board\n    show 2')
-        self.assertIn("only one meaning", p.fix)
+        self.assertIn('Use different words for this "how to".', p.fix)   # the line using it is a follow-on
 
     def test_same_shape_as_builtin(self):
         p = self.problem("how to add (amount) to (account)\n    show amount")

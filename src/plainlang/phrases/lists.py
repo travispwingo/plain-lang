@@ -54,7 +54,7 @@ def position(run, items, n):
     if count == 0:
         raise empty_problem(run, "The list is empty, so it has no items.")
     if not 1 <= n <= count:
-        raise Problem(f"Use a position from 1 to {count}.",
+        raise Problem("Use item 1." if count == 1 else f"Use a position from 1 to {count}.",
                       f"The list has {things(count, 'item')}, so there is no item {n}.")
     return int(n) - 1
 
@@ -222,8 +222,11 @@ def text_add_problem(run, place, current, value):
         why += f' To get a list with one item for each line of a file, write "read the lines of" on line {came[0]}.'
     try_lines = [f"set {label} to a list of {N.TextLit([current]).canonical()}"] if one_line else []
     try_lines.append(f"set {label} to {N.TextLit([place.node] + list(added)).canonical()}")
+    choices = [[try_lines[0], f"add {N.arg_text(node) if node is not None else quoted(value)} to {label}"]] \
+        if one_line else []
+    choices.append([try_lines[-1]])
     return Problem(f'Make "{label}" a list to add items to it, or join the text with {{ }}.', why,
-                   try_lines=try_lines)
+                   try_lines=try_lines, choices=choices)
 
 
 @step("subtract {value} from {place}", example="subtract 1 from lives", topic=TOPIC)

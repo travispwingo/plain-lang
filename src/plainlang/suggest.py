@@ -32,7 +32,7 @@ TYPE_WORDS = {words[0] for words in TYPE_CHECKS} | {"divisible"}
 
 # Everyday verbs people start lines with, and the Plain step that does that job.
 VERB_HINTS = {
-    "count": ["set count to the number of sales", "show the number of sales where amount is more than 100"],
+    "count": ["set count to the number of sales"],
     "print": ['show "Hello"'], "say": ['show "Hello"'], "write": ['show "Hello"', 'save notes to "notes.txt"'],
     "display": ['show "Hello"'], "output": ['show "Hello"'], "tell": ['show "Hello"'],
     "make": ['set colors to a list of "red" and "blue"', "set total to 0"],
@@ -70,6 +70,8 @@ HABITS = [
     (r"^(?:open|download|get|load)\s+(?P<v>.+)$", r"read \g<v>",
      'Plain uses "read" for files and web pages.'),
     (r"^(?P<name>[A-Za-z][\w ]*?)\.(?:append|push)\(\s*(?P<v>.+?)\s*\)\s*;?$", r"add \g<v> to \g<name>",
+     '".append" comes from other languages. In Plain you put an item at the end of a list with "add".'),
+    (r"^(?P<name>[A-Za-z][\w ]*?)\.(?:append|push)\(\s*(?P<v>[A-Za-z][\w ]*)\s*\)\s*;?$", r'add "\g<v>" to \g<name>',
      '".append" comes from other languages. In Plain you put an item at the end of a list with "add".'),
     (r"^(?P<name>[A-Za-z][\w ]*?)\s*\+=\s*(?P<v>.+)$", r"add \g<v> to \g<name>",
      '"+=" comes from other languages. In Plain you add to a value with "add".'),
@@ -111,7 +113,7 @@ def explain_unreadable(reader, i, j, line, check=False):
         slip = core_slip(reader, line)
         if slip:
             return repair_problem(slip, line, number)
-        body = re.sub(r"^(?:please|now|then|next|finally)\s+", "", stripped, flags=re.IGNORECASE)
+        body = re.sub(r"^(?:please|now|then|next|first|finally)\s+", "", stripped, flags=re.IGNORECASE)
         for pattern, replacement, why in HABITS:
             m = re.match(pattern, body, flags=re.IGNORECASE)
             if not m or ("name" in m.groupdict() and not could_be_name(reader, m.group("name"))):
@@ -132,6 +134,23 @@ def explain_unreadable(reader, i, j, line, check=False):
                        "Plain keeps the single quote mark for words like sale's.",
                        line=number, col=tok.col, end=tok.end, try_lines=[fixed] if ok else [],
                        ideas=[indent + fixed] if ok else [])
+
+    # One of your steps used inside { } in a text.
+    if piece is not None and number is not None:
+        problem = step_in_piece(reader, line, piece)
+        if problem:
+            return problem
+
+    # Two texts side by side: show "a" "b". (Not for your own steps: there it's a wording slip.)
+    if whole and not (toks and toks[0].norm in reader.r.howto_index):
+        for a, b in zip(toks, toks[1:]):
+            if a.kind == "text" and b.kind == "text":
+                joined = a.raw[:-1] + " " + b.raw[1:]
+                fixed = raw[:a.col] + joined + raw[b.end:]
+                if reads_cleanly(reader, line, fixed):
+                    return Problem("Write the two texts as one text.",
+                                   "Plain reads one value at each place in a step, so the words go in one pair of quotes.",
+                                   line=number, col=a.col, end=b.end, try_lines=[fixed.rstrip()], ideas=[fixed])
 
     # A web address written without quotes.
     if whole:
@@ -158,7 +177,7 @@ def explain_unreadable(reader, i, j, line, check=False):
         repair = repairs(reader, line, toks, limit=3) if number is not None else []
         if repair:
             return repair_problem(repair[0], line, number)
-        close = closest_phrases(stripped)
+        close = closest_phrases(stripped, names=reader.names)
         return Problem(
             "Start this line with a step Plain knows, like one of these." if close else
             "Start this line with a step Plain knows. Type plain phrases to see them all.",
@@ -223,7 +242,7 @@ def explain_unreadable(reader, i, j, line, check=False):
     repair = repairs(reader, line, toks, limit=3) if number else []
     if repair:
         return repair_problem(repair[0], line, number)
-    close = closest_phrases(stripped)
+    close = closest_phrases(stripped, names=reader.names)
     return Problem(
         "Reword this line using phrases Plain knows, like one of these." if close else "Reword this line.",
         "Plain couldn't follow this line.", line=number, col=col, end=end, try_lines=close, ask_claude=True)
@@ -244,9 +263,11 @@ def closest_name(words, names):
     best = None
     for name in names:
         distance = edit_distance(words, name)
-        limit = 1 if len(words) <= 3 else 2
-        if distance <= limit and (best is None or distance < best[0]):
-            best = (distance, name)
+        # One letter off is a typo. Two letters off only counts when the start matches,
+        # so "trys" is "tries", but "name" isn't "age".
+        if distance == 1 or (distance == 2 and len(words) >= 4 and words[0] == name[0]):
+            if best is None or distance < best[0]:
+                best = (distance, name)
     return [best[1]] if best else []
 
 
@@ -475,14 +496,18 @@ def step_inside(reader, line):
         what = (f'"{view[p].raw}" is a step' if phrases[0].origin == "built-in" else
                 f'"{howto_wording(phrases[0].run)}" is one of your own steps')
         why = what + ", and each step in Plain goes on a line of its own."
+        set_form = norms[0] == "set" and "to" in norms and p == norms.index("to") + 1
         for e in range(p + 1, len(view) + 1):   # the shortest step that reads
             col, end = view[p].col, view[e - 1].end
             step = raw[col:end]
-            if norms[0] == "set" and "to" in norms and p == norms.index("to") + 1 and e == len(view):
+            if set_form:
+                # set x to double 4: the step can keep its value under x itself.
+                if e < len(view):
+                    continue
                 text = f"{indent}{step} and call it {raw[view[1].col:view[p - 2].end]}"
                 if reads_cleanly(reader, line, text):
                     return Problem(fix, why, line=line.number, col=col, end=end,
-                                   try_lines=[text.strip()], ideas=[text])
+                                   try_lines=[text.rstrip()], ideas=[text])
                 continue
             name = result_name(reader, phrases[0])
             if name is None:
@@ -491,8 +516,34 @@ def step_inside(reader, line):
             second = raw[:col] + name + raw[end:]
             if reads_cleanly(reader, line, first) and reads_with_name(reader, line, second, tuple(name.split())):
                 return Problem(fix, why, line=line.number, col=col, end=end,
-                               try_lines=[first.strip(), second.strip()])
+                               try_lines=[first.rstrip(), second.rstrip()], ideas=[first + "\n" + second])
     return None
+
+
+def step_in_piece(reader, line, piece):
+    """One of your how-tos used inside { } in a text: do it on the line before, then use the name."""
+    toks = piece.tokens
+    if not toks:
+        return None
+    phrases = giving_steps(reader, toks[0])
+    if not phrases:
+        return None
+    raw = line.raw
+    indent = raw[:len(raw) - len(raw.lstrip())]
+    name = result_name(reader, phrases[0])
+    if name is None:
+        return None
+    inner = raw[piece.col + 1:piece.end - 1].strip()
+    first = f"{indent}{inner} and call it {name}"
+    second = raw[:piece.col + 1] + name + raw[piece.end - 1:]
+    if not (reads_cleanly(reader, line, first) and reads_with_name(reader, line, second, tuple(name.split()))):
+        return None
+    what = (f'"{toks[0].raw}" is a step' if phrases[0].origin == "built-in" else
+            f'"{howto_wording(phrases[0].run)}" is one of your own steps')
+    return Problem('Put this step on a line of its own, and keep what it gives back with "and call it".',
+                   what + ", and each step in Plain goes on a line of its own.",
+                   line=line.number, col=piece.col, end=piece.end,
+                   try_lines=[first.rstrip(), second.rstrip()], ideas=[first + "\n" + second])
 
 
 def giving_steps(reader, tok):
@@ -511,8 +562,8 @@ def result_name(reader, phrase):
     words = phrase.elements
     options = [e.main for e, nxt in zip(words[1:], words[2:])
                if isinstance(e, Word) and isinstance(nxt, Word) and nxt.main in STOP_WORDS
-               and e.main not in STOP_WORDS | SPECIAL_WORDS][:1] + ["result"]
-    return next((o for o in options if (o,) not in reader.names), None)
+               and e.main not in STOP_WORDS | SPECIAL_WORDS][:1] + ["result"] + [f"result {n}" for n in range(2, 10)]
+    return next((o for o in options if tuple(o.split()) not in reader.names), None)
 
 
 def where_problem(reader, line):
@@ -536,14 +587,15 @@ def where_problem(reader, line):
             words = tuple(name.split())
             first = f"{indent}set {name} to {raw[start:stop]}"
             second = raw[:start] + name + raw[stop:]
-            try_lines = [bracketed.strip()]
+            choices = [[bracketed.rstrip()]]
             if words not in reader.names and reads_with_name(reader, line, first, words) \
                     and reads_with_name(reader, line, second, words):
-                try_lines = [first.strip(), second.strip(), bracketed.strip()]
+                choices = [[first.rstrip(), second.rstrip()], [bracketed.rstrip()]]
             return Problem(
                 'Put brackets around the "where" part, or keep the matching rows under a name first.',
                 '"where" checks each row up to the end of the line, so here it took in the comparison after it too.',
-                line=line.number, col=start, end=stop, try_lines=try_lines, ideas=[bracketed])
+                line=line.number, col=start, end=stop, try_lines=[l for c in choices for l in c],
+                choices=choices, ideas=[bracketed])
     return None
 
 
@@ -572,6 +624,15 @@ def it_problem(reader, line):
 def file_name_problem(reader, line):
     """A file name written without quotes: people.csv."""
     toks, raw = line.tokens, line.raw
+    m = re.search(r'\b(?:read|to) (?!")(?P<f>[A-Za-z][\w ]*\.(?:csv|txt|json|md|html|tsv))\b', raw)
+    if m and not raw[:m.start("f")].count('"') % 2:
+        start, stop = m.start("f"), m.end("f")
+        fixed = raw[:start] + '"' + m.group("f") + '"' + raw[stop:]
+        if reads_cleanly(reader, line, fixed):
+            return Problem("Put the file name in double quotes.",
+                           "A file name is text, and text goes in double quotes.",
+                           line=line.number, col=start, end=stop,
+                           try_lines=[fixed.rstrip()], ideas=[fixed])
     for k in range(len(toks) - 2):
         a, dot, ext = toks[k:k + 3]
         if a.kind == "word" and dot.kind == "symbol" and dot.norm == "." and ext.kind == "word" \
@@ -958,28 +1019,39 @@ def repair_problem(repair, line, number):
                    try_lines=[text.rstrip()], ideas=[text])
 
 
-def closest_phrases(text, count=3):
-    all_words = re.findall(r"[a-z]+", text.lower())
+EXAMPLE_LISTS = ("sales", "prices", "todos", "colors", "names", "scores", "cards", "shopping",
+                 "expenses", "people", "notes")
+
+
+def closest_phrases(text, count=3, names=()):
+    """Examples of the phrases closest to a line: the ones sharing the most words with it.
+    When the line uses one of your names, the examples use it too."""
+    all_words = re.findall(r"[a-z0-9]+", text.lower())
+    yours = next((" ".join(n) for n in sorted(names, key=len, reverse=True)
+                  if " ".join(n) in " ".join(all_words)), None)
+
+    def personal(example):
+        if yours:
+            for word in EXAMPLE_LISTS:
+                example = re.sub(rf"\b{word}\b", yours, example)
+        return example
+
     if all_words and all_words[0] in VERB_HINTS:
-        return VERB_HINTS[all_words[0]][:count]
-    words = set(all_words) - STOP_WORDS
-    scored = []
-    seen = set()
+        return [personal(e) for e in VERB_HINTS[all_words[0]][:count]]
+    first, rest = (all_words[0], set(all_words[1:]) - STOP_WORDS) if all_words else ("", set())
+    scored, seen = [], set()
     for phrase in REGISTRY:
         main = phrase.main
-        if id(main) in seen:
+        if id(main) in seen or main.kind not in ("step", "value", "postfix"):
             continue
         seen.add(id(main))
-        template_words = set()
-        for p in REGISTRY:
-            if p.main is main:
-                template_words |= {a for e in p.elements if isinstance(e, Word) for a in e.alts}
-        score = len(words & template_words)
-        first = main.elements[0]
-        if isinstance(first, Word) and words and difflib.get_close_matches(
-                text.lower().split()[0] if text.split() else "", list(first.alts), n=1, cutoff=0.7):
-            score += 2
-        if score:
-            scored.append((score, main.example))
+        words = {a for p in REGISTRY if p.main is main for e in p.elements if isinstance(e, Word) for a in e.alts}
+        score = 2 * len(rest & words)
+        lead = main.elements[0]
+        if main.kind == "step" and isinstance(lead, Word) and first and \
+                (first in lead.alts or difflib.get_close_matches(first, list(lead.alts), n=1, cutoff=0.8)):
+            score += 1
+        if score >= 2 or (score == 1 and not rest):
+            scored.append((score, personal(main.example)))
     scored.sort(key=lambda s: -s[0])
     return [example for _, example in scored[:count]]

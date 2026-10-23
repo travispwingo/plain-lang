@@ -202,6 +202,9 @@ class Reader:
 
         statements = self.read_body(top, problems, scope=None)
         self.check_placement(statements, problems, in_repeat=False, in_howto=False)
+        problems = [p for p in problems if not getattr(p, "follows_clash", False)]   # amendment 11
+        misplaced = {p.line for p in problems if p.fix.startswith("Move this line 4 spaces")}
+        problems = [p for p in problems if p.line not in misplaced or p.fix.startswith("Move this line")]
         problems.sort(key=lambda p: (p.line or 0, p.col or 0))
         problems = group_unknown_names(dedupe_problems(problems), source_lines)
         return Program(statements, problems, source_lines, self.main_names,
@@ -285,6 +288,7 @@ class Reader:
         return howto
 
     def check_shapes(self, howto_lines, problems):
+        self.clashing = set()
         builtin_shapes = {p.shape: p for p in REGISTRY if p.kind == "step"}
         seen = {}
         for line, howto in howto_lines:
@@ -301,14 +305,18 @@ class Reader:
                     'Use different words for this "how to".',
                     f'It uses the same words in the same places as {whose} "{theirs}"'
                     + (f", as in {example}" if example else "") + ", so Plain couldn't tell them apart.",
-                    line=line.number, col=line.indent, end=len(line.raw.rstrip())))
+                    line=line.number, col=line.indent, end=len(line.raw.rstrip()),
+                    try_lines=reworded(howto.phrase, line)))
+                self.clashing.add(id(howto))
             elif (other := builtin_overlap(howto.phrase)) is not None:
                 theirs = " ".join("..." if s == "_" else s for s in other.shape)
                 problems.append(Problem(
                     'Use different words for this "how to".',
                     f'A line that uses it could also be read as Plain\'s own phrase "{theirs}", as in '
                     f"{other.example}, so Plain couldn't tell them apart.",
-                    line=line.number, col=line.indent, end=len(line.raw.rstrip())))
+                    line=line.number, col=line.indent, end=len(line.raw.rstrip()),
+                    try_lines=reworded(howto.phrase, line)))
+                self.clashing.add(id(howto))
             seen[shape] = howto.phrase
 
     # Declaring names ---------------------------------------------------------------
@@ -328,6 +336,13 @@ class Reader:
             target = view[1:k]
             if target and not self.is_place(target, names):
                 self.add_name(target, names, line, problems, quiet)
+            if norms.count("to") > 1:
+                # "set time to leave to 5pm": keep the name it meant, so later lines that use
+                # "time to leave" don't pile up problems (the rename problem is on this line).
+                last = len(norms) - 1 - norms[::-1].index("to")
+                long_name = view[1:last]
+                if all(t.kind == "word" for t in long_name):
+                    self.add_name(long_name, names, line, problems, quiet=True)
         if first == "for" or (first == "repeat" and norms[1:2] == ["for"]):
             start = 1 if first == "for" else 2
             if len(view) > start + 1 and norms[start] in ("each", "every"):
@@ -653,10 +668,17 @@ class Reader:
 
     def read_inline_step(self, tokens, line, scope, problems, word="if"):
         sub = Line_(line, tokens)
-        stmt = self.read_core(tokens[0].norm if tokens[0].kind == "word" else "", tokens, sub, scope,
-                              problems, self.line_reader(tokens, scope))
+        first = tokens[0].norm if tokens[0].kind == "word" else ""
+        if first in ("repeat", "for", "while", "until", "try", "if", "how", "otherwise", "else"):
+            raise Problem(f'Put this step on its own line under the "{word}".',
+                          "It has steps of its own, so it needs a line of its own.",
+                          line=line.number, col=tokens[0].col, end=tokens[-1].end)
+        reader = self.line_reader(tokens, scope)
+        stmt = self.read_core(first, tokens, sub, scope, problems, reader)
         if stmt is NotCore:
-            stmt = self.line_reader(tokens, scope).read_step_line(0, len(tokens), sub)
+            stmt = reader.read_step_line(0, len(tokens), sub)
+        if isinstance(stmt, N.Statement):
+            stmt.synonym_edits = list(stmt.synonym_edits) + reader.synonym_edits   # for plain tidy
         if isinstance(stmt, (tuple, N.If, N.Repeat, N.Try)) or stmt is None:
             raise Problem(f'Put this step on its own line under the "{word}".',
                           "It has steps of its own, so it needs a line of its own.",
@@ -726,9 +748,16 @@ class Reader:
             start = k + 2
             stop = next((m for m in range(start, n) if norms[m] in ("in", "from")), None)
             if stop is None or stop == start:
-                raise Problem('Write it like this: repeat for each item in my list',
-                              '"repeat for each" goes through a list one item at a time.',
-                              line=L, col=view[0].col, end=view[-1].end)
+                fixed = []
+                slip = next((m for m in range(start + 1, n) if norms[m] in ("of", "on", "at", "through")), None)
+                if slip is not None:   # for each thing of items: "in", not "of"
+                    raw = line.raw
+                    fixed = [(raw[:view[slip].col] + "in" + raw[view[slip].end:]).rstrip()]
+                    if norms[0] != "repeat":
+                        fixed[0] = fixed[0].replace(view[0].raw, "repeat " + view[0].raw, 1)
+                raise Problem('Write "in" before the list, like: repeat for each item in my list',
+                              '"repeat for each" goes through a list one item at a time: NAME in LIST.',
+                              line=L, col=view[0].col, end=view[-1].end, try_lines=fixed, ideas=list(fixed))
             name = reader.read_place(start, stop, declaring=True)
             if norms[stop] == "in":
                 items = reader.one(reader.check(stop + 1, n), stop + 1, n, line)
@@ -778,6 +807,34 @@ class Reader:
             for child, repeat, howto in children(stmt):
                 self.check_placement(child, problems, in_repeat or repeat,
                                      in_howto or howto)
+
+
+OTHER_VERBS = {
+    "add": "put", "show": "present", "read": "look at", "save": "store", "remove": "take out",
+    "sort": "arrange", "ask": "question", "wait": "hold on", "send": "deliver", "load": "pack",
+    "replace": "swap", "reverse": "flip", "shuffle": "mix up", "rename": "relabel",
+    "subtract": "take away", "clear": "wipe", "start": "begin", "display": "present",
+    "fetch": "go get", "delete": "take out", "pause": "hold on",
+}
+
+
+def reworded(phrase, line):
+    """A new wording for a how-to that clashes with one of Plain's phrases, if one is free."""
+    words = phrase.template.split()
+    first = words[0]
+    other = OTHER_VERBS.get(first) or OTHER_VERBS.get(SYNONYMS.get(first, ""))
+    if other is None:
+        return []
+    new = [other] + words[1:]
+    if first == "add" and "to" in new:
+        new[new.index("to")] = "into"
+    text = " ".join(new)
+    elements = tuple(Slot(w.strip("{}"), "value") if w.startswith("{") else Word((w,))
+                     for w in text.split() if w not in ARTICLES)
+    if builtin_overlap(Phrase(text, elements, "step", None)) is not None:
+        return []
+    indent = line.raw[:len(line.raw) - len(line.raw.lstrip())]
+    return [indent + "how to " + text.replace("{", "(").replace("}", ")")]
 
 
 def builtin_overlap(howto):
@@ -1011,7 +1068,7 @@ class LineReader:
             return Problem(
                 "Add brackets, or reword this, so it has only one meaning.",
                 "Plain can read it two ways, and it never guesses which one you mean.",
-                line=line.number, col=col, end=end, try_lines=try_lines,
+                line=line.number, col=col, end=end, try_lines=try_lines, choices=[[t] for t in try_lines],
                 ideas=list(try_lines), ask_claude=True)
         name, with_name, with_words = split
         try_lines = [replace_span(line.raw, col, end, with_words.canonical()),
@@ -1023,7 +1080,8 @@ class LineReader:
             f'Rename "{words}" so this line has only one meaning.',
             f'Plain can read this line two ways: with your name "{words}", or with Plain\'s own words. '
             "Plain never guesses, so you choose.",
-            line=line.number, col=name.col, end=name.end, try_lines=try_lines, ideas=ideas, ask_claude=True)
+            line=line.number, col=name.col, end=name.end, try_lines=try_lines, choices=[[t] for t in try_lines],
+            ideas=ideas, ask_claude=True)
 
     def bad_problem(self, bad, line):
         problem = bad.problem
@@ -1033,6 +1091,7 @@ class LineReader:
         if bad.alts and bad.col is not None:
             indent = line.raw[:len(line.raw) - len(line.raw.lstrip())]
             problem.try_lines = [indent + replace_span(line.raw, bad.col, bad.end, alt) for alt in bad.alts]
+            problem.choices = [[t] for t in problem.try_lines]
             problem.ideas = list(problem.try_lines)
         return problem
 
@@ -1149,6 +1208,13 @@ class LineReader:
         return N.Step(phrase, args, line=line.number)
 
     def step_tie(self, a, b, line, why):
+        clash = [r[0].run for r in (a, b) if isinstance(r[0].run, HowToDef)
+                 and id(r[0].run) in getattr(self.r, "clashing", set())]
+        if clash:
+            # The "how to" line already has the problem; this line only follows from it.
+            problem = Problem("Use different words for your step.", line=line.number)
+            problem.follows_clash = True
+            return problem
         texts = []
         same = a[0].main is b[0].main
         howto = any(isinstance(r[0].run, HowToDef) for r in (a, b))
@@ -1160,6 +1226,7 @@ class LineReader:
             "Add brackets, or reword this, so it has only one meaning."
         indent = line.raw[:len(line.raw) - len(line.raw.lstrip())]
         texts = [indent + t for t in texts]
+        choices = [[t] for t in texts]
         ideas = [] if not same or self.r.quiet else [t for t in texts if reads_cleanly(self, line, t)]
         return Problem(fix, why + " Plain never guesses, so you choose.",
                        line=line.number, col=self.t[0].col, end=self.t[-1].end, try_lines=texts, ideas=ideas,
@@ -1286,7 +1353,7 @@ class LineReader:
     def places(self, i, j):
         out = []
         for node in self.ofv(i, j, False):
-            if isinstance(node, (N.Name, N.Field)) or (
+            if isinstance(node, (N.Name, N.Field, N.Where)) or (
                     isinstance(node, N.Value) and node.phrase.main.template.split()[0] in
                     ("item", "the") and "item" in node.phrase.main.template):
                 out.append(node)
@@ -1531,6 +1598,10 @@ class LineReader:
         return [x for x in out if x is not None]
 
     def combine(self, op, left, right, i, j):
+        if isinstance(left, N.Bad) and op == "plus" and getattr(left, "join_parts", None) \
+                and not isinstance(right, N.Bad):
+            # "Hi " + name + "!": one fix for the whole run of plus signs.
+            return self.join_bad(left.join_parts + [right], left.col, self.t[j - 1].end)
         if isinstance(left, N.Bad):
             return left
         if isinstance(right, N.Bad):
@@ -1554,12 +1625,7 @@ class LineReader:
                 f'"{tail.phrase.main.template.split("{")[0].strip()} …", or come after it.'),
                 alts, col=col, end=end)
         if op == "plus" and (isinstance(left, N.TextLit) or isinstance(right, N.TextLit)):
-            joined = '"' + text_inside(left) + text_inside(right) + '"'
-            both = isinstance(left, N.TextLit) and isinstance(right, N.TextLit)
-            return N.Bad(Problem(
-                "Write the two texts as one text." if both else "Put the value inside the text with { }.",
-                'In Plain, "plus" and "+" only add numbers. To join text, write the value in { } inside the text.'),
-                [joined], col=col, end=end)
+            return self.join_bad([left, right], col, end)
         if op in ("plus", "minus") and isinstance(right, N.Lit) and right.percent:
             lt = left.canonical()
             pct = right.canonical()
@@ -1569,6 +1635,16 @@ class LineReader:
                 f'"{lt} {op} {pct}" could mean {op} {pct} of {lt}, or {op} {frac}.'),
                 [f"{lt} {op} {pct} of {lt}", f"{lt} {op} {frac}"], col=col, end=end)
         return N.Math(op, left, right, col=col, end=end)
+
+    def join_bad(self, parts, col, end):
+        joined = '"' + "".join(text_inside(part) for part in parts) + '"'
+        texts_only = all(isinstance(part, N.TextLit) for part in parts)
+        bad = N.Bad(Problem(
+            "Write the texts as one text." if texts_only else "Put the value inside the text with { }.",
+            'In Plain, "plus" and "+" only add numbers. To join text, write the value in { } inside the text.'),
+            [joined], col=col, end=end)
+        bad.join_parts = parts
+        return bad
 
     def unary(self, i, j, w):
         if i >= j:

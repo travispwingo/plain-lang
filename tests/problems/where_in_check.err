@@ -2,9 +2,10 @@ where_in_check.plain, line 2: Put brackets around the "where" part, or keep the 
 
     if the number of sales where amount is more than 100 is at least 2
                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Try this:
+Try one of these:
     set matching sales to sales where amount is more than 100
     if the number of matching sales is at least 2
+  or
     if the number of (sales where amount is more than 100) is at least 2
 Why: "where" checks each row up to the end of the line, so here it took in the comparison after it too.
 

@@ -1,0 +1,7 @@
+bare_stop.plain, line 2: Write "stop repeating" to leave the repeat, or "stop the program" to end it.
+
+        stop
+        ^^^^
+Why: Plain has two kinds of stop, so it asks you to say which one you mean.
+
+Plain found 1 thing to fix, so it hasn't run your program yet.

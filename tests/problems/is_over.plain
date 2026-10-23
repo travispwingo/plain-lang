@@ -1,0 +1,3 @@
+set x to 5
+if x is over 3
+    show "big"

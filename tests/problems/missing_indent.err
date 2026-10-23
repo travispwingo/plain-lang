@@ -1,0 +1,10 @@
+missing_indent.plain, line 4: Move this line 4 spaces to the right (or press Tab), so it belongs to the "if" on line 3.
+
+    show "Higher!"
+    ^
+Try this:
+    if guess is less than secret
+        show "Higher!"
+Why: Steps that belong to "if" sit further right than the "if" line itself.
+
+Plain found 1 thing to fix, so it hasn't run your program yet.

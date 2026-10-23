@@ -1,0 +1,7 @@
+You have 5 sales.
+Big sales, largest first:
+  Cy: $300
+  Ed: $150
+  Ann: $120.50
+3 big sales, worth $570.50 in all.
+Saved them to big_sales.csv.

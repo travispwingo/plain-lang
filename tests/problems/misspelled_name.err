@@ -1,0 +1,7 @@
+misspelled_name.plain, line 3: Write "tries" instead of "trys".
+
+    show "You got it in {trys} tries!"
+                         ^^^^
+Why: You set "tries" on line 1. Nothing in your program sets "trys".
+
+Plain found 1 thing to fix, so it hasn't run your program yet.

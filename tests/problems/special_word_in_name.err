@@ -1,0 +1,7 @@
+special_word_in_name.plain, line 1: Rename "tip percent", for example to "tip rate".
+
+    set tip percent to 15
+        ^^^^^^^^^^^
+Why: "percent" is one of Plain's special words, so it can't be part of a name.
+
+Plain found 1 thing to fix, so it hasn't run your program yet.

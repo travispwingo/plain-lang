@@ -1,0 +1,12 @@
+# Find the big sales
+read "sales.csv" and call it sales
+show "You have {the number of sales} sales."
+set big sales to the sales where amount is more than 100
+sort big sales by amount, largest first
+set total to the total of the amounts of big sales
+show "Big sales, largest first:"
+repeat for each sale in big sales
+    show "  {sale's customer}: ${sale's amount}"
+show "{the number of big sales} big sales, worth ${total} in all."
+save big sales to "big_sales.csv"
+show "Saved them to big_sales.csv."

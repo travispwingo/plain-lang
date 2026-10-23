@@ -1,0 +1,5 @@
+repeat_over_text.plain, line 2, while running: Write "the lines of guests", "the words of guests" or "the characters of guests" to say how to go through the text.
+
+    repeat for each guest in guests
+                             ^^^^^^
+Why: "guests" is text, so Plain needs to know which parts to go through.

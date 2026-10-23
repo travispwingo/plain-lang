@@ -1,0 +1,11 @@
+How many more? lots
+text_not_number.plain, line 3, while running: Check that "answer" is a number before you add it.
+
+    set total to total plus answer
+                            ^^^^^^
+Try this:
+    if answer is a number
+        set total to total plus answer
+    otherwise
+        show "Please type a number."
+Why: You can't add "lots" to 12, because "lots" is text, not a number. "answer" got its value on line 2, from what was typed.

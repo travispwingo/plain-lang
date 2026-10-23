@@ -1,0 +1,5 @@
+spreadsheet_file.plain, line 1, while running: Save "budget.xlsx" as a CSV file, then read "budget.csv".
+
+    read "budget.xlsx" and call it budget
+         ^^^^^^^^^^^^^
+Why: Plain reads spreadsheets saved as CSV. In Excel, choose File > Save As > CSV. In Google Sheets, choose File > Download > CSV.

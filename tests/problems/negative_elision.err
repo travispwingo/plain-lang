@@ -1,0 +1,10 @@
+negative_elision.plain, line 2: Write the whole check again after "or", so it has only one meaning.
+
+    if answer is not "y" or "yes"
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^
+Try this:
+    if answer is not "y" and answer is not "yes"
+    if answer is not in a list of "y" and "yes"
+Why: After "is not" or "between", leaving out the first part could mean two different things.
+
+Plain found 1 thing to fix, so it hasn't run your program yet.

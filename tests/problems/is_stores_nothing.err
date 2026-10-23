@@ -1,0 +1,9 @@
+is_stores_nothing.plain, line 1: Write "set score to 0" instead.
+
+    score is 0
+    ^^^^^^^^^^
+Try this:
+    set score to 0
+Why: In Plain, "is" only compares two values, as in: if score is 0
+
+Plain found 1 thing to fix, so it hasn't run your program yet.

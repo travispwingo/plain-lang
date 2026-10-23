@@ -1,0 +1,3 @@
+set guests to "Ann and Bo"
+repeat for each guest in guests
+    show "Welcome, {guest}!"

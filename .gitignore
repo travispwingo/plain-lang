@@ -1,0 +1,9 @@
+__pycache__/
+*.egg-info/
+build/
+dist/
+.venv/
+*.plain.bak
+site/dist/
+site/.cache/
+node_modules/

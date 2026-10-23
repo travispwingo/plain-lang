@@ -1,0 +1,10 @@
+plus_percent.plain, line 2: Write what the 8% is a part of.
+
+    show price plus 8%
+         ^^^^^^^^^^^^^
+Try this:
+    show price plus 8% of price
+    show price plus 0.08
+Why: "price plus 8%" could mean plus 8% of price, or plus 0.08.
+
+Plain found 1 thing to fix, so it hasn't run your program yet.

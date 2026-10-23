@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "plainlang"
+version = "0.1.0"
+description = "Plain: write steps in everyday English, then run them."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = []
+
+[project.optional-dependencies]
+ai = ["anthropic"]
+
+[project.scripts]
+plain = "plainlang.cli:main"
+
+[project.urls]
+Homepage = "https://plain-lang.dev"
+
+[tool.setuptools.packages.find]
+where = ["src"]

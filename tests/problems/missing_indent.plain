@@ -1,0 +1,4 @@
+set guess to 1
+set secret to 5
+if guess is less than secret
+show "Higher!"

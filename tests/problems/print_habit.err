@@ -1,0 +1,9 @@
+print_habit.plain, line 1: Write "show "Hello"" instead.
+
+    print("Hello")
+    ^^^^^^^^^^^^^^
+Try this:
+    show "Hello"
+Why: Plain uses "show" to put words on the screen.
+
+Plain found 1 thing to fix, so it hasn't run your program yet.

@@ -1,0 +1,2 @@
+set price to 80
+show price plus 8%

@@ -1,0 +1,21 @@
+# Guess my number
+set secret to a random number from 1 to 100
+set tries to 0
+show "I'm thinking of a number from 1 to 100."
+repeat forever
+    ask "What's your guess?" and call it guess
+    if guess is not a whole number
+        show "Please type a whole number, like 42."
+        skip to the next round
+    if guess is less than 1 or more than 100
+        show "Pick a number from 1 to 100."
+        skip to the next round
+    add 1 to tries
+    if guess is less than secret
+        show "Higher!"
+    otherwise if guess is more than secret
+        show "Lower!"
+    otherwise
+        show "You got it in {tries} tries!"
+        stop repeating
+show "Thanks for playing."

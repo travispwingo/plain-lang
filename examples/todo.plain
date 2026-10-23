@@ -1,0 +1,25 @@
+# A to-do list that remembers
+set todos to an empty list
+if the file "todos.txt" exists
+    read the lines of "todos.txt" and call it todos
+repeat forever
+    ask "What now?" with choices "Add", "Show", "Cross off" and "Quit" and call it choice
+    if choice is "Add"
+        ask "What do you need to do?" and call it task
+        add task to todos
+    otherwise if choice is "Show"
+        show todos
+    otherwise if choice is "Cross off"
+        cross off a task in todos
+    otherwise
+        stop repeating
+save todos to "todos.txt"
+show "Saved your list. See you next time!"
+
+# The details
+how to cross off a task in (tasks)
+    if tasks is empty
+        show "There's nothing to cross off."
+    otherwise
+        ask "Which one is done?" with choices tasks and call it done
+        remove done from tasks

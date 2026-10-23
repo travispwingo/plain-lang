@@ -1,0 +1,9 @@
+unquoted_text.plain, line 2: Put the text in double quotes.
+
+    show Hello there
+         ^^^^^^^^^^^
+Try this:
+    show "Hello there"
+Why: Words in double quotes are shown just as you wrote them. Without quotes, Plain looks for a name "Hello there", and you haven't set one.
+
+Plain found 1 thing to fix, so it hasn't run your program yet.

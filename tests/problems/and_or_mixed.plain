@@ -1,0 +1,5 @@
+set a to yes
+set b to no
+set c to yes
+if a and b or c
+    show "yes"

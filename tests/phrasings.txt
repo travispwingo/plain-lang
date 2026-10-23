@@ -1,0 +1,84 @@
+# How people write lines, and how Plain reads them. Lines starting with ! must not read.
+# M0's phrasing study adds real lines from people who have never programmed.
+
+names: sales, big sales, total, guess, secret, answer, todos, price, bill, rate, tries, score, colors, name, age, max, done, project, mine, theirs, scores, guests, player 1, file count, count
+
+SHOW "Hi" => show "Hi"
+Then show "Done" => show "Done"
+Please show "Hi"! => show "Hi"
+show “curly quotes” => show "curly quotes"
+display total => show total
+show the total => show total
+set total to price times 2 => set total to price times 2
+set total to price * 2 => set total to price times 2
+set total to price multiplied by 2 => set total to price times 2
+set total to bill times rate rounded to 2 places => set total to bill times rate rounded to 2 places
+set total to bill times rate rounded to 2 decimal places => set total to bill times rate rounded to 2 places
+set total to price plus 8% of price => set total to price plus 8% of price
+set total to 15% of bill => set total to 15% of bill
+set total to 15 percent of bill => set total to 15% of bill
+if guess is less than 1 or more than 100 => if guess is less than 1 or guess is more than 100
+if answer is "y" or "yes" => if answer is "y" or answer is "yes"
+if answer is "y" or "yes" or "sure" => if answer is "y" or answer is "yes" or answer is "sure"
+if age is more than 12 and less than 20 => if age is more than 12 and age is less than 20
+if age > 12 => if age is more than 12
+if age isn't 3 => if age is not 3
+if guess is bigger than secret => if guess is more than secret
+if guess equals secret => if guess is secret
+if age is at least 18 => if age is at least 18
+if age is between 13 and 19 => if age is between 13 and 19
+if name is empty => if name is empty
+if todos is not empty => if todos is not empty
+if guess is not a whole number => if guess is not a whole number
+if score is even => if score is even
+if score is divisible by 3 => if score is divisible by 3
+if mine is "rock" and theirs is "scissors" or "lizard" => if mine is "rock" and (theirs is "scissors" or theirs is "lizard")
+if name contains "a" => if name contains "a"
+if name does not contain "a" => if name does not contain "a"
+if answer is not in a list of "y" and "yes" => if answer is not in a list of "y" and "yes"
+set big sales to the sales where amount is more than 100 => set big sales to sales where its amount is more than 100
+set total to the total of the amounts of big sales => set total to the total of the amounts of big sales
+set total to the sum of the amounts of big sales => set total to the total of the amounts of big sales
+show the number of sales where amount is more than 100 => show the number of sales where its amount is more than 100
+show the scores where it is more than 10 => show scores where it is more than 10
+show project's open issues count => show project's open issues count
+show the name of project => show the name of project
+set roll to (a random number from 1 to 6) plus (a random number from 1 to 6) => set roll to (a random number from 1 to 6) plus (a random number from 1 to 6)
+set top to a random number from 1 to (max plus 1) => set top to a random number from 1 to (max plus 1)
+show the number of guests plus 1 => show the number of guests plus 1
+show item 2 of colors => show item 2 of colors
+show the first 2 items of colors => show the first 2 items of colors
+add 1 to player 1 => add 1 to player 1
+show "{player 1} wins" => show "{player 1} wins"
+sort big sales by amount, largest first => sort big sales by amount largest first
+for each sale in sales => repeat for each sale in sales
+repeat for every sale in sales => repeat for each sale in sales
+repeat 3 times => repeat 3 times
+repeat twice => repeat 2 times
+repeat until guess is secret => repeat until guess is secret
+repeat for each n from 10 down to 1 => repeat for each n from 10 down to 1
+read "sales.csv" and call it sales => read "sales.csv" and call it sales
+load "sales.csv" and call it sales => read "sales.csv" and call it sales
+ask "What is your name?" and call it name => ask "What is your name?" and call it name
+wait 2 seconds => wait 2 seconds
+wait 1 second => wait 1 seconds
+set a to 3 => set a to 3
+quit => stop the program
+
+# One meaning per word: these must not read.
+! score is 0
+! x = 5
+! print "Hi"
+! say "Hi"
+! show Hello there
+! set roll to a random number from 1 to 6 plus a random number from 1 to 6
+! set top to a random number from 1 to max plus 1
+! if answer is not "y" or "yes"
+! if answer is "y" and "yes"
+! if done and guess is 3 or answer is 4
+! add 1 to file count
+! set price to price plus 8%
+! if score is over 3
+! if it fails
+! stop
+! set tip percent to 15

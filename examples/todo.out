@@ -1,0 +1,38 @@
+What now?
+  1) Add
+  2) Show
+  3) Cross off
+  4) Quit
+Type a number or a choice: Add
+What do you need to do? Buy milk
+What now?
+  1) Add
+  2) Show
+  3) Cross off
+  4) Quit
+Type a number or a choice: 1
+What do you need to do? Walk the dog
+What now?
+  1) Add
+  2) Show
+  3) Cross off
+  4) Quit
+Type a number or a choice: Show
+Buy milk and Walk the dog
+What now?
+  1) Add
+  2) Show
+  3) Cross off
+  4) Quit
+Type a number or a choice: Cross off
+Which one is done?
+  1) Buy milk
+  2) Walk the dog
+Type a number or a choice: 1
+What now?
+  1) Add
+  2) Show
+  3) Cross off
+  4) Quit
+Type a number or a choice: 4
+Saved your list. See you next time!

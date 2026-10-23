@@ -1,0 +1,11 @@
+# Greet the person by name
+ask "What is your name?" and call it name
+if name is empty
+    set name to "friend"
+show "Hello, {name}! Nice to meet you."
+ask "How old are you?" and call it age
+if age is a number
+    show "Next year you will be {age plus 1}."
+otherwise
+    show "That's fine. You don't have to say."
+show "Goodbye, {name}."

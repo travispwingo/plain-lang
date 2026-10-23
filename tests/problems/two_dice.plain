@@ -1,0 +1,1 @@
+set roll to a random number from 1 to 6 plus a random number from 1 to 6

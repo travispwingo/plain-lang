@@ -1,0 +1,3 @@
+set balance to 0
+how to add (amount) to (account)
+    show amount

@@ -1,0 +1,3 @@
+set tries to 0
+add 1 to tries
+show "You got it in {trys} tries!"

@@ -1,0 +1,9 @@
+is_over.plain, line 2: Write "if x is more than 3" instead.
+
+    if x is over 3
+       ^^^^^^^^^^^
+Try this:
+    if x is more than 3
+Why: In everyday English "is over" means "has finished", so Plain uses "is more than".
+
+Plain found 1 thing to fix, so it hasn't run your program yet.

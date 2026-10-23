@@ -1,0 +1,3 @@
+ask "Stop? (y/n)" and call it answer
+if answer is not "y" or "yes"
+    show "Going on."

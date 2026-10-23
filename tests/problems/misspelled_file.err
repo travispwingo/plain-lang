@@ -1,0 +1,5 @@
+misspelled_file.plain, line 1, while running: Write "sales.csv" instead of "sales.cvs".
+
+    read "sales.cvs" and call it sales
+         ^^^^^^^^^^^
+Why: There's no file "sales.cvs" in the same folder as your program.

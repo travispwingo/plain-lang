@@ -1,0 +1,3 @@
+set count to 0
+set file count to 0
+add 1 to file count

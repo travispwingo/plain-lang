@@ -1,0 +1,10 @@
+unknown_step.plain, line 1: Start this line with a step Plain knows, like one of these.
+
+    count up the sales over 100
+    ^^^^^
+Try this:
+    set count to the number of sales
+    show the number of sales where amount is more than 100
+Why: Plain doesn't know a step that starts with "count".
+
+Plain found 1 thing to fix, so it hasn't run your program yet.

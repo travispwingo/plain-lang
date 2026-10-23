@@ -1,0 +1,298 @@
+"""Plain's values: numbers, text, yes/no, nothing, lists and records.
+
+Numbers are exact decimals. Equality is friendly: text ignores capitals and spaces at
+either end, and "yes"/"y"/"true" count as yes. `is exactly` is the strict form.
+"""
+
+import re
+from decimal import (ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_UP, Context, Decimal,
+                     InvalidOperation, localcontext)
+
+from .problems import Problem
+
+CONTEXT = Context(prec=28, rounding=ROUND_HALF_UP)
+MAX_PLACES = 10
+TABLE_ROWS = 20
+YES_WORDS = {"yes", "y", "true"}
+NO_WORDS = {"no", "n", "false"}
+
+NUMBERISH = re.compile(
+    r"^(?P<sign1>[+-]?)(?P<cur>[$€£]?)(?P<sign2>[+-]?)"
+    r"(?P<digits>\d+(?:\.\d+)?|\d{1,3}(?:,\d{3})+(?:\.\d+)?)(?P<pct>%?)$")
+
+
+def places(d):
+    exponent = d.as_tuple().exponent
+    return max(0, -exponent) if isinstance(exponent, int) else 0
+
+
+def fit(d, min_places):
+    """Keep at least min_places decimal places, and more only when the value needs them."""
+    if not d.is_finite():
+        return d
+    if d.is_zero():
+        d = abs(d)
+    needed = places(d.normalize(CONTEXT))
+    p = max(needed, min_places)
+    try:
+        return d.quantize(Decimal(1).scaleb(-p), context=CONTEXT)
+    except InvalidOperation:
+        return d
+
+
+def number_text(d):
+    if d.is_zero():
+        d = abs(d)
+    if places(d) > MAX_PLACES:
+        d = d.quantize(Decimal(1).scaleb(-MAX_PLACES), context=CONTEXT).normalize(CONTEXT)
+        if d.is_zero():
+            d = abs(d)
+    text = format(d, "f")
+    return text
+
+
+def auto_number(text):
+    """An answer, CSV cell or line of a file that looks like a number becomes one."""
+    if not isinstance(text, str):
+        return text
+    s = text.strip()
+    m = NUMBERISH.match(s)
+    if not m or (m["sign1"] and m["sign2"]):
+        return text
+    digits = m["digits"]
+    if len(digits) > 1 and digits[0] == "0" and digits[1].isdigit():
+        return text   # 02134 stays text
+    value = Decimal(digits.replace(",", ""))
+    if m["pct"]:
+        value = value / 100
+    if "-" in (m["sign1"], m["sign2"]):
+        value = -value
+    return value
+
+
+def is_number(v):
+    return isinstance(v, Decimal)
+
+
+def as_number(v):
+    """A number, or text that reads as a number. Otherwise None."""
+    if isinstance(v, Decimal):
+        return v
+    if isinstance(v, str):
+        n = auto_number(v)
+        if isinstance(n, Decimal):
+            return n
+    return None
+
+
+def kind_name(v):
+    if v is None:
+        return "nothing"
+    if isinstance(v, bool):
+        return "yes/no"
+    if isinstance(v, Decimal):
+        return "a number"
+    if isinstance(v, str):
+        return "text"
+    if isinstance(v, Record):
+        return "a record"
+    if isinstance(v, list):
+        return "a table" if v and all(isinstance(x, Record) for x in v) else "a list"
+    return "a value"
+
+
+def quoted(v):
+    """A value as you'd see it in a message."""
+    if isinstance(v, str):
+        return f'"{v}"'
+    return show_value(v)
+
+
+class Quoted(str):
+    """A field name written in quotes, matched exactly."""
+
+
+# Records -------------------------------------------------------------------------
+
+CAMEL = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
+
+
+def norm_key(key):
+    key = CAMEL.sub(" ", str(key))
+    return " ".join(re.split(r"[\s_\-]+", key.lower())).strip()
+
+
+def plural_forms(name):
+    yield name
+    if name.endswith("ies"):
+        yield name[:-3] + "y"
+    if name.endswith("es"):
+        yield name[:-2]
+    if name.endswith("s"):
+        yield name[:-1]
+
+
+class Record:
+    """Named fields, looked up the friendly way. The original keys and order are kept."""
+
+    __slots__ = ("data",)
+
+    def __init__(self, data=None):
+        self.data = dict(data or {})
+
+    def find(self, name, exact=False):
+        """The original key for a field name, or None."""
+        if exact:
+            return name if name in self.data else None
+        wanted = norm_key(name)
+        for form in plural_forms(wanted):
+            matches = [k for k in self.data if norm_key(k) == form]
+            if len(matches) > 1:
+                raise Problem(
+                    f'Write the field name in quotes to pick one: {", ".join(chr(34) + m + chr(34) for m in matches)}.',
+                    f'This record has more than one field that matches "{name}".')
+            if matches:
+                return matches[0]
+        return None
+
+    def get(self, name, exact=False):
+        key = self.find(name, exact)
+        if key is None:
+            fields = ", ".join(str(k) for k in self.data) or "none"
+            raise Problem(
+                f'Use one of the fields this record has: {fields}.',
+                f'There\'s no field "{name}" in this record.')
+        return self.data[key]
+
+    def set(self, name, value, exact=False):
+        key = self.find(name, exact) if self.data else None
+        self.data[key if key is not None else name] = value
+
+    def __eq__(self, other):
+        return isinstance(other, Record) and self.data == other.data
+
+    def __repr__(self):
+        return f"Record({self.data!r})"
+
+    def __deepcopy__(self, memo):
+        import copy
+        return Record(copy.deepcopy(self.data, memo))
+
+
+# Comparing -----------------------------------------------------------------------
+
+def same(a, b):
+    """Friendly equality, used by `is`."""
+    if isinstance(a, bool) or isinstance(b, bool):
+        if isinstance(a, bool) and isinstance(b, bool):
+            return a == b
+        other, flag = (b, a) if isinstance(a, bool) else (a, b)
+        if isinstance(other, str):
+            word = other.strip().lower()
+            return (word in YES_WORDS) if flag else (word in NO_WORDS)
+        return False
+    if isinstance(a, Decimal) or isinstance(b, Decimal):
+        na, nb = as_number(a), as_number(b)
+        return na is not None and nb is not None and na == nb
+    if isinstance(a, str) and isinstance(b, str):
+        return a.strip().casefold() == b.strip().casefold()
+    if isinstance(a, list) and isinstance(b, list):
+        return len(a) == len(b) and all(same(x, y) for x, y in zip(a, b))
+    if isinstance(a, Record) and isinstance(b, Record):
+        return a.data.keys() == b.data.keys() and all(same(a.data[k], b.data[k]) for k in a.data)
+    return a == b
+
+
+def exactly(a, b):
+    if type(a) is not type(b):
+        return False
+    return a == b
+
+
+def text_key(v):
+    return v.strip().casefold() if isinstance(v, str) else v
+
+
+def order(a, b):
+    """-1, 0 or 1. Numbers compare as numbers, text alphabetically ignoring capitals."""
+    na, nb = as_number(a), as_number(b)
+    if na is not None and nb is not None:
+        return (na > nb) - (na < nb)
+    if isinstance(a, str) and isinstance(b, str):
+        ka, kb = text_key(a), text_key(b)
+        return (ka > kb) - (ka < kb)
+    bad, good = (a, b) if na is None else (b, a)
+    raise Problem(
+        f'Check that {quoted(bad)} is a number before you compare it.',
+        f'You can\'t compare {quoted(bad)} with {quoted(good)}, because {quoted(bad)} is {kind_name(bad)}, not a number.')
+
+
+def contains(whole, part):
+    if isinstance(whole, str):
+        if not isinstance(part, str):
+            part = show_value(part)
+        return part.strip().casefold() in whole.casefold()
+    if isinstance(whole, list):
+        return any(same(item, part) for item in whole)
+    if isinstance(whole, Record):
+        return isinstance(part, str) and whole.find(part) is not None
+    raise Problem(
+        "Use contains with text, a list or a record.",
+        f"{quoted(whole)} is {kind_name(whole)}, so it can't contain anything.")
+
+
+def is_empty(v):
+    return v is None or v == "" or (isinstance(v, (list, Record)) and not (v.data if isinstance(v, Record) else v))
+
+
+# Showing -------------------------------------------------------------------------
+
+def show_value(v):
+    if v is None:
+        return "nothing"
+    if isinstance(v, bool):
+        return "yes" if v else "no"
+    if isinstance(v, Decimal):
+        return number_text(v)
+    if isinstance(v, str):
+        return v
+    if isinstance(v, Record):
+        return ", ".join(f"{k}: {show_inline(x)}" for k, x in v.data.items()) or "(empty record)"
+    if isinstance(v, list):
+        if not v:
+            return "(empty list)"
+        if all(isinstance(x, Record) for x in v):
+            return show_table(v)
+        items = [show_inline(x) for x in v]
+        return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " and " + items[-1]
+    return str(v)
+
+
+def show_inline(v):
+    if isinstance(v, list):
+        return "[" + show_value(v) + "]" if v else "(empty list)"
+    if isinstance(v, Record):
+        return "{" + show_value(v) + "}"
+    return show_value(v)
+
+
+def show_table(rows):
+    columns = []
+    for row in rows:
+        for key in row.data:
+            if key not in columns:
+                columns.append(key)
+    shown = rows[:TABLE_ROWS]
+    cells = [[str(c) for c in columns]] + [
+        [show_inline(row.data.get(c)) if c in row.data else "" for c in columns] for row in shown]
+    widths = [max(len(r[i]) for r in cells) for i in range(len(columns))]
+    lines = ["  ".join(cell.ljust(widths[i]) for i, cell in enumerate(r)).rstrip() for r in cells]
+    if len(rows) > TABLE_ROWS:
+        lines.append(f"…and {len(rows) - TABLE_ROWS} more")
+    return "\n".join(lines)
+
+
+def round_to(d, digits, mode="half up"):
+    rounding = {"half up": ROUND_HALF_UP, "down": ROUND_FLOOR, "up": ROUND_CEILING}[mode]
+    with localcontext(CONTEXT):
+        return d.quantize(Decimal(1).scaleb(-digits), rounding=rounding)

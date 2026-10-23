@@ -1,0 +1,5 @@
+divide_by_zero.plain, line 2, while running: Check that "count" is not 0 before you divide by it.
+
+    show 10 divided by count
+                       ^^^^^
+Why: Plain can't divide by 0.

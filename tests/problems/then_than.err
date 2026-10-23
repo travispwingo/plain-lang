@@ -1,0 +1,9 @@
+then_than.plain, line 3: Write "than" instead of "then".
+
+    if the guess is bigger then the secret
+                           ^^^^
+Try this:
+    if the guess is bigger than the secret
+Why: "Than" compares two things. "Then" means "next".
+
+Plain found 1 thing to fix, so it hasn't run your program yet.

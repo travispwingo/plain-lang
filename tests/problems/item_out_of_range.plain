@@ -1,0 +1,2 @@
+set colors to a list of "red", "green" and "blue"
+show item 5 of colors

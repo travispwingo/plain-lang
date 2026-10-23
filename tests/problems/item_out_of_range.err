@@ -1,0 +1,5 @@
+item_out_of_range.plain, line 2, while running: Use a position from 1 to 3.
+
+    show item 5 of colors
+         ^^^^^^^^^^^^^^^^
+Why: The list has 3 items, so there is no item 5.

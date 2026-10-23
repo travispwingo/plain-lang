@@ -1,0 +1,11 @@
+# Look up a project on GitHub
+set address to "https://api.github.com/repos/python/cpython"
+show "Asking GitHub about python/cpython..."
+try
+    read address and call it project
+    show "Name: {project's name}"
+    show "Stars: {project's stargazers count}"
+    show "Open issues: {project's open issues count}"
+if that fails
+    show "Sorry, Plain couldn't get the answer from GitHub."
+    show "{the problem}"

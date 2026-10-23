@@ -1,0 +1,10 @@
+and_or_mixed.plain, line 4: Add brackets, or reword this, so it has only one meaning.
+
+    if a and b or c
+       ^^^^^^^^^^^^
+Try this:
+    if a and (b or c)
+    if (a and b) or c
+Why: Plain can read it two ways, and it never guesses which one you mean.
+
+Plain found 1 thing to fix, so it hasn't run your program yet.

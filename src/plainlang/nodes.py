@@ -4,6 +4,7 @@
 from dataclasses import dataclass, field
 from decimal import Decimal
 
+from .registry import Slot
 from .values import number_text
 from .words import COMPARISON_WORDS
 
@@ -121,6 +122,7 @@ class Field(Node):
     words: tuple
     quoted: bool = False
     of_form: bool = False     # "the amounts of sales" rather than "sale's amount"
+    raw: tuple | None = None  # the field words as you wrote them, capitals kept, for a new field
 
     def canonical(self):
         if self.of_form:
@@ -181,6 +183,7 @@ class Compare(Node):
     left: Node
     op: str
     right: Node
+    said_not: bool = False    # written with "not", like "is not more than", which reads as "is at most"
 
     def canonical(self):
         return f"{self.left.canonical()} {COMPARISON_WORDS[self.op]} {self.right.canonical()}"
@@ -260,6 +263,8 @@ def make_logic(op, items, group=False, col=None, end=None):
 class Statement:
     line: int
     synonym_edits: list = field(default_factory=list)   # for plain tidy
+    col: int | None = None      # where the step is on its line, for the ^ marks
+    end: int | None = None
 
 
 @dataclass(eq=False)
@@ -276,6 +281,7 @@ class Step(Statement):
     phrase: object
     args: dict
     call_it: tuple | None = None
+    call_span: tuple | None = None    # where "and call it NAME" is on the line
 
     def canonical(self):
         main = self.phrase.main
@@ -289,6 +295,7 @@ class Step(Statement):
 class If(Statement):
     branches: list            # [(check or None, [statements])]
     branch_lines: list = field(default_factory=list)
+    branch_edits: dict = field(default_factory=dict)   # {line of an "otherwise": synonym edits}
 
     def canonical(self):
         return "if " + self.branches[0][0].canonical()
@@ -383,6 +390,9 @@ def field_text(words, quoted):
 
 def wrap(node, level):
     """Brackets around arithmetic that binds less tightly than its place needs."""
+    last = node.phrase.elements[-1] if isinstance(node, Value) else None
+    if isinstance(last, Slot) and (level >= 1 or level > 0 and last.kind == "items"):
+        return "(" + node.canonical() + ")"   # (the number of guests) plus 1, (a list of 1 and 2) joined with "-"
     if isinstance(node, Math) and PRECEDENCE[node.op] < level:
         return "(" + node.canonical() + ")"
     if isinstance(node, Postfix) and level > 0.5:

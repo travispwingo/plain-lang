@@ -5,7 +5,14 @@ This is the design Plain is built from. It has two parts:
 1. **Amendments.** Decisions made after stress-testing the design. They come first because **they win wherever they disagree with the spec below.**
 2. **The spec.** The full design: sample programs, syntax, phrases, messages, architecture, the AI assist, testing, milestones and the site.
 
-Notes from building it:
+Notes from building it (these also win over the spec):
+- The Claude call uses effort `medium` (the approved plan), not `low`.
+- When Plain offers different fixes to choose from, the message says "Try one of these:" and separates them with "or", so two fixes never look like two steps in a row.
+- Numbers that show the same are the same: comparisons use the number as shown (at most 10 decimal places), so `1 divided by 3 times 3 is 1` is yes.
+- A percent keeps the decimal places you wrote even when it's kept under a name: `set rate to 15%` then `200 times rate` shows `30`, like `200 times 15%`.
+- Field names ignore capitals, spaces, `_`, `-` and camelCase completely (`userId`, `user_id` and `user id` are one field), and an exact field name always wins.
+- Changing a list that is worked out each time (a column like `people's age`, or a `where` result) is a problem, never a silent no-op. For a column, Plain offers a `repeat for each row` that changes each row.
+- A text file's last line break isn't part of the text `read` gives you, and Windows line breaks read as ordinary ones.
 - Amendment 5 keeps rule R7 for slots right after `of`. `the number of guests plus 1` means `(the number of guests) plus 1`, because a list plus a number has no meaning. The tie applies only to an open last slot that doesn't follow `of`, as in `a random number from 1 to 6 plus 1`.
 
 ## Part 1: Amendments
@@ -887,7 +894,7 @@ It never runs for problems while a program is running, never in `plain check`, n
 **The call.**
 ```python
 client.messages.create(model=..., max_tokens=4000, system=[...], messages=[...],
-                       output_config={"effort": "low", "format": {"type": "json_schema", "schema": SCHEMA}})
+                       output_config={"effort": "medium", "format": {"type": "json_schema", "schema": SCHEMA}})
 ```
 - **Model:** `model=os.environ.get("PLAIN_AI_MODEL", "claude-opus-5-5")`.
 - **Client:** `anthropic.Anthropic(timeout=20, max_retries=1)`.

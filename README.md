@@ -72,3 +72,5 @@ PYTHONPATH=src python3 -m unittest discover -s tests -t .
 ```bash
 python3 site/build.py --serve
 ```
+
+- Every push to `main` that passes CI deploys the site to plain-lang.dev, using the `CLOUDFLARE_API_TOKEN` repository secret.

@@ -2,6 +2,7 @@
   // plain-lang.dev: a static site served by a Worker with assets only (no Worker script),
   // so site/dist/_headers applies to every response.
   "name": "plain-lang-dev",
+  "account_id": "ef07aabb266e478d4350077f20d2de46",   // Travis's personal Cloudflare account
   "compatibility_date": "2026-10-01",
   "assets": {
     "directory": "./dist",

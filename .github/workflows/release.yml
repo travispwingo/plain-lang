@@ -21,11 +21,3 @@ jobs:
           python -m build
       - name: Publish to PyPI as plainlang
         uses: pypa/gh-action-pypi-publish@release/v1
-      - name: Build the site
-        run: python site/build.py
-      - name: Deploy plain-lang.dev
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          workingDirectory: site
-          command: deploy

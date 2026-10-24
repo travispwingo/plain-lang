@@ -381,7 +381,7 @@ class Pipes(unittest.TestCase):
             env = dict(os.environ, PYTHONPATH=str(ROOT / "src"))
             run = subprocess.Popen([sys.executable, "-m", "plainlang", "run", str(program)],
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
-            self.assertEqual(b"1\n", run.stdout.readline())
+            self.assertEqual(b"1", run.stdout.readline().rstrip())   # Windows ends lines with \r\n
             run.stdout.close()
             err = run.stderr.read()
             run.stderr.close()

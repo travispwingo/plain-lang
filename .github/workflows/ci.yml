@@ -7,6 +7,7 @@ on:
 jobs:
   python:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
@@ -40,3 +41,25 @@ jobs:
           npm install --no-save @playwright/test@1.56.1
           npx playwright install --with-deps chromium firefox webkit
           npx playwright test
+
+  # Every push to main that passes all the tests above goes live on plain-lang.dev.
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [python, site]
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Build the site
+        run: python site/build.py
+      - name: Deploy plain-lang.dev
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: site
+          command: deploy

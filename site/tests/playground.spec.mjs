@@ -71,7 +71,7 @@ test("files a program saves show up in the Files tab", async ({ page }) => {
 test("a website that blocks browser pages gets an honest message", async ({ page }) => {
   await ready(page);
   await runCode(page, 'read "https://example.com" and call it page');
-  await expect(page.locator("#output .problem")).toContainText("Check your internet connection");
+  await expect(page.locator("#output .problem")).toContainText("doesn't let pages in a browser read it");
 });
 
 test.describe("local time", () => {

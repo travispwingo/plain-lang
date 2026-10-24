@@ -15,6 +15,7 @@ Notes from building it (these also win over the spec):
 - Field names ignore capitals, spaces, `_`, `-` and camelCase completely (`userId`, `user_id` and `user id` are one field), and an exact field name always wins.
 - Changing a list that is worked out each time (a column like `people's age`, or a `where` result) is a problem, never a silent no-op. For a column, Plain offers a `repeat for each row` that changes each row.
 - A text file's last line break isn't part of the text `read` gives you, and Windows line breaks read as ordinary ones.
+- The site deploys from `main`, not from release tags (Travis's call, 2026-10-24, before anything was on PyPI): the `deploy` job in `ci.yml` runs `wrangler deploy` after every push to `main` that passes all the tests, using the `CLOUDFLARE_API_TOKEN` secret. `release.yml` only publishes to PyPI. So the site can be ahead of `pipx install plainlang`; revisit once releases start.
 - Amendment 5 keeps rule R7 for slots right after `of`. `the number of guests plus 1` means `(the number of guests) plus 1`, because a list plus a number has no meaning. The tie applies only to an open last slot that doesn't follow `of`, as in `a random number from 1 to 6 plus 1`.
 
 ## Part 1: Amendments
@@ -1190,7 +1191,7 @@ All tests use stdlib `unittest` and need no network and no person typing. CI run
 | **The playground is heavy or slow to start** (about 10 MB of Pyodide). | Pyodide is self-hosted, cached as immutable, and starts loading in a worker the moment the page opens. A clear "Getting Plain ready" message, and the editor works while it loads. The wheel is under 200 KB. |
 | **COOP/COEP breaks embedded content, or the browser lacks SharedArrayBuffer.** | Every asset is self-hosted, with no third-party embeds. If `crossOriginIsolated` is false, the page shows a plain message with a link to Install. Playwright checks the headers. |
 | **The browser and the terminal behave differently** (CORS, files, recursion depth). | Same core, and one Host interface. The parity test runs the whole golden and doc suites inside Pyodide. The depth limit is 100 in both. A CORS failure gets a message that leads with "run this on your computer". |
-| **Docs drift from the interpreter.** | The phrase reference is generated from the registry. Every doc example is run in CI. Production deploys happen only on release tags, so the site matches `pipx install plainlang`. |
+| **Docs drift from the interpreter.** | The phrase reference is generated from the registry. Every doc example is run in CI. Production deploys happen only after all of CI passes (see the deploy note at the top). |
 | **Scope creep** (classes, modules, GUI, headers). | v1 is fixed to the four areas. Every new phrase needs corpus evidence, an example and a test. `with headers` and powers are listed as v2 candidates. |
 | **Name collisions**: PyPI `plain` is taken, and the Plain web framework also installs a `plain` command. | Ship as `plainlang`, import as `plainlang`, and keep the `plain` command. pipx isolates environments. The README and Install page mention the conflict and how to resolve it. |
 

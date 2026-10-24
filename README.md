@@ -11,6 +11,18 @@ Plain is a programming language for people who have never programmed. It reads l
 
 Try it in your browser at **[plain-lang.dev](https://plain-lang.dev)**. You don't need to install anything.
 
+## Inspired by plain language
+
+Plain is inspired by the [plain language movement](https://en.wikipedia.org/wiki/Plain_language), which asks for writing you can understand and use the first time you read it. Plain follows the same rules:
+
+- **Everyday words.** Steps start with words like `show`, `ask`, `set` and `repeat`.
+- **One meaning for each word.** `is` only compares two values, and `set` is how you store one.
+- **The fix first.** When Plain can't follow a line, its message starts with what to do, then shows your line, then says why.
+- **No guessing.** If a line could mean two things, Plain shows you both and lets you choose.
+- **Not dumbed down.** Plain has exact decimal numbers, tables, files, web data and your own steps.
+
+See [how Plain follows plain language](https://plain-lang.dev/why/).
+
 ## Install
 
 You need Python 3.13 or newer and [pipx](https://pipx.pypa.io).

@@ -1,5 +1,7 @@
 # Plain: design
 
+Plain is inspired by the [plain language movement](https://en.wikipedia.org/wiki/Plain_language). Section 0 of the spec says how each plain-language principle shows up in Plain, and the site's [How Plain follows plain language](https://plain-lang.dev/why/) page explains it for readers.
+
 This is the design Plain is built from. It has two parts:
 
 1. **Amendments.** Decisions made after stress-testing the design. They come first because **they win wherever they disagree with the spec below.**

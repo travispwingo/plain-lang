@@ -208,6 +208,7 @@ def page(title, body, path, description="", scripts=()):
 </main>
 <footer>
   <p><a href="/help/">Get help</a> · <a href="/install/">Install Plain</a> · plain-lang.dev</p>
+  <p>Plain is inspired by the <a href="https://en.wikipedia.org/wiki/Plain_language">plain language movement</a>. <a href="/why/">See how</a>.</p>
 </footer>
 <script type="module" src="/search.js"></script>
 </body>

@@ -5,6 +5,7 @@ terminal, in tests and in the browser.
 """
 
 import errno
+import functools
 import http.client
 import os
 import random
@@ -21,6 +22,32 @@ from .problems import Problem
 
 USER_AGENT = "Plain/0.1 (+https://plain-lang.dev)"
 WEB_TIMEOUT = 15
+# Where systems keep their own list of web certificates: macOS, Debian and Ubuntu, Fedora.
+CERTIFICATE_FILES = ("/etc/ssl/cert.pem",
+                     "/etc/ssl/certs/ca-certificates.crt",
+                     "/etc/pki/tls/certs/ca-bundle.crt")
+
+
+@functools.cache
+def web_context():
+    """How every web request Plain makes checks that a site is who it says it is.
+
+    It uses the certificates Python found. A python.org Python on a Mac finds none until its
+    "Install Certificates.command" runs, so then it uses the first list the system keeps."""
+    context = ssl.create_default_context()
+    if not context.cert_store_stats()["x509_ca"]:
+        for path in CERTIFICATE_FILES:
+            try:
+                context.load_verify_locations(cafile=path)
+            except OSError:          # missing or unreadable (ssl.SSLError is an OSError too)
+                continue
+            break
+    return context
+
+
+def homebrew_python():
+    """Plain runs on Homebrew's Python, which gets its web certificates from Homebrew."""
+    return "Cellar" in Path(sys.base_prefix).resolve().parts
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,7 +103,7 @@ class TerminalHost:
         if kind:
             request.add_header("Content-Type", kind)
         try:
-            with urllib.request.urlopen(request, timeout=WEB_TIMEOUT) as response:
+            with urllib.request.urlopen(request, timeout=WEB_TIMEOUT, context=web_context()) as response:
                 return Reply(response.status, response.headers.get("Content-Type", ""), response.read())
         except urllib.error.HTTPError as error:
             return Reply(error.code, error.headers.get("Content-Type", "") if error.headers else "",
@@ -84,10 +111,16 @@ class TerminalHost:
         except urllib.error.URLError as error:
             reason = error.reason
             if isinstance(reason, ssl.SSLCertVerificationError):
-                raise Problem(
-                    "Install your computer's web certificates, then run this again.",
-                    "Plain couldn't check that the website is who it says it is. On a Mac, run "
-                    "\"Install Certificates.command\" in your Python folder.")
+                # 20 and 19: the computer doesn't know who vouches for the site (its own list is
+                # out of date, or a work network adds its own). Anything else is the site's fault.
+                if reason.verify_code in (19, 20):
+                    how = ("To update them, type: brew postinstall ca-certificates" if homebrew_python()
+                           else "To see how, go to plain-lang.dev/help#certificates")
+                    raise Problem(f"Update your computer's web certificates, then run this again. {how}",
+                                  "Plain couldn't check that the website is who it says it is.")
+                raise Problem("Check the address. If it's right, the website has to fix its certificate.",
+                              "The website's certificate has run out or belongs to a different website, "
+                              "so Plain can't be sure who it's talking to.")
             if isinstance(reason, TimeoutError):
                 raise Problem("Check your internet connection, then run this again.",
                               f"The website didn't answer within {WEB_TIMEOUT} seconds.")

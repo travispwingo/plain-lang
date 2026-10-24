@@ -175,7 +175,7 @@ In the playground, Plain's ideas appear as **Use this** buttons under the messag
 Plain's own ideas cover common slips, like a misspelled name or a missing quote. To get more ideas, Plain can also ask Claude, an AI made by Anthropic. This is optional, and Plain works fully without it.
 
 - **It works on your computer only,** in `plain run` and `plain fix`. It never runs in the playground or in `plain check`.
-- **You set it up once:** install Plain with Claude's part included, and give Plain a key from your Anthropic account. [Ask Claude for ideas](/install/#ai), on the install page, walks you through it.
+- **You set it up once:** give Plain a key from your Anthropic account. [Ask Claude for ideas](/install/#ai), on the install page, walks you through it.
 - **Each request costs a small amount** on your Anthropic account.
 - **Plain tells you before it sends** your program to Anthropic. It hides anything that looks like a password or a key, and it never sends your data files or your answers.
 - **You stay in charge.** Plain checks each of Claude's ideas, and nothing changes unless you pick it.

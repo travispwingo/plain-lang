@@ -12,9 +12,6 @@ license-files = ["LICENSE"]
 requires-python = ">=3.13"
 dependencies = []
 
-[project.optional-dependencies]
-ai = ["anthropic"]
-
 [project.scripts]
 plain = "plainlang.cli:main"
 

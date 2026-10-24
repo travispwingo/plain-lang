@@ -125,6 +125,18 @@ In Terminal or PowerShell, type `plain phrases` and a word to find the phrases a
 plain phrases sort
 ```
 
+## Fix web certificate problems {#certificates}
+
+Web certificates let Plain check that a website is who it says it is. If Plain says **"Update your computer's web certificates"**, your computer's list of certificates is out of date. Do the step for your computer, then run your program again:
+
+- **Mac with Homebrew:** type `brew postinstall ca-certificates`.
+- **Mac without Homebrew:** install the latest updates, in **System Settings**, **General**, **Software Update**.
+- **Windows:** install the latest updates, in **Settings**, **Windows Update**.
+- **Linux:** update the `ca-certificates` package. On Ubuntu or Debian, type `sudo apt install --reinstall ca-certificates`.
+- **At work:** your workplace's network may use its own certificate. Ask the people who look after your computer to add it.
+
+If Plain says **"the website has to fix its certificate"**, the problem is on the website, not your computer. Check the address, or try again later.
+
 ## Tell us about a problem in Plain
 
 If Plain says "Plain itself went wrong", that's a mistake in Plain, not in your program. Please tell us about it, and about anything Plain does that seems wrong or confusing:

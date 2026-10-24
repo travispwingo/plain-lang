@@ -25,11 +25,31 @@ See [how Plain follows plain language](https://plain-lang.dev/why/).
 
 ## Install
 
-You need Python 3.13 or newer and [pipx](https://pipx.pypa.io).
+On a Mac, with [Homebrew](https://brew.sh):
 
 ```bash
-pipx install plainlang
+brew install travispwingo/tap/plain
 ```
+
+On Linux (or a Mac without Homebrew), install [uv](https://docs.astral.sh/uv/):
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+On Windows, install it in PowerShell:
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+Then open a new terminal and install Plain from PyPI:
+
+```bash
+uv tool install plainlang
+```
+
+uv brings its own Python if you don't have 3.13 or newer.
 
 Then write a file called `hello.plain` and run it:
 
@@ -37,13 +57,11 @@ Then write a file called `hello.plain` and run it:
 plain run hello.plain
 ```
 
-To let Plain ask Claude for ideas when it can't follow a line, add the optional helper and set your Anthropic key (if Plain is already installed, use `pipx inject plainlang anthropic` instead):
+[plain-lang.dev/install](https://plain-lang.dev/install/) walks through each step for people who have never used a terminal.
 
-```bash
-pipx install "plainlang[ai]"
-```
+Plain can ask Claude for ideas when it can't follow a line. Every install includes this; it only needs your Anthropic key in `ANTHROPIC_API_KEY`. Turn it off with `--no-ai` or `PLAIN_AI=off`.
 
-Another program called Plain (a web framework) also installs a `plain` command. If you have it, run this Plain with `python -m plainlang`.
+Another program called Plain (a web framework) also installs a `plain` command. If you have it, run this Plain with `uvx --from plainlang plain` or `"$(brew --prefix plain)/bin/plain"`.
 
 ## What you can do
 

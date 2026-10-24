@@ -3,18 +3,31 @@
 Claude only ever helps write Plain. Every idea must pass Plain's own checks on the whole
 file, it's shown in full, and it's saved only when you choose it. Nothing Claude writes
 is ever run directly.
+
+Plain asks Claude's Messages API directly over HTTPS with Python's own urllib, so every
+install has the helper. It runs only when ANTHROPIC_API_KEY is set.
 """
 
 import hashlib
+import http.client
 import json
 import os
 import re
+import ssl
+import time
 import unicodedata
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 from . import __version__
+from .hosts import USER_AGENT, web_context
 
 MODEL = os.environ.get("PLAIN_AI_MODEL", "claude-opus-5-5")
+API_VERSION = "2026-10-21"                          # the anthropic-version header
+FALLBACK_BETA = "server-side-fallback-2026-07-01"   # the beta header that goes with fallbacks: "default"
+TIMEOUT = 20                                        # seconds for each try
+RETRY_WAIT = 1                                      # seconds before the one retry
 CACHE = Path(os.environ.get("PLAIN_CACHE", Path.home() / ".cache" / "plain")) / "ai"
 MAX_LINES = 10
 MAX_IDEAS = 3
@@ -82,6 +95,12 @@ how to work out the tip on (bill) at (rate)
 
 class Unavailable(Exception):
     """Claude can't help right now. The message says why, in plain words."""
+
+
+NO_KEY = "Tip: Plain can also ask Claude for ideas. See plain-lang.dev/install#ai"
+CANT_REACH = "Plain couldn't reach Claude. Here are Plain's own ideas."
+CERTIFICATES = ("Plain couldn't check that it was really talking to Claude, so it sent nothing. "
+                "See plain-lang.dev/help#certificates. Here are Plain's own ideas.")
 
 
 def system_prompt():
@@ -180,22 +199,75 @@ def cache_path(model, system, message):
     return CACHE / f"{key}.json"
 
 
-def make_client():
-    try:
-        import anthropic
-    except ImportError:
-        raise Unavailable("Tip: Plain can also ask Claude for ideas. Add it with: pipx inject plainlang anthropic "
-                          "(see plain-lang.dev/install#ai)")
-    try:
-        return anthropic, anthropic.Anthropic(timeout=20, max_retries=1)
-    except Exception:
-        raise Unavailable("Tip: Plain can also ask Claude for ideas. See plain-lang.dev/install#ai")
+def request_body(system, message):
+    """The Messages API request. Claude answers in the shape SCHEMA asks for, and if Claude
+    declines, the API asks the model Anthropic recommends instead (fallbacks: "default")."""
+    return {
+        "model": MODEL,
+        "max_tokens": 16000,           # Opus 5.5 always thinks, and thinking counts toward this
+        "system": [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
+        "messages": [{"role": "user", "content": message}],
+        "output_config": {"effort": "medium", "format": {"type": "json_schema", "schema": SCHEMA}},
+        "fallbacks": "default",
+    }
 
 
-def ask_claude(program, problem, file_name, client=None, tell=None):
+def request_headers(key):
+    """The key goes only here, in x-api-key."""
+    return {
+        "Content-Type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": API_VERSION,
+        "anthropic-beta": FALLBACK_BETA,
+        "User-Agent": USER_AGENT,
+    }
+
+
+def messages_address():
+    base = os.environ.get("ANTHROPIC_BASE_URL") or "https://api.anthropic.com"
+    return base.rstrip("/") + "/v1/messages"
+
+
+def https_post(url, headers, body, timeout):
+    """Send one request. Gives back (status, reply body). Raises OSError or
+    http.client.HTTPException when Claude can't be reached, and ValueError for an address
+    urllib can't use."""
+    request = urllib.request.Request(url, data=body, headers=headers, method="POST")
+    try:
+        with urllib.request.urlopen(request, timeout=timeout, context=web_context()) as response:
+            return response.status, response.read()
+    except urllib.error.HTTPError as error:
+        error.close()
+        return error.code, b""
+
+
+def send(post, url, headers, body):
+    """Claude's reply body. Claude gets one more try when it's busy (429), has a problem of
+    its own (500 to 599, 529 included) or can't be reached. Anything else becomes Unavailable."""
+    for tries_left in (1, 0):
+        try:
+            status, reply = post(url, headers, body, TIMEOUT)
+        except urllib.error.URLError as error:
+            if isinstance(error.reason, ssl.SSLCertVerificationError):
+                raise Unavailable(CERTIFICATES) from None      # trying again won't help
+            status = None
+        except (OSError, http.client.HTTPException):
+            status = None
+        except ValueError:
+            raise Unavailable(CANT_REACH)
+        if status is not None and 200 <= status < 300:
+            return reply
+        if tries_left and (status is None or status == 429 or 500 <= status <= 599):
+            time.sleep(RETRY_WAIT)
+            continue
+        raise Unavailable(describe_error(status))
+
+
+def ask_claude(program, problem, file_name, post=None, tell=None):
     """Claude's raw answer: {"rewrites": [{"lines": [...], "why": ...}], "unsupported": ...}.
 
-    `tell` shows the line that says what's being sent, just before a request really goes out."""
+    `post` sends the request (tests pass a fake one instead of https_post). `tell` shows the
+    line that says what's being sent, just before a request really goes out."""
     system = system_prompt()
     message, first, last = user_message(program, problem, file_name)
     message, hidden = hide_secrets(message, program.source_lines)
@@ -203,32 +275,22 @@ def ask_claude(program, problem, file_name, client=None, tell=None):
     answer = read_cache(path)
     if answer is not None:
         return restore(answer, hidden), (first, last)
-    if client is None:
-        anthropic, client = make_client()
-    else:
-        anthropic = None
+    key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if not key:
+        raise Unavailable(NO_KEY)
     if tell is not None:
         lines = f"line {first}" if first == last else f"lines {first} to {last}"
         tell(f"Asking Claude for ideas. This sends {lines} of {file_name} to Anthropic, "
              "which charges your account a small amount for each request.")
+    reply = send(post or https_post, messages_address(), request_headers(key),
+                 json.dumps(request_body(system, message)).encode())
     try:
-        response = client.beta.messages.create(
-            model=MODEL,
-            max_tokens=4000,
-            system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
-            messages=[{"role": "user", "content": message}],
-            output_config={"effort": "medium", "format": {"type": "json_schema", "schema": SCHEMA}},
-            betas=["server-side-fallback-2026-07-01"],
-            fallbacks="default",
-        )
-    except Exception as error:
-        raise Unavailable(describe_error(error, anthropic))
-    if getattr(response, "stop_reason", None) == "refusal":
-        return {"rewrites": [], "unsupported": None}, (first, last)
-    text = next((block.text for block in response.content if getattr(block, "type", "") == "text"), "")
-    try:
+        response = json.loads(reply)
+        if response["stop_reason"] == "refusal":       # Claude (and the fallback) declined
+            return {"rewrites": [], "unsupported": None}, (first, last)
+        text = next(block["text"] for block in response["content"] if block["type"] == "text")
         answer = json.loads(text)
-    except ValueError:
+    except (ValueError, LookupError, TypeError, StopIteration):
         answer = None
     if not valid_answer(answer):
         return {"rewrites": [], "unsupported": None}, (first, last)
@@ -272,19 +334,22 @@ def restore(answer, hidden):
     return answer
 
 
-def describe_error(error, anthropic):
-    if anthropic is not None:
-        if isinstance(error, anthropic.AuthenticationError):
-            return "Plain couldn't use your Anthropic key. Check ANTHROPIC_API_KEY. Here are Plain's own ideas."
-        if isinstance(error, anthropic.PermissionDeniedError):
-            return "Your Anthropic key isn't allowed to use Claude this way. Here are Plain's own ideas."
-        if isinstance(error, anthropic.RateLimitError):
-            return "Claude is busy right now, so try again in a minute. Here are Plain's own ideas."
-        if isinstance(error, anthropic.APIConnectionError):
-            return "Plain couldn't reach Claude (no internet connection). Here are Plain's own ideas."
-        if isinstance(error, anthropic.APIStatusError):
-            return f"Claude had a problem (code {error.status_code}). Here are Plain's own ideas."
-    return "Plain couldn't reach Claude. Here are Plain's own ideas."
+def describe_error(status):
+    """The one line Plain shows when Claude can't help. status is the HTTP status code, or
+    None when Claude couldn't be reached at all. The key is never part of it."""
+    if status is None:
+        return "Plain couldn't reach Claude (no internet connection). Here are Plain's own ideas."
+    if status == 401:
+        return "Plain couldn't use your Anthropic key. Check ANTHROPIC_API_KEY. Here are Plain's own ideas."
+    if status == 402:
+        return "Your Anthropic account needs billing set up first (see plain-lang.dev/install#ai). Here are Plain's own ideas."
+    if status == 403:
+        return "Your Anthropic key isn't allowed to use Claude this way. Here are Plain's own ideas."
+    if status == 404:
+        return f"Claude doesn't have the model \"{MODEL}\". Check PLAIN_AI_MODEL. Here are Plain's own ideas."
+    if status == 429:
+        return "Claude is busy right now, so try again in a minute. Here are Plain's own ideas."
+    return f"Claude had a problem (code {status}). Here are Plain's own ideas."
 
 
 # Checking ideas -----------------------------------------------------------------

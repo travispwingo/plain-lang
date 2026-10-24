@@ -15,8 +15,11 @@ Notes from building it (these also win over the spec):
 - Field names ignore capitals, spaces, `_`, `-` and camelCase completely (`userId`, `user_id` and `user id` are one field), and an exact field name always wins.
 - Changing a list that is worked out each time (a column like `people's age`, or a `where` result) is a problem, never a silent no-op. For a column, Plain offers a `repeat for each row` that changes each row.
 - A text file's last line break isn't part of the text `read` gives you, and Windows line breaks read as ordinary ones.
-- The site deploys from `main`, not from release tags (Travis's call, 2026-10-24, before anything was on PyPI): the `deploy` job in `ci.yml` runs `wrangler deploy` after every push to `main` that passes all the tests, using the `CLOUDFLARE_API_TOKEN` secret. `release.yml` only publishes to PyPI. So the site can be ahead of `pipx install plainlang`; revisit once releases start.
+- The site deploys from `main`, not from release tags (Travis's call, 2026-10-24, before anything was on PyPI): the `deploy` job in `ci.yml` runs `wrangler deploy` after every push to `main` that passes all the tests, using the `CLOUDFLARE_API_TOKEN` secret. `release.yml` only publishes to PyPI. So the site can be ahead of the released version on PyPI and Homebrew; revisit once releases start.
 - Amendment 5 keeps rule R7 for slots right after `of`. `the number of guests plus 1` means `(the number of guests) plus 1`, because a list plus a number has no meaning. The tie applies only to an open last slot that doesn't follow `of`, as in `a random number from 1 to 6 plus 1`.
+- **Distribution is a Homebrew tap plus PyPI through uv, not pipx** (Travis's call, 2026-10-24). On a Mac: `brew install travispwingo/tap/plain`, from the public tap repo `travispwingo/homebrew-tap`. The formula has `depends_on "python@3.15"` (Homebrew's current Python) and `virtualenv_install_with_resources` with no resources, since Plain has no dependencies. A bare `brew install plain` needs homebrew-core later. Windows, Linux, and Macs without Homebrew (or Macs with an Intel chip or macOS 14 or earlier, where Homebrew is slow) run uv's official installer one-liner, then `uv tool install plainlang`. The first release, v0.1.0, goes to PyPI as `plainlang` through trusted publishing. The install page is one short section each for Mac, Windows and Linux. This replaces every `pipx` statement in the spec.
+- **The Claude helper calls the Messages API directly with `urllib`** (Travis's call, 2026-10-24). There's no `anthropic` SDK and no `[ai]` extra, so every install, Homebrew included, has the helper with no extra step, and `ai.py` uses `urllib.request` too (the guard test already allows `ai.py`). It still runs only when `ANTHROPIC_API_KEY` is set, stdin and stdout are terminals, and neither `--no-ai` nor `PLAIN_AI=off` is used. This replaces the SDK statements in sections 6.8 and 7.
+- **HTTPS uses a certificate fallback.** Every HTTPS request Plain makes (the web phrases in `hosts.py` and the Claude call) uses one SSL context: `ssl.create_default_context()`, and if that loaded no CA certificates, the first system bundle that exists of `/etc/ssl/cert.pem`, `/etc/ssl/certs/ca-certificates.crt` and `/etc/pki/tls/certs/ca-bundle.crt`. So a python.org Mac Python whose "Install Certificates.command" was never run still works, and the install page has no certificate steps and no `--managed-python`. The only certificate fix the install page gives is Homebrew's: `brew postinstall ca-certificates`.
 
 ## Part 1: Amendments
 
@@ -666,7 +669,7 @@ class Host(Protocol):
 - **`wait for enter`** is `host.ask("Press Enter to go on.")`.
 - **Choices menus** are built in the core from `show` and `ask`.
 - **The three hosts:**
-  - **TerminalHost** (`hosts.py`) uses `print`, `input` and `time.sleep`. It clears the screen with ANSI codes only when stdout is a terminal. It uses `time.monotonic`, `datetime.now` and `urllib.request` with a 15-second timeout and User-Agent `Plain/0.1`. It turns HTTP errors into friendly problems ("GitHub said 403: API rate limit exceeded") and gives a hint for macOS certificate failures.
+  - **TerminalHost** (`hosts.py`) uses `print`, `input` and `time.sleep`. It clears the screen with ANSI codes only when stdout is a terminal. It uses `time.monotonic`, `datetime.now` and `urllib.request` with a 15-second timeout and User-Agent `Plain/0.1`. It turns HTTP errors into friendly problems ("GitHub said 403: API rate limit exceeded") and gives a hint for macOS certificate failures. *(Superseded in part: HTTPS uses the certificate fallback in the notes at the top, so "Install Certificates.command" is no longer needed.)*
   - **BrowserHost** (`browser.py`, imported only under Pyodide):
     - `show` and `clear` post a message to the page.
     - `ask` posts a message, then blocks on shared memory.
@@ -815,8 +818,8 @@ def random_number(run: Run, low: Number, high: Number) -> Number:
 The PyPI distribution is **`plainlang`**, the command is **`plain`**, and the import package is **`plainlang`**.
 ```
 ~/plain-lang/
-├── pyproject.toml          # plainlang; requires-python >=3.13; dependencies = []; extra ai = ["anthropic"]; script plain = plainlang.cli:main; dependency group "site" = ["markdown-it-py"]
-├── README.md               # what Plain is, pipx install, first program, link to plain-lang.dev
+├── pyproject.toml          # plainlang; requires-python >=3.13; dependencies = []; extra ai = ["anthropic"] (superseded: no extra); script plain = plainlang.cli:main; dependency group "site" = ["markdown-it-py"]
+├── README.md               # what Plain is, pipx install (superseded: brew and uv), first program, link to plain-lang.dev
 ├── src/plainlang/
 │   ├── __init__.py         # version; run(source, host) and check(source) entry points
 │   ├── __main__.py         # python -m plainlang
@@ -834,7 +837,7 @@ The PyPI distribution is **`plainlang`**, the command is **`plain`**, and the im
 │   ├── suggest.py          # repair search, habits from other languages, closest phrases
 │   ├── tidy.py             # plain tidy and plain explain
 │   ├── fixer.py            # pick-a-fix-and-save screen shared by run, fix and the REPL
-│   ├── ai.py               # optional Claude helper (lazy import)
+│   ├── ai.py               # optional Claude helper (lazy import; superseded: urllib, no SDK)
 │   ├── repl.py             # interactive prompt
 │   └── phrases/
 │       ├── __init__.py     # imports every module so phrases register
@@ -861,8 +864,8 @@ The Python code should come to about 3,500 lines, the site JavaScript to about 3
   - an unknown name with no close match.
 - **The command** is `plain run`, `plain fix`, or a REPL line.
 - **Both** stdin and stdout are terminals.
-- **`anthropic`** can be imported (`pipx install "plainlang[ai]"`).
-- **Credentials:** the SDK finds them (`ANTHROPIC_API_KEY`).
+- **`anthropic`** can be imported (`pipx install "plainlang[ai]"`). *(Superseded: there's no SDK and no `[ai]` extra; see the notes at the top.)*
+- **Credentials:** the SDK finds them (`ANTHROPIC_API_KEY`). *(Superseded: Plain reads `ANTHROPIC_API_KEY` itself.)*
 - **Not turned off:** you haven't passed `--no-ai` or set `PLAIN_AI=off`.
 
 It never runs for problems while a program is running, never in `plain check`, never in pipes or CI, and never in the browser in v1.
@@ -900,7 +903,7 @@ client.messages.create(model=..., max_tokens=4000, system=[...], messages=[...],
                        output_config={"effort": "medium", "format": {"type": "json_schema", "schema": SCHEMA}})
 ```
 - **Model:** `model=os.environ.get("PLAIN_AI_MODEL", "claude-opus-5-5")`.
-- **Client:** `anthropic.Anthropic(timeout=20, max_retries=1)`.
+- **Client:** `anthropic.Anthropic(timeout=20, max_retries=1)`. *(Superseded: there's no SDK client. Plain sends the request directly to the Messages API with `urllib`; see the notes at the top.)*
 - **Schema:** `{"rewrites": [{"lines": [str], "why": str}] (max 3), "unsupported": str | null}`.
 - **Refusals:** `stop_reason == "refusal"` counts as "no ideas".
 
@@ -941,7 +944,7 @@ Your file from before is in report.plain.bak.
 
 **Cache.** Raw answers are stored at `~/.cache/plain/ai/<sha256>.json`, keyed by Plain version, model, system-block hash and user message. **Plain checks a cached answer again on every use,** so the cache stays safe after the grammar changes. API prompt caching keeps the system block cheap.
 
-**Offline.** With no package, no key or no connection, Plain shows its own ideas plus one line per run. With no key: "Tip: Plain can also ask Claude for ideas. See plain-lang.dev/install#ai". With a network error: "Plain couldn't reach Claude (no internet connection). Here are Plain's own ideas."
+**Offline.** With no package *(superseded: there's no package to be missing now)*, no key or no connection, Plain shows its own ideas plus one line per run. With no key: "Tip: Plain can also ask Claude for ideas. See plain-lang.dev/install#ai". With a network error: "Plain couldn't reach Claude (no internet connection). Here are Plain's own ideas."
 
 **Safety.**
 - AI output is never run directly. It must pass Plain's checks, it is shown in full, and it is saved only when you choose it. There is no auto-accept.
@@ -1158,7 +1161,7 @@ All tests use stdlib `unittest` and need no network and no person typing. CI run
 **M0, in parallel with M1, no code:** a phrasing study. 8 to 10 adults who have never programmed write English steps for the six tasks. The most common forms become main words, common alternatives become synonyms if they clash with nothing, and every line goes into `phrasings.txt`. Each person also does a paper read-understand-act test on the six samples.
 
 **Interpreter**
-1. **Hello.** `source.py`, the block tree, `show`, text with `{…}`, numbers, `set`, the message layout, TerminalHost and TestHost, the golden runner, `plain run`, pipx install. *Runs a hello program.*
+1. **Hello.** `source.py`, the block tree, `show`, text with `{…}`, numbers, `set`, the message layout, TerminalHost and TestHost, the golden runner, `plain run`, pipx install (superseded: brew and uv). *Runs a hello program.*
 2. **Decide and ask.** The expression reader with precedence, comparisons with elision, yes/no, `if` / `otherwise`, `ask … and call it`, `with choices`, auto-numbers. *Runs sample (a).*
 3. **Repeat, lists, chance, time.** Every `repeat` form, `stop repeating`, `skip`, lists, `the … of` properties, random, `wait`, the timer, `clear the screen`. *Runs sample (b) and a reaction-time game.*
 4. **How to.** How-to headers, step matching with specificity, tie and shape problems, scope, `give back`, `plain explain`. *Runs sample (e).*
@@ -1167,7 +1170,7 @@ All tests use stdlib `unittest` and need no network and no person typing. CI run
 7. **Web.** `read ADDRESS`, `send`, `try` / `if that fails`, text and links of a page, web fixtures, the local-server test. *Runs sample (d) both live and from fixtures.*
 8. **REPL.** *`plain` opens a session with multi-line blocks and `:commands`.*
 9. **AI assist.** `ai.py`, `fixer.py` wired into run, fix and the REPL, the checks, the cache, offline fallback. *`plain fix` repairs `report.plain` with a key, and still helps without one.*
-10. **Release 0.1.** Read-understand-act round 2, then `pipx install plainlang` from PyPI. *Every example runs from a fresh install.*
+10. **Release 0.1.** Read-understand-act round 2, then `pipx install plainlang` from PyPI (superseded: `brew install travispwingo/tap/plain` and `uv tool install plainlang`). *Every example runs from a fresh install.*
 
 **Website** (W1 can start right after M3)
 
@@ -1182,7 +1185,7 @@ All tests use stdlib `unittest` and need no network and no person typing. CI run
 
 | Risk | Mitigation |
 |---|---|
-| **The writeability gap** (the AppleScript problem). Accepted wordings are hidden and strict. | Main words come from the phrasing study. Fixes in your own words are checked before they are offered. Closest phrases come with examples. `plain phrases`, `plain explain` and site search make the grammar visible. Saved fixes and `plain tidy` teach the main forms. Claude is available as an optional extra. |
+| **The writeability gap** (the AppleScript problem). Accepted wordings are hidden and strict. | Main words come from the phrasing study. Fixes in your own words are checked before they are offered. Closest phrases come with examples. `plain phrases`, `plain explain` and site search make the grammar visible. Saved fixes and `plain tidy` teach the main forms. Claude is available as an optional extra (superseded: built into every install, and used only with your key). |
 | **"One meaning per word" makes Plain feel strict** (refusing `score is 0`, `x = 5`, `+` on text). | Every refusal comes with a one-keypress fix that works offline, and the message explains the single meaning. The corpus measures how often people hit each refusal. A refusal that real users trip over constantly is reconsidered, but only if accepting it keeps one meaning. |
 | **Ambiguity creeps in** (Dijkstra's critique). | One normalizer and a closed synonym table. Ties are problems everywhere (R4, R8, R10). Duplicate shapes are rejected at load. The must-not-parse corpus, the catalog tie test and the 40-word limit. |
 | **Multi-word names clash with phrases.** | Names end at Plain words by structure. A clash between a name and a phrase is a problem, never a choice. `plain explain` shows how a line was read. Rename hints are built into the messages. |
@@ -1193,7 +1196,7 @@ All tests use stdlib `unittest` and need no network and no person typing. CI run
 | **The browser and the terminal behave differently** (CORS, files, recursion depth). | Same core, and one Host interface. The parity test runs the whole golden and doc suites inside Pyodide. The depth limit is 100 in both. A CORS failure gets a message that leads with "run this on your computer". |
 | **Docs drift from the interpreter.** | The phrase reference is generated from the registry. Every doc example is run in CI. Production deploys happen only after all of CI passes (see the deploy note at the top). |
 | **Scope creep** (classes, modules, GUI, headers). | v1 is fixed to the four areas. Every new phrase needs corpus evidence, an example and a test. `with headers` and powers are listed as v2 candidates. |
-| **Name collisions**: PyPI `plain` is taken, and the Plain web framework also installs a `plain` command. | Ship as `plainlang`, import as `plainlang`, and keep the `plain` command. pipx isolates environments. The README and Install page mention the conflict and how to resolve it. |
+| **Name collisions**: PyPI `plain` is taken, and the Plain web framework also installs a `plain` command. | Ship as `plainlang`, import as `plainlang`, and keep the `plain` command. pipx isolates environments (superseded: Homebrew's virtualenv and `uv tool` do). The README and Install page mention the conflict and how to resolve it. |
 
 ---
 
@@ -1226,8 +1229,8 @@ Every page opens with what you can do on it. Headings are tasks starting with ve
   - then the Plain words and the forgiveness rules;
   - a filter box at the top.
 - **`/install/`.**
-  - `pipx install plainlang` and the first `plain run`;
-  - the AI helper: `pipx install "plainlang[ai]"` and setting `ANTHROPIC_API_KEY`;
+  - `pipx install plainlang` and the first `plain run`; *(superseded: `brew install travispwingo/tap/plain` on a Mac, uv's installer then `uv tool install plainlang` on Windows and Linux)*
+  - the AI helper: `pipx install "plainlang[ai]"` and setting `ANTHROPIC_API_KEY`; *(superseded: only setting `ANTHROPIC_API_KEY`, since every install has the helper)*
   - editor tips;
   - the `plain` command conflict.
 - **Search.** `build.py` writes `search.json` (titles, headings, phrase wordings). About 50 lines of `search.js` filter it as you type.
@@ -1323,7 +1326,7 @@ Every page opens with what you can do on it. Headings are tasks starting with ve
     3. build the site with that same wheel;
     4. `cloudflare/wrangler-action` runs `wrangler deploy` in `site/`, using the `CLOUDFLARE_API_TOKEN` secret (a token scoped to Workers edit on this account).
 
-    So the site always matches `pipx install plainlang`.
+    So the site always matches `pipx install plainlang`. *(Superseded: the site deploys from `main`, and people install with brew or uv; see the notes at the top.)*
 
 ---
 

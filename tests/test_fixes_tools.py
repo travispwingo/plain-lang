@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest import mock
 
 from .support import ROOT  # noqa: F401  (puts src on the path)
-from .test_ai import FakeClient
+from .test_ai import FakeClaude, Offline
 
 from plainlang import ai, cli, fixer  # noqa: E402
 from plainlang.hosts import TestHost  # noqa: E402
@@ -52,18 +52,18 @@ def session(lines, options=None, terminal=False):
     return shown, host, s
 
 
-class Ideas(unittest.TestCase):
+class Ideas(Offline):
     """Claude's rewrites, checked the way design section 7 says."""
 
     def setUp(self):
-        ai.CACHE = Path(tempfile.mkdtemp())
+        super().setUp()
         self.folder = Path(tempfile.mkdtemp())
 
     def ideas(self, rewrites, source=REPORT, why="", own_file=None, own_ideas=None):
         ai.CACHE = Path(tempfile.mkdtemp())
         program, problem = problem_of(source)
         answer = {"rewrites": [{"lines": lines, "why": why} for lines in rewrites], "unsupported": None}
-        raw, _ = ai.ask_claude(program, problem, "report.plain", client=FakeClient(answer))
+        raw, _ = ai.ask_claude(program, problem, "report.plain", post=FakeClaude(answer))
         own = problem.ideas if own_ideas is None else own_ideas
         return ai.checked_ideas(program, problem, raw, self.folder, own_ideas=own, own_file=own_file)
 
@@ -164,19 +164,19 @@ class Ideas(unittest.TestCase):
     # tools-26
     def test_effort_is_medium(self):          # the approved plan: effort "medium"
         program, problem = problem_of(REPORT)
-        client = FakeClient({"rewrites": [], "unsupported": None})
-        ai.ask_claude(program, problem, "report.plain", client=client)
+        client = FakeClaude()
+        ai.ask_claude(program, problem, "report.plain", post=client)
         self.assertEqual("medium", client.calls[0]["output_config"]["effort"])
 
 
-class Secrets(unittest.TestCase):
+class Secrets(Offline):
     """tools-3: secrets are hidden before anything is sent."""
 
     def sent(self, source):
         ai.CACHE = Path(tempfile.mkdtemp())
         program = Reader().read(source)
-        client = FakeClient({"rewrites": [], "unsupported": None})
-        ai.ask_claude(program, program.problems[-1], "x.plain", client=client)
+        client = FakeClaude()
+        ai.ask_claude(program, program.problems[-1], "x.plain", post=client)
         return client.calls[0]["messages"][0]["content"]
 
     def test_curly_quotes(self):
@@ -193,7 +193,7 @@ class Secrets(unittest.TestCase):
         self.assertNotIn("EXAMPLEKEY", sent)
 
 
-class Cache(unittest.TestCase):
+class Cache(Offline):
     """tools-14: a damaged cached answer counts as missing."""
 
     def test_bad_shapes_are_asked_again(self):
@@ -203,26 +203,26 @@ class Cache(unittest.TestCase):
                     {"rewrites": "show total", "unsupported": None}, [1, 2]):
             with self.subTest(bad=bad):
                 ai.CACHE = Path(tempfile.mkdtemp())
-                ai.ask_claude(program, problem, "report.plain", client=FakeClient(good))
+                ai.ask_claude(program, problem, "report.plain", post=FakeClaude(good))
                 [path] = ai.CACHE.iterdir()
                 path.write_text(json.dumps(bad))
-                again = FakeClient(good)
-                raw, _ = ai.ask_claude(program, problem, "report.plain", client=again)
+                again = FakeClaude(good)
+                raw, _ = ai.ask_claude(program, problem, "report.plain", post=again)
                 self.assertEqual(1, len(again.calls))
                 self.assertEqual(good["rewrites"], raw["rewrites"])
 
     def test_a_bad_answer_from_claude_gives_no_ideas(self):
         ai.CACHE = Path(tempfile.mkdtemp())
         program, problem = problem_of(REPORT)
-        raw, _ = ai.ask_claude(program, problem, "report.plain", client=FakeClient({"rewrites": "no"}))
+        raw, _ = ai.ask_claude(program, problem, "report.plain", post=FakeClaude({"rewrites": "no"}))
         self.assertEqual({"rewrites": [], "unsupported": None}, raw)
 
 
-class Disclosure(unittest.TestCase):
+class Disclosure(Offline):
     """tools-6, tools-13, tools-20: the 'This sends' line shows only when a request goes out."""
 
     def setUp(self):
-        ai.CACHE = Path(tempfile.mkdtemp())
+        super().setUp()
         self.path = Path(tempfile.mkdtemp()) / "report.plain"
 
     def gather(self, source=REPORT, notes=None):
@@ -230,17 +230,18 @@ class Disclosure(unittest.TestCase):
         return quietly(fixer.gather_ideas, program, problem, self.path, {"ai": True},
                        set() if notes is None else notes)
 
-    def test_nothing_is_said_to_be_sent_without_the_package(self):
+    def test_nothing_is_said_to_be_sent_without_a_key(self):
+        del os.environ["ANTHROPIC_API_KEY"]
         notes = set()
         _, out = self.gather(notes=notes)
         self.assertNotIn("This sends", out)
-        self.assertIn("Tip: Plain can also ask Claude for ideas. Add it with: pipx inject plainlang anthropic", out)
+        self.assertEqual("Tip: Plain can also ask Claude for ideas. See plain-lang.dev/install#ai\n", out)
         _, out = self.gather(notes=notes)
         self.assertEqual("", out)
 
     def test_the_line_names_the_lines_sent(self):
-        client = FakeClient({"rewrites": [], "unsupported": None})
-        with mock.patch.object(ai, "make_client", lambda: (None, client)):
+        client = FakeClaude()
+        with mock.patch.object(ai, "https_post", client):
             _, out = self.gather()
             self.assertIn("Asking Claude for ideas. This sends lines 1 to 3 of report.plain to Anthropic", out)
             _, out = self.gather()       # from the cache: nothing is sent
@@ -249,8 +250,8 @@ class Disclosure(unittest.TestCase):
 
     # tools-15
     def test_claude_isnt_asked_about_how_far_a_line_is_moved(self):
-        client = FakeClient({"rewrites": [], "unsupported": None})
-        with mock.patch.object(ai, "make_client", lambda: (None, client)):
+        client = FakeClaude()
+        with mock.patch.object(ai, "https_post", client):
             _, out = self.gather('set x to 1\nif x is 1\nshow "one"\n')
         self.assertEqual([], client.calls)
         self.assertNotIn("This sends", out)
@@ -258,8 +259,8 @@ class Disclosure(unittest.TestCase):
     def test_a_long_file_names_only_the_lines_around_the_problem(self):
         source = "".join(f'show "line {k}"\n' for k in range(1, 150)) + "count up the totals\n" + \
             "".join(f'show "line {k}"\n' for k in range(151, 301))
-        client = FakeClient({"rewrites": [], "unsupported": None})
-        with mock.patch.object(ai, "make_client", lambda: (None, client)):
+        client = FakeClaude()
+        with mock.patch.object(ai, "https_post", client):
             _, out = self.gather(source)
         self.assertIn("This sends lines 120 to 180 of report.plain", out)
 
@@ -351,7 +352,7 @@ class Command(unittest.TestCase):
         self.assertEqual([], program.problems)
 
 
-class Repl(unittest.TestCase):
+class Repl(Offline):
     # tools-4
     def test_run_keeps_your_options(self):
         seen = []
@@ -379,11 +380,10 @@ class Repl(unittest.TestCase):
 
     # tools-16
     def test_claude_fills_the_ideas_in_a_terminal(self):
-        ai.CACHE = Path(tempfile.mkdtemp())
-        client = FakeClient({"rewrites": [{"lines": ["show the total of totals"], "why": "Adds them up."}],
+        client = FakeClaude({"rewrites": [{"lines": ["show the total of totals"], "why": "Adds them up."}],
                              "unsupported": None})
         folder = Path(tempfile.mkdtemp())
-        with mock.patch.object(ai, "make_client", lambda: (None, client)):
+        with mock.patch.object(ai, "https_post", client):
             shown, host, s = session(["set totals to a list of 1, 2 and 3", "count up the totals", "1",
                                       f":save {folder / 'mine'}"], options={"ai": True}, terminal=True)
         self.assertEqual(1, len(client.calls))
@@ -393,9 +393,8 @@ class Repl(unittest.TestCase):
                          (folder / "mine.plain").read_text())
 
     def test_no_claude_outside_a_terminal(self):
-        ai.CACHE = Path(tempfile.mkdtemp())
-        client = FakeClient({"rewrites": [], "unsupported": None})
-        with mock.patch.object(ai, "make_client", lambda: (None, client)):
+        client = FakeClaude()
+        with mock.patch.object(ai, "https_post", client):
             session(["count up the totals"], options={"ai": True}, terminal=False)
         self.assertEqual([], client.calls)
 
@@ -406,11 +405,9 @@ class Repl(unittest.TestCase):
         self.assertIn("Cancelled. Those steps didn't run.", shown)
 
     def test_ctrl_c_while_waiting_for_claude_keeps_the_session(self):
-        ai.CACHE = Path(tempfile.mkdtemp())
-
-        def interrupted():
+        def interrupted(*args):
             raise KeyboardInterrupt
-        with mock.patch.object(ai, "make_client", interrupted):
+        with mock.patch.object(ai, "https_post", interrupted):
             shown, host, _ = session(["set total to 41", "count up the totals", "show total plus 1"],
                                      options={"ai": True}, terminal=True)
         self.assertEqual(["42"], host.transcript)

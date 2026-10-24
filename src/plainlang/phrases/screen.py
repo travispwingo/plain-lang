@@ -60,7 +60,7 @@ def wait_minutes(run, minutes: Number) -> None:
     run.host.wait(float(minutes) * 60)
 
 
-@step("wait for enter", example="wait for enter", topic=TOPIC_SCREEN)
+@step("wait for Enter", example="wait for Enter", topic=TOPIC_SCREEN)
 def wait_for_enter(run) -> None:
     """Pauses until you press Enter."""
     run.host.ask("Press Enter to go on.")

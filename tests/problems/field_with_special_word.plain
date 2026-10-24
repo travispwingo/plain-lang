@@ -1,0 +1,3 @@
+read "sales.csv" and call it sales
+repeat for each sale in sales
+    show sale's date joined

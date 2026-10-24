@@ -1,0 +1,17 @@
+return_and_true.plain, line 3: Write "give back yes" instead.
+
+            return true
+            ^^^^^^^^^^^
+Try this:
+            give back yes
+Why: "return" comes from other languages. Plain says "give back" to hand a value back from your own step.
+
+return_and_true.plain, line 5: Write "set done to no" instead.
+
+    set done to false
+    ^^^^^^^^^^^^^^^^^
+Try this:
+    set done to no
+Why: Plain says "yes" and "no", the way you answer a question.
+
+Plain found 2 things to fix, so it hasn't run your program yet.

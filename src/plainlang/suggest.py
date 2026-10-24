@@ -15,7 +15,7 @@ STOP_WORDS = {"the", "a", "an", "of", "to", "up", "in", "on", "it", "is", "and",
 
 # Words that start lines in other languages. A line that starts with one isn't setting a name.
 HABIT_WORDS = {"elif", "else", "print", "puts", "echo", "say", "write", "console", "open",
-               "download", "get", "load"}
+               "download", "get", "load", "fetch", "return"}
 
 # Words a line can lose without changing what it means.
 FILLER_WORDS = {"please", "just", "also", "really", "very", "now", "then", "so", "do", "does",
@@ -69,13 +69,22 @@ def habit_problem(reader, line):
             continue
         fixed = quote_singles(replacement(m) if callable(replacement) else m.expand(replacement))
         named = tuple(m.group("name").lower().split()) if "name" in m.groupdict() and m.group("name") else None
-        ok = reads_cleanly(reader, line, indent + fixed) or \
-            (named is not None and reads_with_name(reader, line, indent + fixed, named)) or \
-            (fixed.startswith("how to ") and header_reads(reader, line, indent + fixed))
-        if ok:
-            return Problem(f'Write "{fixed}" instead.', why, line=line.number, col=col, end=end,
-                           try_lines=[indent + fixed], ideas=[indent + fixed])
+        # "else if x != 4" needs two habits fixed at once: "otherwise if x is not 4".
+        for fixed in dict.fromkeys([fixed, everyday(fixed)]):
+            ok = reads_cleanly(reader, line, indent + fixed) or \
+                (named is not None and reads_with_name(reader, line, indent + fixed, named)) or \
+                (fixed.startswith("how to ") and header_reads(reader, line, indent + fixed))
+            if ok:
+                return Problem(f'Write "{fixed}" instead.', why, line=line.number, col=col, end=end,
+                               try_lines=[indent + fixed], ideas=[indent + fixed])
     return None
+
+
+def everyday(text):
+    """== and != become "is" and "is not", and true and false become yes and no, outside text."""
+    parts = re.split(r'("[^"]*"|“[^”]*”)', yes_no(text))
+    return "".join(part if k % 2 else re.sub(r"\s*!=\s*", " is not ", re.sub(r"\s*==\s*", " is ", part))
+                   for k, part in enumerate(parts))
 
 
 def header_reads(reader, line, text):
@@ -108,6 +117,14 @@ def dotted_field(m):
     return f"{m['a']}{m['o']}'s {m['f'].replace('_', ' ')}{m['b']}"
 
 
+def yes_no(text):
+    """true and false, outside text, become yes and no."""
+    parts = re.split(r'("[^"]*"|“[^”]*”)', text)
+    return "".join(part if k % 2 else re.sub(r"\b(true|false)\b", lambda w: "yes" if w[1].lower() == "true" else "no",
+                                             part, flags=re.IGNORECASE)
+                   for k, part in enumerate(parts))
+
+
 HABITS = [
     (r"^(?:var|let|const|my|local)\s+(?P<name>[A-Za-z][\w ]*?)\s*=\s*(?P<v>[^=].*?);?$", r"set \g<name> to \g<v>",
      '"var", "let" and "const" come from other languages. In Plain you keep a value with "set".'),
@@ -127,25 +144,42 @@ HABITS = [
      'Plain shows which steps belong together by moving them to the right, so it doesn\'t use { }.'),
     (r"^(?P<a>.*?)(?<!\band)\s+call (?P<w>it|them)\s+(?P<n>.+)$", r"\g<a> and call \g<w> \g<n>",
      'Plain says "and call it" to keep what a step gives back.'),
+    (r"^(?P<a>.*?)\s+and\s+(?:name\s+it|(?:keep|save|store)\s+it\s+as|call\s+the\s+answer)\s+(?P<n>.+)$",
+     r"\g<a> and call it \g<n>", 'Plain says "and call it" to keep what a step gives back.'),
     (r"^wait\s+(?P<n>[\d.]+)\s*(?:s|sec|secs|second|seconds)?\.?$", r"wait \g<n> seconds",
      'Say what to wait for: seconds or minutes.'),
     (r"^(?P<a>[^\"“]*?)\b(?:None|nil|null|undefined|NULL)\b(?P<b>.*)$", r"\g<a>nothing\g<b>",
      'Plain says "nothing" when there\'s no value.'),
+    (r"^.*\b(?:true|false)\b.*$", lambda m: yes_no(m.string), 'Plain says "yes" and "no", the way you answer a question.'),
+    (r"^(?P<a>[^\"“]*?)\bwhose\b(?P<b>.*)$", r"\g<a>where\g<b>",
+     'Plain says "where" to pick the items that match, as in: sales where amount is more than 100'),
     (r"^(?P<a>[^\"“]*?)\b(?P<o>[A-Za-z]\w*)\.(?P<f>(?!(?:csv|txt|json|md|html|tsv|log|plain)\b)[A-Za-z]\w*)\b"
      r"(?P<b>(?!\s*\().*)$", dotted_field,
      '"." comes from other languages. In Plain you write a field like this: sale\'s amount.'),
     (r"^elif\b(?P<v>.*)$", r"otherwise if\g<v>", 'Plain says "otherwise if".'),
     (r"^else\s+if\b(?P<v>.*)$", r"otherwise if\g<v>", 'Plain says "otherwise if".'),
+    (r"^else\b\s*:?(?P<v>.*)$", r"otherwise\g<v>",
+     '"else" on its own comes from other languages. Plain says "otherwise".'),
+    (r"^return\s+(?P<v>.+?);?$", r"give back \g<v>",
+     '"return" comes from other languages. Plain says "give back" to hand a value back from your own step.'),
     (r"^break$", "stop repeating", '"break" comes from other languages. Plain says "stop repeating".'),
     (r"^continue$", "skip to the next round",
      '"continue" comes from other languages. Plain says "skip to the next round".'),
+    (r"^(?:go|move)(?:\s+on)?\s+to\s+(?:the\s+)?next\s+round\.?$", "skip to the next round",
+     'Plain says "skip to the next round" to go straight to the next round of the repeat.'),
+    (r"^if\s+(?:that|it)\s+(?:doesn['’]t|does\s+not|didn['’]t|did\s+not)\s+work\s*:?$"
+     r"|^if\s+(?:that|it|something)\s+goes\s+wrong\s*:?$|^if\s+there(?:['’]s|\s+is)\s+a\s+problem\s*:?$",
+     "if that fails", 'Plain says "if that fails" for the steps to take when a step under "try" has a problem.'),
+    (r"^to\s+(?P<v>[A-Za-z][^()]*\(.*)$", r"how to \g<v>", 'Plain starts each step of your own with "how to".'),
+    (r"^wait\s+for\s+(?:the\s+)?enter\s+key\.?$", "wait for Enter",
+     'Plain says "wait for Enter" to wait until you press the Enter key.'),
     (r"^//\s*(?P<v>.*)$", r"# \g<v>", "Notes in Plain start with #."),
     (r"^(?P<a>.*\S)\s*//(?!\s*\d)\s*(?P<v>.*)$", r"\g<a>  # \g<v>", "Notes in Plain start with #."),
     (r"^(?:print|console\.log|puts|echo|say)\s*\((?P<v>.*)\)\s*;?$", r"show \g<v>",
      'Plain uses "show" to put words on the screen.'),
     (r"^(?:print|puts|echo|say|write)\s+(?P<v>[^()].*)$", r"show \g<v>",
      'Plain uses "show" to put words on the screen. To put words in a file, write: save ... to "notes.txt"'),
-    (r"^(?:open|download|get|load)\s+(?P<v>.+)$", r"read \g<v>",
+    (r"^(?:open|download|get|load|fetch)\s+(?P<v>.+)$", r"read \g<v>",
      'Plain uses "read" for files and web pages.'),
     (r"^(?P<name>[A-Za-z][\w ]*?)\.(?:append|push)\(\s*(?P<v>.+?)\s*\)\s*;?$", r"add \g<v> to \g<name>",
      '".append" comes from other languages. In Plain you put an item at the end of a list with "add".'),
@@ -159,6 +193,8 @@ HABITS = [
      'In Plain, "=" only compares two values. To keep a value, write "set".'),
     (r"^(?P<name>[A-Za-z][\w ]*?) is (?P<v>.+)$", r"set \g<name> to \g<v>",
      'In Plain, "is" only compares two values, as in: if score is 0'),
+    (r"^(?P<name>[A-Za-z][\w ]*?) are (?P<v>.+)$", r"set \g<name> to \g<v>",
+     'In Plain, "are" only compares values, as in: if scores are empty'),
     (r"^(?P<a>.*\bis) (?P<v>.+?) or (?:more|over|above|higher|greater|bigger|larger|older)(?P<b>\s*:?)$",
      r"\g<a> at least \g<v>\g<b>",
      'Plain says "is at least 18" for "18 or more", and "is at most 18" for "18 or less".'),
@@ -194,7 +230,7 @@ def explain_unreadable(reader, i, j, line, check=False):
         problem = habit_problem(reader, line)
         if problem is not None:
             return problem
-        problem = inline_habit(reader, line)
+        problem = inline_habit(reader, line) or quoted_field(reader, line)
         if problem:
             return problem
 
@@ -478,6 +514,24 @@ def reads_with_name(reader, line, text, words):
             names.discard(words)
 
 
+def reads_renamed(reader, line, text, old, new):
+    """reads_cleanly, as if your name old were called new everywhere."""
+    groups = [reader.r.main_names] + ([reader.scope.own_names] if reader.scope is not None else [])
+    saved = [set(g) for g in groups]
+    for g in groups:
+        if old in g:
+            g.discard(old)
+            g.add(new)
+    if not any(new in g for g in groups):
+        groups[0].add(new)
+    try:
+        return reads_cleanly(reader, line, text)
+    finally:
+        for g, keep in zip(groups, saved):
+            g.clear()
+            g.update(keep)
+
+
 def problems_on_line(problems, number):
     return [p for p in problems if p.line in (None, number)]
 
@@ -487,6 +541,18 @@ def problems_on_line(problems, number):
 def inline_habit(reader, line):
     """len(x) and [1, 2, 3] from other languages, anywhere in a line."""
     toks, raw = line.tokens, line.raw
+    signs = [t for t in toks if t.kind == "symbol" and t.norm in ("==", "!=")]
+    if signs:
+        # if score == 10: Plain compares with "is" and "is not".
+        text = raw
+        for tok in reversed(signs):
+            text = text[:tok.col].rstrip() + (" is " if tok.norm == "==" else " is not ") + text[tok.end:].lstrip()
+        if reads_cleanly(reader, line, text):
+            word = "is" if signs[0].norm == "==" else "is not"
+            return Problem(f'Write "{word}" instead of "{signs[0].raw}".',
+                           f'"{signs[0].raw}" comes from other languages. Plain compares with "is" and "is not", '
+                           'as in: if score is 10',
+                           line=line.number, col=signs[0].col, end=signs[0].end, try_lines=[text.rstrip()], ideas=[text])
     for k, tok in enumerate(toks):
         if tok.kind == "word" and tok.norm == "len" and k + 1 < len(toks) and toks[k + 1].norm == "(":
             close = closing(toks, k + 1, "(", ")")
@@ -534,6 +600,30 @@ def inline_habit(reader, line):
                     'Square brackets come from other languages. Plain makes a list with "a list of".',
                     line=line.number, col=tok.col, end=toks[close].end,
                     try_lines=[text.rstrip()], ideas=[text])
+    return None
+
+
+def quoted_field(reader, line):
+    """member's date joined: a field name with one of Plain's special words goes in double quotes."""
+    toks, raw = line.tokens, line.raw
+    for k, tok in enumerate(toks):
+        if tok.kind != "poss":
+            continue
+        for m in range(k + 2, len(toks) + 1):
+            run = toks[k + 1:m]
+            if not all(t.kind == "word" for t in run):
+                break
+            special = [t.raw for t in run if t.norm in SPECIAL_WORDS]
+            if not special or len(special) == len(run):
+                continue
+            field = raw[run[0].col:run[-1].end]
+            text = raw[:run[0].col] + f'"{field}"' + raw[run[-1].end:]
+            if reads_cleanly(reader, line, text):
+                return Problem(f'Put the field name "{field}" in double quotes.',
+                               f'"{special[0]}" is one of Plain\'s special words, so a field name with it goes '
+                               f'in double quotes, as in: {raw[toks[k - 1].col:run[0].col]}"{field}"',
+                               line=line.number, col=run[0].col, end=run[-1].end,
+                               try_lines=[text.rstrip()], ideas=[text])
     return None
 
 

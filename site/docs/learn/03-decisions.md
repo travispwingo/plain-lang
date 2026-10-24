@@ -82,7 +82,7 @@ You can write these checks:
 - `contains`, `starts with` and `ends with`: for text.
 - `is empty`, `is a number`, `is a whole number`, `is even` and `is odd`.
 
-If you're used to `=`, `>` and `<`, those work too.
+If you're used to `=`, `>` and `<`, those work too. For a name that holds several things, write the words the way you'd say them: `if scores are empty`, `if names contain "Ann"` or `if todos do not contain "jam"`.
 
 ```plain
 ask "Pick a number from 1 to 10." and call it pick
@@ -105,7 +105,7 @@ When Plain compares text, it ignores capitals and any spaces at the start or end
 
 ```plain
 ask "What would you like on your pizza?" and call it toppings
-if toppings contains "pineapple"
+if toppings contain "pineapple"
     show "Bold choice!"
 otherwise
     show "Coming right up."

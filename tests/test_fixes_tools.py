@@ -339,7 +339,7 @@ class Command(unittest.TestCase):
 
     # tools-27
     def test_phrases_knows_other_words(self):
-        for word, phrase in (("display", "show VALUE"), ("fetch", "read FILE"), ("else", "otherwise")):
+        for word, phrase in (("display", "show VALUE"), ("load", "read FILE"), ("pause", "wait")):
             with self.subTest(word=word):
                 code, out = quietly(cli.phrases, [word])
                 self.assertEqual(0, code)

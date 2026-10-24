@@ -140,7 +140,7 @@ set number of players to 4
 ```
 
 ```problem
-your program, line 1: Rename "number of players", for example to "players count".
+your program, line 1: Rename "number of players", for example to "player count".
 
     set number of players to 4
         ^^^^^^^^^^^^^^^^^
@@ -152,8 +152,8 @@ Plain found 1 thing to fix, so it hasn't run your program yet.
 Take Plain's idea, or pick your own name without a special word:
 
 ```plain
-set players count to 4
-show "{players count} people are playing."
+set player count to 4
+show "{player count} people are playing."
 ```
 
 ```output

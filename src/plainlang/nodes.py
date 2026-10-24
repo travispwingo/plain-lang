@@ -6,7 +6,7 @@ from decimal import Decimal
 
 from .registry import Slot
 from .values import number_text
-from .words import COMPARISON_WORDS
+from .words import COMPARISON_WORDS, PLURAL_COMPARISON_WORDS
 
 PRECEDENCE = {"plus": 1, "minus": 1, "times": 2, "divided by": 2}
 
@@ -184,9 +184,14 @@ class Compare(Node):
     op: str
     right: Node
     said_not: bool = False    # written with "not", like "is not more than", which reads as "is at most"
+    plural: bool = False      # written "are", "do" or "contain", as after a plural name
 
     def canonical(self):
-        return f"{self.left.canonical()} {COMPARISON_WORDS[self.op]} {self.right.canonical()}"
+        return f"{self.left.canonical()} {comparison_words(self.op, self.plural)} {self.right.canonical()}"
+
+
+def comparison_words(op, plural=False):
+    return PLURAL_COMPARISON_WORDS.get(op, COMPARISON_WORDS[op]) if plural else COMPARISON_WORDS[op]
 
 
 @dataclass(eq=False)
@@ -195,9 +200,10 @@ class Between(Node):
     low: Node
     high: Node
     negated: bool = False
+    plural: bool = False      # written "are between"
 
     def canonical(self):
-        word = "is not between" if self.negated else "is between"
+        word = ("are" if self.plural else "is") + (" not between" if self.negated else " between")
         return f"{self.value.canonical()} {word} {self.low.canonical()} and {self.high.canonical()}"
 
 
@@ -207,9 +213,10 @@ class TypeCheck(Node):
     kind: str
     negated: bool = False
     arg: Node | None = None
+    plural: bool = False      # written "are empty"
 
     def canonical(self):
-        word = "is not" if self.negated else "is"
+        word = ("are" if self.plural else "is") + (" not" if self.negated else "")
         kind = {"number": "a number", "whole number": "a whole number", "list": "a list"}.get(self.kind, self.kind)
         if self.kind == "divisible":
             kind = "divisible by " + self.arg.canonical()

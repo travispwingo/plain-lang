@@ -109,7 +109,7 @@ Because Plain checks after each round, the steps always run at least once. That'
 ```plain
 set savings to 100
 set years to 0
-repeat while savings is less than 200
+repeat while savings are less than 200
     set savings to savings times 1.10
     add 1 to years
 show "At 10% a year, $100 grows past $200 in {years} years."

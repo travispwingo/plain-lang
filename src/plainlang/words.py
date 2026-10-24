@@ -2,9 +2,9 @@
 
 # Plain's special words end names and field words, so they can't be part of a name.
 SPECIAL_WORDS = frozenset("""
-    and or not is to from by in of with as than then where it its plus minus times
-    divided multiplied rounded percent split joined contains starts ends exists does
-    equals yes no nothing true false
+    and or not is are to from by in of with as than then where it its plus minus times
+    divided multiplied rounded percent split joined contains contain starts ends exists
+    does equals yes no nothing
     zero one two three four five six seven eight nine ten eleven twelve
 """.split())
 
@@ -20,7 +20,7 @@ POLITE_STARTS = frozenset({"please", "now", "then", "next", "first", "finally"})
 
 CONTRACTIONS = {
     "isn't": ("is", "not"), "doesn't": ("does", "not"), "don't": ("do", "not"),
-    "aren't": ("are", "not"), "can't": ("can", "not"),
+    "aren't": ("are", "not"),
 }
 
 # Each synonym means its main word everywhere, but only where a phrase expects that
@@ -28,10 +28,7 @@ CONTRACTIONS = {
 SYNONYMS = {
     "display": "show",
     "load": "read",
-    "fetch": "read",
-    "else": "otherwise",
     "sum": "total",
-    "mean": "average",
     "biggest": "largest",
     "highest": "largest",
     "lowest": "smallest",
@@ -43,7 +40,7 @@ SYNONYMS = {
 # Words that start the core forms of a line.
 CORE_STARTS = frozenset({
     "set", "if", "otherwise", "repeat", "for", "while", "until", "how", "give",
-    "return", "try", "stop", "skip", "end",
+    "try", "stop", "skip", "end",
 })
 
 # Whole-line aliases.
@@ -57,7 +54,19 @@ COMPARISONS = [
     (("is", "exactly"), "exact"),
     (("is", "not", "exactly"), "not exact"),
     (("is", "not", "more", "than"), "at most"),
+    (("is", "not", "greater", "than"), "at most"),
+    (("is", "not", "bigger", "than"), "at most"),
+    (("is", "not", "larger", "than"), "at most"),
+    (("is", "not", "higher", "than"), "at most"),
+    (("is", "not", "above"), "at most"),
     (("is", "not", "less", "than"), "at least"),
+    (("is", "not", "smaller", "than"), "at least"),
+    (("is", "not", "fewer", "than"), "at least"),
+    (("is", "not", "lower", "than"), "at least"),
+    (("is", "not", "under"), "at least"),
+    (("is", "not", "below"), "at least"),
+    (("is", "not", "equal", "to"), "is not"),
+    (("is", "not", "same", "as"), "is not"),
     (("is", "more", "than"), "more"),
     (("is", "greater", "than"), "more"),
     (("is", "bigger", "than"), "more"),
@@ -89,10 +98,16 @@ COMPARISONS = [
     (("does", "not", "start", "with"), "not starts"),
     (("ends", "with"), "ends"),
     (("does", "not", "end", "with"), "not ends"),
-    (("=",), "is"), (("==",), "is"), (("!=",), "is not"), (("≠",), "is not"),
+    (("=",), "is"), (("≠",), "is not"),
     ((">",), "more"), (("<",), "less"),
     ((">=",), "at least"), (("≥",), "at least"), (("<=",), "at most"), (("≤",), "at most"),
 ]
+
+# The same fixed words after a plural name, as English agrees them: "if results are empty",
+# "if letters contain "e"", "if todos do not contain "jam"". Plain doesn't check agreement.
+INFLECTIONS = {"are": "is", "do": "does", "contain": "contains"}
+COMPARISONS += [((verb,) + words[1:], op) for verb, main in INFLECTIONS.items()
+                for words, op in list(COMPARISONS) if words[0] == main]
 
 # How each comparison is written in main words, for canonical() and messages.
 COMPARISON_WORDS = {
@@ -104,16 +119,18 @@ COMPARISON_WORDS = {
     "ends": "ends with", "not ends": "does not end with",
 }
 
+# How each comparison is written after a plural name, when that's how you wrote it.
+PLURAL_COMPARISON_WORDS = {
+    "is": "are", "is not": "are not", "exact": "are exactly", "not exact": "are not exactly",
+    "more": "are more than", "less": "are less than", "at least": "are at least",
+    "at most": "are at most", "in": "are in", "not in": "are not in",
+    "contains": "contain", "not contains": "do not contain",
+    "not starts": "do not start with", "not ends": "do not end with",
+}
+
 NEGATIVE_COMPARISONS = frozenset({
     "is not", "not exact", "not in", "not contains", "not starts", "not ends",
 })
-
-# Words that can start a comparison, used to spot elided comparisons.
-COMPARISON_STARTS = frozenset({"is", "equals", "does", "contains", "starts", "ends",
-                                "=", "==", "!=", "≠", ">", "<", ">=", "≥", "<=", "≤",
-                                "more", "less", "at", "greater", "bigger", "larger",
-                                "higher", "above", "smaller", "fewer", "lower", "under",
-                                "below"})
 
 # Bare comparison wordings allowed after "and"/"or" when the subject is left out.
 ELIDED_COMPARISONS = [

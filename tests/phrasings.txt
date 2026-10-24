@@ -65,6 +65,34 @@ wait 1 second => wait 1 second
 set a to 3 => set a to 3
 quit => stop the program
 
+# After a plural name, the agreeing words read the same, and explain keeps them (change 6).
+if scores are empty => if scores are empty
+if todos aren't empty => if todos are not empty
+if colors contain "red" => if colors contain "red"
+if todos do not contain "jam" => if todos do not contain "jam"
+if todos don't start with "x" => if todos do not start with "x"
+if todos do not end with "x" => if todos do not end with "x"
+if scores are at least 3 => if scores are at least 3
+if scores are more than 3 and less than 9 => if scores are more than 3 and scores are less than 9
+if scores are not between 1 and 5 => if scores are not between 1 and 5
+if scores are 1 or 2 => if scores are 1 or scores are 2
+if the file "todos.txt" do not exist => if the file "todos.txt" does not exist
+
+# Every positive comparison can be turned around with "not" (change 9).
+if age is not equal to 3 => if age is not 3
+if age is not the same as 3 => if age is not 3
+if age is not greater than 3 => if age is at most 3
+if age is not bigger than 3 => if age is at most 3
+if age is not larger than 3 => if age is at most 3
+if age is not higher than 3 => if age is at most 3
+if age is not above 3 => if age is at most 3
+if age is not smaller than 3 => if age is at least 3
+if age is not fewer than 3 => if age is at least 3
+if age is not lower than 3 => if age is at least 3
+if age is not under 3 => if age is at least 3
+if age is not below 3 => if age is at least 3
+if scores are not greater than 3 => if scores are at most 3
+
 # One meaning per word: these must not read.
 ! score is 0
 ! x = 5
@@ -82,3 +110,18 @@ quit => stop the program
 ! if it fails
 ! stop
 ! set tip percent to 15
+! if age == 3
+! if age != 3
+! set done to true
+! set done to false
+! fetch "notes.txt" and call it notes
+! show the mean of scores
+! show the second item of colors
+! show scores where each is more than 1
+! show scores where the item is more than 1
+! show sales whose amount is more than 100
+! scores are 0
+! ask "Your name?" and name it name
+! ask "Your name?" and call the answer name
+! wait for the enter key
+! if colors start with "a"

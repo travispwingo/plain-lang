@@ -36,9 +36,9 @@ Capitals don't matter, and a space works the same as `_`, just as with column na
 Put a name in `{ }` inside the address, the same way you put a value into any text. This example uses JSONPlaceholder, a free practice website full of made-up people:
 
 ```plain web=09-people
-ask "Which person, from 1 to 10?" and call it number
-read "https://jsonplaceholder.typicode.com/users/{number}" and call it person
-show "Person {number} is {person's name} from {person's address's city}."
+ask "Which person, from 1 to 10?" and call it person number
+read "https://jsonplaceholder.typicode.com/users/{person number}" and call it person
+show "Person {person number} is {person's name} from {person's address's city}."
 ```
 
 ```answers
@@ -57,12 +57,12 @@ Plain makes each value safe to use in an address, so an answer with spaces, like
 You can plan for a website that's down, slow, or has nothing at the address you asked for. Put the steps that might fail under `try`. If one of those steps has a problem, Plain skips the rest of them and takes the steps under `if that fails` instead. There, `the problem` holds the message Plain would have shown:
 
 ```plain web=09-people
-ask "Which person, from 1 to 10?" and call it number
+ask "Which person, from 1 to 10?" and call it person number
 try
-    read "https://jsonplaceholder.typicode.com/users/{number}" and call it person
-    show "Person {number} is {person's name}."
+    read "https://jsonplaceholder.typicode.com/users/{person number}" and call it person
+    show "Person {person number} is {person's name}."
 if that fails
-    show "Sorry, Plain couldn't get person {number}."
+    show "Sorry, Plain couldn't get person {person number}."
     show the problem
 show "Goodbye!"
 ```

@@ -1,0 +1,17 @@
+else_and_equals.plain, line 2: Write "is" instead of "==".
+
+    if x == 3
+         ^^
+Try this:
+    if x is 3
+Why: "==" comes from other languages. Plain compares with "is" and "is not", as in: if score is 10
+
+else_and_equals.plain, line 4: Write "otherwise" instead.
+
+    else
+    ^^^^
+Try this:
+    otherwise
+Why: "else" on its own comes from other languages. Plain says "otherwise".
+
+Plain found 2 things to fix, so it hasn't run your program yet.

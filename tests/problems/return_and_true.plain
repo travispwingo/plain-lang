@@ -1,0 +1,5 @@
+how to is big (n)
+    if n is more than 10
+        return true
+    give back no
+set done to false

@@ -6,7 +6,7 @@
 set rounds to 3
 set results to an empty list
 show "Press Enter as soon as you see GO. Don't press it before!"
-wait for enter
+wait for Enter
 repeat for each round from 1 to rounds
     show "Round {round} of {rounds}. Get ready..."
     wait a random number from 2 to 5 seconds
@@ -19,7 +19,7 @@ repeat for each round from 1 to rounds
     otherwise
         show "{reaction} seconds."
         add reaction to results
-if results is empty
+if results are empty
     show "No fair rounds this time. Run it again and wait for GO."
 otherwise
     show "Your best time: {the smallest of results} seconds."

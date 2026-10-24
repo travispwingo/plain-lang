@@ -1,0 +1,3 @@
+ask "Which person, from 1 to 10?" and call it number
+if number is a number
+    show "Person {number}"

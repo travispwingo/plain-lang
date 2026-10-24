@@ -1,0 +1,4 @@
+to work out the tip on (bill)
+    give back bill times 15%
+read "sales.csv" and call it sales
+show sales whose amount is more than 100

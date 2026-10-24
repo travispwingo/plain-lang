@@ -1,0 +1,5 @@
+read "sales.csv" and call it sales
+show the mean of the amounts of sales
+set colors to a list of "red", "green" and "blue"
+show the second item of colors
+show colors where each is "red"

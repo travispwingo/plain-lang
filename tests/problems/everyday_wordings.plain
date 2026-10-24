@@ -1,0 +1,8 @@
+ask "Your name?" and call the answer person
+wait for the Enter key
+repeat 3 times
+    go to the next round
+try
+    show person
+if that doesn't work
+    show "Sorry"

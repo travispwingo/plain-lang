@@ -241,6 +241,4 @@ def other_words(template):
         for other, main in SYNONYMS.items():
             if main in part.lower().split("|"):
                 out.append(wording(" ".join(parts[:k] + [other] + parts[k + 1:])))
-    if template.startswith("give back"):
-        out.append(template.replace("give back", "return", 1))   # return is read as give back
     return out

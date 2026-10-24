@@ -11,7 +11,7 @@ Templates are written the way you'd say them, articles included ("a random numbe
 import inspect
 from dataclasses import dataclass, field
 
-from .words import ARTICLES, SYNONYMS
+from .words import ARTICLES, INFLECTIONS, SYNONYMS
 
 
 class Value:      """Any value."""
@@ -148,7 +148,7 @@ def core(wording, doc, example, topic="Core steps"):
 def word_matches(token, alts):
     if token.kind not in ("word", "symbol"):
         return False
-    return token.norm in alts or SYNONYMS.get(token.norm) in alts
+    return token.norm in alts or SYNONYMS.get(token.norm) in alts or INFLECTIONS.get(token.norm) in alts
 
 
 PLACEHOLDERS = {

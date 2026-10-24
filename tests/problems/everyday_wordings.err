@@ -1,0 +1,33 @@
+everyday_wordings.plain, line 1: Write "ask "Your name?" and call it person" instead.
+
+    ask "Your name?" and call the answer person
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Try this:
+    ask "Your name?" and call it person
+Why: Plain says "and call it" to keep what a step gives back.
+
+everyday_wordings.plain, line 2: Write "wait for Enter" instead.
+
+    wait for the Enter key
+    ^^^^^^^^^^^^^^^^^^^^^^
+Try this:
+    wait for Enter
+Why: Plain says "wait for Enter" to wait until you press the Enter key.
+
+everyday_wordings.plain, line 4: Write "skip to the next round" instead.
+
+        go to the next round
+        ^^^^^^^^^^^^^^^^^^^^
+Try this:
+        skip to the next round
+Why: Plain says "skip to the next round" to go straight to the next round of the repeat.
+
+everyday_wordings.plain, line 7: Write "if that fails" instead.
+
+    if that doesn't work
+    ^^^^^^^^^^^^^^^^^^^^
+Try this:
+    if that fails
+Why: Plain says "if that fails" for the steps to take when a step under "try" has a problem.
+
+Plain found 4 things to fix, so it hasn't run your program yet.

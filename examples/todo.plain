@@ -18,7 +18,7 @@ show "Saved your list. See you next time!"
 
 # The details
 how to cross off a task in (tasks)
-    if tasks is empty
+    if tasks are empty
         show "There's nothing to cross off."
     otherwise
         ask "Which one is done?" with choices tasks and call it done

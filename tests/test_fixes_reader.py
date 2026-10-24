@@ -28,21 +28,33 @@ def reading(source, line):
 
 
 class NameTies(unittest.TestCase):
-    def test_a_name_that_is_also_a_check_word_is_a_rename_problem(self):   # reader-1, reader-8
+    def test_a_name_that_is_also_a_check_word_is_a_rename_problem(self):   # reader-1, reader-8, change 15
         for word in ("text", "empty", "even", "odd"):
             with self.subTest(word=word):
                 found = problems(f'set {word} to "z"\nset x to ""\nif x is {word}\n    show 1')
-                self.assertEqual([f'Rename "{word}" so this line has only one meaning.'], [p.fix for p in found])
-                self.assertEqual([f"if x is the same as {word}"], found[0].try_lines)
-                self.assertEqual(found[0].try_lines, [i.strip() for i in found[0].ideas])
+                self.assertEqual([f'Rename "{word}" so this line has only one meaning, for example to "my {word}".'],
+                                 [p.fix for p in found])
+                # Once the name is renamed, the line reads with Plain's words as it is.
+                self.assertEqual([], found[0].try_lines)
+                self.assertEqual([], found[0].ideas)
 
     def test_name_and_phrase_words_show_both_readings(self):   # reader-27
         p = problems("set hours to 3\nset time to 5\nset under time to 2\nif hours is under time\n    show 1")[0]
-        self.assertEqual('Rename "under time" so this line has only one meaning.', p.fix)
-        self.assertEqual(["if hours is less than time", "if hours is the same as under time"], p.try_lines)
+        self.assertEqual('Rename "under time" so this line has only one meaning, for example to "my under time".',
+                         p.fix)
+        self.assertEqual([], p.try_lines)
         p = problems("set number to 3\nset x to 1\nif x is a number\n    show 1")[0]
-        self.assertEqual('Rename "number" so this line has only one meaning.', p.fix)
-        self.assertNotIn("if x is a number", p.try_lines)
+        self.assertEqual('Rename "number" so this line has only one meaning, for example to "my number".', p.fix)
+        self.assertEqual([], p.try_lines)
+
+    def test_a_clash_offers_only_a_rename(self):   # change 15: never "is the same as", which changes the meaning
+        p = problems('ask "Which person?" and call it number\nif number is a number\n    show 1')[0]
+        self.assertEqual('Rename "number" so this line has only one meaning, for example to "my number".', p.fix)
+        self.assertEqual(["if my number is a number"], p.try_lines)
+        self.assertEqual([], p.ideas)   # a rename changes more than this one line
+        self.assertEqual("1\n", output('set my number to 3\nif my number is a number\n    show 1'))
+        p = problems('set my number to 3\nset number to 3\nif number is a number\n    show 1')[0]
+        self.assertEqual(["if new number is a number"], p.try_lines)
 
     def test_the_same_as_wording_reads_as_your_name(self):
         self.assertEqual("1\n", output('set empty to "z"\nset x to "z"\nif x is the same as empty\n    show 1'))
@@ -224,7 +236,7 @@ class Recovery(unittest.TestCase):
 
     def test_name_with_a_special_word_is_kept(self):   # reader-20
         found = problems("set number of tries to 0\nadd 1 to number of tries")
-        self.assertEqual(['Rename "number of tries", for example to "tries count".'], [p.fix for p in found])
+        self.assertEqual(['Rename "number of tries", for example to "how many tries".'], [p.fix for p in found])
 
     def test_each_unknown_name_once(self):   # reader-15, reader-20, reader-29
         found = problems("add 1 to tally\nadd 2 to tally\nshow tally plus 1")
@@ -303,13 +315,156 @@ class Messages(unittest.TestCase):
         self.assertEqual([3, 4, 5, 6], [p.line for p in found])
         self.assertTrue(all(p.col is not None for p in found))
         self.assertEqual(12, found[0].col)
-        self.assertIn('"return" is written "give back"', found[3].why)
+        self.assertEqual('Write "give back 3" instead.', found[3].fix)
 
-    def test_else_is_recorded_for_tidy(self):   # reader-42
-        program = Reader().read('set x to 1\nif x is 1\n    show "a"\nelse\n    show "b"')
-        stmt = program.statements[1]
-        self.assertIsInstance(stmt, N.If)
-        self.assertEqual({4: [(0, 4, "otherwise")]}, stmt.branch_edits)
+    def test_else_offers_otherwise(self):   # change 8: "else" isn't English on its own
+        found = problems('set x to 1\nif x is 1\n    show "a"\nelse\n    show "b"')
+        self.assertEqual([(4, 'Write "otherwise" instead.', ["otherwise"])],
+                         [(p.line, p.fix, p.try_lines) for p in found])
+
+
+def offered(source):
+    """(fix, try lines) of the first problem, after checking that each try line reads in its place."""
+    found = problems(source)
+    assert found, "no problem"
+    p = found[0]
+    lines = source.split("\n")
+    for text in p.try_lines:
+        fixed = "\n".join(lines[:p.line - 1] + [text] + lines[p.line:])
+        assert not [q for q in problems(fixed) if q.line == p.line], (text, [q.fix for q in problems(fixed)])
+    return p.fix, p.try_lines
+
+
+class AgreeingWords(unittest.TestCase):   # change 6
+    def test_plural_words_read_and_explain_keeps_them(self):
+        source = ('set results to an empty list\nset letters to "abc"\n'
+                  'if results are empty\n    show 1\nif letters contain "e"\n    show 2\n'
+                  'if results aren\'t empty\n    show 3\nif letters do not start with "x"\n    show 4')
+        program = Reader().read(source)
+        self.assertEqual([], program.problems)
+        readings = line_readings(program.statements)
+        self.assertEqual(["if results are empty", 'if letters contain "e"', "if results are not empty",
+                          'if letters do not start with "x"'], [readings[n] for n in (3, 5, 7, 9)])
+        self.assertEqual("1\n4\n", output(source))
+
+    def test_are_and_contain_end_names(self):
+        self.assertEqual(['Rename "we are done", for example to "we done".'], fixes("set we are done to yes"))
+        self.assertIn('"contain" is one of Plain\'s special words', problems("set boxes contain to 1")[0].why)
+
+    def test_bare_start_with_is_not_added(self):
+        self.assertTrue(problems('set names to an empty list\nif names start with "a"\n    show 1'))
+        self.assertEqual([], problems("set start time to 3\nset end date to 4\nshow start time plus end date"))
+
+    def test_cant_is_not_a_contraction(self):
+        from plainlang.words import CONTRACTIONS
+        self.assertNotIn("can't", CONTRACTIONS)
+        self.assertEqual(("are", "not"), CONTRACTIONS["aren't"])
+
+
+class OfferedFixes(unittest.TestCase):   # changes 8, 19 and 25: offered, never read
+    def test_code_words_are_no_longer_read(self):
+        from plainlang.words import CORE_STARTS, SPECIAL_WORDS, SYNONYMS
+        for word in ("else", "fetch", "mean", "return"):
+            self.assertNotIn(word, SYNONYMS)
+        self.assertNotIn("return", CORE_STARTS)
+        self.assertFalse({"true", "false"} & SPECIAL_WORDS)
+
+    def test_equals_signs(self):
+        self.assertEqual(('Write "is" instead of "==".', ["if x is 3"]), offered("set x to 3\nif x == 3\n    show 1"))
+        self.assertEqual(('Write "is not" instead of "!=".', ["if x is not 3"]),
+                         offered("set x to 3\nif x != 3\n    show 1"))
+        self.assertEqual([], problems("set x to 3\nif x = 3 or x ≠ 4\n    show 1"))
+
+    def test_else(self):
+        source = 'set x to 3\nif x is 3\n    show "a"\nelse if x != 4\n    show "b"\nelse:\n    show "c"'
+        found = problems(source)
+        self.assertEqual([(4, ["otherwise if x is not 4"]), (6, ["otherwise"])], [(p.line, p.try_lines) for p in found])
+
+    def test_return_fetch_true_false(self):
+        self.assertEqual(('Write "give back n times 2" instead.', ["    give back n times 2"]),
+                         offered("how to double (n)\n    return n times 2\ndouble 3 and call it six\nshow six"))
+        self.assertEqual(["    give back yes"], offered("how to check (n)\n    return true")[1])
+        self.assertEqual(['read "notes.txt" and call it notes'], offered('fetch "notes.txt" and call it notes')[1])
+        self.assertEqual(["set done to yes"], offered("set done to TRUE")[1])
+        self.assertEqual(["if done is no"], offered("set done to yes\nif done is False\n    show 1")[1])
+        self.assertEqual(['if done is "true" or done is yes'],
+                         offered('set done to yes\nif done is "true" or done is true\n    show 1')[1])
+        self.assertEqual([], problems('show "true or false"'))
+        self.assertEqual("5\n", output("set true to 5\nshow true"))   # no longer a special word
+
+    def test_mean(self):
+        fix, lines = offered("set scores to a list of 1 and 2\nshow the mean of scores")
+        self.assertEqual('Write "average" instead of "mean", or use \'s for a field called "mean".', fix)
+        self.assertEqual(["show the average of scores", "show scores's mean"], lines)
+        self.assertEqual([], problems("set scores to a list of 1 and 2\nshow the average of scores"))
+
+    def test_call_it_wordings(self):
+        for said in ("and name it person", "and keep it as person", "and save it as person",
+                     "and store it as person", "and call the answer person"):
+            with self.subTest(said=said):
+                self.assertEqual(['ask "Your name?" and call it person'],
+                                 offered(f'ask "Your name?" {said}\nshow person')[1])
+                self.assertEqual(1, len(problems(f'ask "Your name?" {said}\nshow person')))
+
+    def test_next_round_and_fails_wordings(self):
+        for said in ("go to the next round", "go on to the next round", "move on to the next round"):
+            with self.subTest(said=said):
+                self.assertEqual(["    skip to the next round"], offered(f"repeat 2 times\n    {said}")[1])
+        for said in ("if that doesn't work", "if that goes wrong", "if there's a problem", "if it does not work"):
+            with self.subTest(said=said):
+                self.assertEqual(["if that fails"], offered(f'try\n    show 1\n{said}\n    show 2')[1])
+
+    def test_to_starts_a_howto(self):
+        self.assertEqual(["how to work out the tip on (bill)"],
+                         offered("to work out the tip on (bill)\n    give back bill times 15%")[1])
+
+    def test_where_wordings(self):
+        sales = 'set sales to an empty list\n'
+        self.assertEqual(["show sales where amount is more than 100"],
+                         offered(sales + "show sales whose amount is more than 100")[1])
+        self.assertEqual(('Write "it" instead of "each".', ["show sales where it is more than 100"]),
+                         offered(sales + "show sales where each is more than 100"))
+        self.assertEqual(["show sales where it is more than 100", "show sales where its item is more than 100"],
+                         offered(sales + "show sales where the item is more than 100")[1])
+        self.assertEqual([], problems(sales + "show sales where amount is more than 100"))
+
+    def test_ordinal_items(self):
+        colors = 'set colors to a list of "red" and "blue"\n'
+        for word, n in (("second", 2), ("third", 3), ("twelfth", 12)):
+            with self.subTest(word=word):
+                self.assertEqual([f"show item {n} of colors", f"show colors's {word} item"],
+                                 offered(colors + f"show the {word} item of colors")[1])
+        self.assertEqual([], problems(colors + "show the first item of colors"))
+
+    def test_wait_for_enter(self):
+        self.assertEqual(["wait for Enter"], offered("wait for the Enter key")[1])
+        self.assertEqual([], problems("wait for Enter\nwait for enter"))
+
+
+class RenameSuggestions(unittest.TestCase):   # change 21: a suggested name keeps the meaning
+    def test_suggestions(self):
+        for name, new in (("lap times", "lap results"), ("best times", "best results"),
+                          ("number of players", "player count"), ("number of boxes", "box count"),
+                          ("number of tries", "how many tries"), ("price rounded", "price"),
+                          ("date joined", "join date"), ("tip percent", "tip rate"),
+                          ("total minus tax", "total without tax")):
+            with self.subTest(name=name):
+                self.assertEqual([f'Rename "{name}", for example to "{new}".'], fixes(f"set {name} to 1"))
+
+    def test_never_a_fixed_word(self):
+        from plainlang.parser import RENAMES
+        from plainlang.suggest import phrase_words
+        from plainlang.words import CORE_STARTS, SPECIAL_WORDS
+        fixed = phrase_words() | CORE_STARTS | SPECIAL_WORDS
+        for word, new in RENAMES.items():
+            with self.subTest(word=word):
+                self.assertFalse(set(new.split()) & fixed, new)
+
+    def test_a_field_with_a_special_word_goes_in_quotes(self):
+        source = 'read "people.csv" and call it members\nrepeat for each member in members\n    show member\'s date joined'
+        fix, lines = offered(source)
+        self.assertEqual('Put the field name "date joined" in double quotes.', fix)
+        self.assertEqual(['    show member\'s "date joined"'], lines)
 
 
 if __name__ == "__main__":

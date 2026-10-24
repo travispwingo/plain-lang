@@ -1,0 +1,17 @@
+whose_and_to.plain, line 1: Write "how to work out the tip on (bill)" instead.
+
+    to work out the tip on (bill)
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Try this:
+    how to work out the tip on (bill)
+Why: Plain starts each step of your own with "how to".
+
+whose_and_to.plain, line 4: Write "show sales where amount is more than 100" instead.
+
+    show sales whose amount is more than 100
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Try this:
+    show sales where amount is more than 100
+Why: Plain says "where" to pick the items that match, as in: sales where amount is more than 100
+
+Plain found 2 things to fix, so it hasn't run your program yet.

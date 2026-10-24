@@ -1,0 +1,19 @@
+rename_keeps_meaning.plain, line 1: Rename "lap times", for example to "lap results".
+
+    set lap times to a list of 61 and 59
+        ^^^^^^^^^
+Why: "times" is one of Plain's special words, so it can't be part of a name.
+
+rename_keeps_meaning.plain, line 2: Rename "number of players", for example to "player count".
+
+    set number of players to 4
+        ^^^^^^^^^^^^^^^^^
+Why: "of" is one of Plain's special words, so it can't be part of a name.
+
+rename_keeps_meaning.plain, line 3: Rename "date joined", for example to "join date".
+
+    set date joined to "2026-10-24"
+        ^^^^^^^^^^^
+Why: "joined" is one of Plain's special words, so it can't be part of a name.
+
+Plain found 3 things to fix, so it hasn't run your program yet.

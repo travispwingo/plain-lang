@@ -1,0 +1,9 @@
+field_with_special_word.plain, line 3: Put the field name "date joined" in double quotes.
+
+        show sale's date joined
+                    ^^^^^^^^^^^
+Try this:
+        show sale's "date joined"
+Why: "joined" is one of Plain's special words, so a field name with it goes in double quotes, as in: sale's "date joined"
+
+Plain found 1 thing to fix, so it hasn't run your program yet.

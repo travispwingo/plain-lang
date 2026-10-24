@@ -4,6 +4,7 @@ Only this module (and browser.py) talks to the outside world, so the same core r
 terminal, in tests and in the browser.
 """
 
+import errno
 import http.client
 import os
 import random
@@ -40,8 +41,11 @@ class TerminalHost:
     def show(self, text):
         try:
             print(text, flush=True)
-        except BrokenPipeError:
+        except OSError as error:
             # Whatever was reading the output (like "head") has stopped, so stop quietly.
+            # Windows reports that as EINVAL instead of a BrokenPipeError.
+            if not isinstance(error, BrokenPipeError) and error.errno != errno.EINVAL:
+                raise
             os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
             from .interpreter import StopProgramSignal
             raise StopProgramSignal() from None

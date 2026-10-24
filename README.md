@@ -74,3 +74,7 @@ python3 site/build.py --serve
 ```
 
 - Every push to `main` that passes CI deploys the site to plain-lang.dev, using the `CLOUDFLARE_API_TOKEN` repository secret.
+
+## License
+
+Plain is free and open source under the [MIT License](LICENSE). You may use, change and share it, as long as you keep the copyright and license notice.

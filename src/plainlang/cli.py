@@ -194,33 +194,44 @@ def run_program(program, path, options):
 
 def phrases(words, again="plain phrases"):
     """List Plain's phrases, or the ones about WORDS. `again` is how to list them all."""
-    from .registry import CORE_FORMS, catalog
-    entries = catalog()
+    from .registry import fixed_words, other_ways, reference
+    entries, ways = reference(), other_ways()
     wanted = [w.lower() for w in words]
-
-    def matches(text):
-        return all(w in text.lower() for w in wanted)
-
-    topics = {}
-    for core in CORE_FORMS:
-        also = other_words(core["wording"])
-        if not wanted or matches(" ".join([core["wording"], core["doc"]] + also)):
-            topics.setdefault(core["topic"], []).append((core["wording"], core["doc"], core["example"], also))
-    for entry in entries:
-        also = entry["also"] + [w for w in other_words(entry["template"]) if w not in entry["also"]]
-        if not wanted or matches(" ".join([entry["wording"], entry["doc"]] + also)):
-            topics.setdefault(entry["topic"], []).append((entry["wording"], entry["doc"], entry["example"], also))
-    if not topics:
+    if wanted:
+        ways = [w for w in ways if all(x in " ".join(w.said + w.main + [w.note]).lower() for x in wanted)]
+        # The phrase's own words first ("plain phrases at least"), then what other ways mean, then the
+        # explanations.
+        mains = [fixed_words(m) for way in ways for m in way.main]
+        found = [e for e in entries if has_words(fixed_words(e["wording"]), wanted)
+                 or any(m and has_words(fixed_words(e["wording"]), m) for m in mains)]
+        if not found:
+            found = [e for e in entries if all(w in " ".join([e["wording"], e["doc"]]).lower() for w in wanted)]
+        entries = found
+    if not entries and not ways:
         say(f"Plain has no phrases about \"{' '.join(words)}\". Type {again} to see them all.")
         return 1
-    for topic, items in topics.items():
-        say(topic)
-        for wording, doc, example, also in items:
-            say(f"  {wording}")
-            say(f"      {doc}")
-            if also:
-                say(f"      You can also write: {'; '.join(also)}")
-            say(f"      Example: {example}")
+    topic = None
+    for entry in entries:
+        if entry["topic"] != topic:
+            if topic is not None:
+                say("")
+            topic = entry["topic"]
+            say(topic)
+        say(f"  {entry['wording']}")
+        say(f"      {entry['doc']}")
+        say(f"      Example: {entry['example']}")
+    if entries:
+        say("")
+    if ways:
+        say("Other ways you can write things")
+        for tidy in (True, False):
+            group = [w for w in ways if w.tidy == tidy]
+            if not group:
+                continue
+            say("  plain tidy changes these to the main words:" if tidy else
+                "  Plain also understands these, and plain tidy leaves them as you wrote them:")
+            for way in group:
+                say(f"    {way.sentence(code=lambda text: text).replace('`', '')}")
         say("")
     from .words import SPECIAL_WORDS
     if not wanted:
@@ -229,16 +240,6 @@ def phrases(words, again="plain phrases"):
     return 0
 
 
-def other_words(template):
-    """The same phrase with each of its words swapped for a word that means the same (display for show)."""
-    from .registry import wording
-    from .words import SYNONYMS
-    parts = template.split()
-    out = []
-    for k, part in enumerate(parts):
-        if part.startswith(("{", "[")):
-            continue
-        for other, main in SYNONYMS.items():
-            if main in part.lower().split("|"):
-                out.append(wording(" ".join(parts[:k] + [other] + parts[k + 1:])))
-    return out
+def has_words(have, wanted):
+    """Every word you typed starts one of the phrase's own words, in any order: "contain" finds contains."""
+    return all(any(h.startswith(w) for h in have) for w in wanted)

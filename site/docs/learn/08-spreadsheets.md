@@ -87,7 +87,7 @@ Capitals don't matter in column names, and a space works the same as `_`. So for
 read "sales.csv" and call it sales
 show the amounts of sales
 show "Total: ${the total of the amounts of sales}"
-show "Average: ${the average of the amounts of sales rounded to 2 places}"
+show "Average: ${the average of the amounts of sales rounded to 2 decimal places}"
 show "Largest: ${the largest of the amounts of sales}"
 ```
 
@@ -206,7 +206,7 @@ You can add up a column even when some cells are blank. Plain reads a blank cell
 ```plain files=08-spending.csv
 read "08-spending.csv" and call it spending
 show "Total: ${the total of the amounts of spending}"
-show "Average: ${the average of the amounts of spending rounded to 2 places}"
+show "Average: ${the average of the amounts of spending rounded to 2 decimal places}"
 set missing to spending where amount is empty
 show "Still to fill in:"
 show missing

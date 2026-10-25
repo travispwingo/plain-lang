@@ -8,13 +8,13 @@ set summary to an empty list
 show "Your budget, by category:"
 repeat for each kind in the different categories of budget
     set rows to budget where category is kind
-    set category total to the total of the amounts of rows rounded to 2 places
+    set category total to the total of the amounts of rows rounded to 2 decimal places
     show "  {kind}: ${category total}"
     set entry to an empty record
     set entry's category to kind
     set entry's total to category total
     add entry to summary
-show "Altogether: ${the total of the amounts of budget rounded to 2 places}"
+show "Altogether: ${the total of the amounts of budget rounded to 2 decimal places}"
 set missing to budget where amount is empty
 if missing is not empty
     show "No amount yet for {the names of missing}, so they aren't in the totals."

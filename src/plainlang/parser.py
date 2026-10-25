@@ -565,7 +565,7 @@ class Reader:
                           line=line.number, col=view[0].col, end=view[-1].end)
         norms = tuple(t.norm for t in view)
         if norms in LINE_ALIASES:
-            return N.StopProgram(line=line.number)
+            return N.StopProgram(line=line.number, col=view[0].col, end=view[-1].end)
         first = view[0].norm if view[0].kind == "word" else ""
         reader = self.line_reader(view, scope)
         reader.line = line
@@ -825,7 +825,7 @@ class Reader:
         if k == 1 and n == 2 and word in ("once", "twice", "forever"):
             if word == "forever":
                 return N.Repeat("forever", body(), line=L)
-            count = N.Lit(Decimal(1 if word == "once" else 2), col=view[1].col, end=view[1].end)
+            count = N.Lit(Decimal(1 if word == "once" else 2), raw=word, col=view[1].col, end=view[1].end)
             return N.Repeat("times", body(), count=count, line=L)
         if word in ("until", "while"):
             check = reader.one(reader.check(k + 1, n), k + 1, n, line, check=True)
@@ -2233,7 +2233,9 @@ class LineReader:
                         continue   # "the first item of places's results": 's belongs to places
                     if isinstance(base, (N.Name, N.Field, N.Paren, N.It, N.Value, N.RowField)) and \
                             not (isinstance(base, N.Field) and base.of_form):
-                        out.append(self.field_node(base, words, col, end, self.raw_words(k + 1, j)))
+                        node = self.field_node(base, words, col, end, self.raw_words(k + 1, j))
+                        node.bare = t[k].raw in ("'", "’")    # players' score, as you wrote it (change 20)
+                        out.append(node)
         # 15% of bill
         if t[i].kind == "number" and t[i].percent and i + 2 < j + 1 and i + 1 < j and is_word(t[i + 1], "of"):
             pct = N.Lit(t[i].value, raw=t[i].raw, percent=True, col=t[i].col, end=t[i].end)

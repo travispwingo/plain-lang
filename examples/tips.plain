@@ -11,4 +11,4 @@ show "Tips altogether: ${lunch tip plus dinner tip}"
 # How the tip is worked out
 how to work out the tip on (bill) at (rate)
     set tip to bill times rate
-    give back tip rounded to 2 places
+    give back tip rounded to 2 decimal places

@@ -115,6 +115,14 @@ Plain shows each line as you wrote it, and next to it, how it reads it:
 
 Plain uses its main words (`show` for `display`), leaves out words like "the", and writes every check out in full. If the right side isn't what you meant, change your line so it says exactly what you mean.
 
+To put the main words into your file, type:
+
+```bash
+plain tidy party.plain
+```
+
+Plain changes `display` to `show` and keeps your file from before in `party.plain.bak`. It leaves "the" and the short check as you wrote them. [All phrases](/phrases/#other-ways-you-can-write-things) lists every other way of writing things that Plain understands.
+
 ## Look up a phrase
 
 [All phrases](/phrases/) lists everything Plain can do, with an example of each. Type in the box at the top to find one.

@@ -306,7 +306,7 @@ class Messages(unittest.TestCase):
     def test_explain_wording(self):   # reader-38
         self.assertEqual(([], "show (the number of guests) plus 1"),
                          reading("set guests to a list of 1\nshow the number of guests plus 1", 2))
-        self.assertEqual(([], "show 7.25 rounded to 1 place"), reading("show 7.25 rounded to 1 place", 1))
+        self.assertEqual(([], "show 7.25 rounded to 1 decimal place"), reading("show 7.25 rounded to 1 place", 1))
         self.assertEqual(([], "wait 1 second"), reading("wait 1 second", 1))
 
     def test_placement_problems_mark_the_line(self):   # reader-41
@@ -395,7 +395,7 @@ class OfferedFixes(unittest.TestCase):   # changes 8, 19 and 25: offered, never 
     def test_mean(self):
         fix, lines = offered("set scores to a list of 1 and 2\nshow the mean of scores")
         self.assertEqual('Write "average" instead of "mean", or use \'s for a field called "mean".', fix)
-        self.assertEqual(["show the average of scores", "show scores's mean"], lines)
+        self.assertEqual(["show the average of scores", "show scores' mean"], lines)
         self.assertEqual([], problems("set scores to a list of 1 and 2\nshow the average of scores"))
 
     def test_call_it_wordings(self):
@@ -432,7 +432,7 @@ class OfferedFixes(unittest.TestCase):   # changes 8, 19 and 25: offered, never 
         colors = 'set colors to a list of "red" and "blue"\n'
         for word, n in (("second", 2), ("third", 3), ("twelfth", 12)):
             with self.subTest(word=word):
-                self.assertEqual([f"show item {n} of colors", f"show colors's {word} item"],
+                self.assertEqual([f"show item {n} of colors", f"show colors' {word} item"],
                                  offered(colors + f"show the {word} item of colors")[1])
         self.assertEqual([], problems(colors + "show the first item of colors"))
 
@@ -551,7 +551,7 @@ class PostfixBrackets(unittest.TestCase):   # change 1
         self.assertEqual(([], "show (bill plus rate) rounded"), reading(source, 3))
         self.assertEqual(([], "repeat (2 times 3) times"), reading(source, 4))
         self.assertEqual(([], "show bill rounded"), reading("set bill to 1\nshow bill rounded", 2))
-        self.assertEqual(([], "set x to the total of scores rounded to 2 places"),
+        self.assertEqual(([], "set x to the total of scores rounded to 2 decimal places"),
                          reading("set scores to a list of 1\nset x to the total of scores rounded to 2 places", 2))
 
     def test_tidy_adds_the_brackets(self):
@@ -572,9 +572,9 @@ class PhraseWordsAfterThe(unittest.TestCase):   # change 4
         p = each_choice_reads(self, orders + "show the totals of orders")
         self.assertEqual('Write "the total of" instead of "the totals of", or use \'s for a field called "totals".',
                          p.fix)
-        self.assertEqual([["show the total of orders"], ["show orders's totals"]], p.choices)
+        self.assertEqual([["show the total of orders"], ["show orders' totals"]], p.choices)
         p = each_choice_reads(self, orders + "show the items of orders")
-        self.assertEqual(['show orders\'s items'], p.try_lines)
+        self.assertEqual(["show orders' items"], p.try_lines)
         for said, phrase in (("numbers", "the number of"), ("averages", "the average of"),
                              ("lengths", "the length of"), ("first", "the first item of"),
                              ("last", "the last item of"), ("copies", "a copy of")):

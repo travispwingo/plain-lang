@@ -153,7 +153,6 @@ dl.phrases { margin: 0; }
 .phrase { border-top: 1px solid var(--line); padding: .6rem 0; }
 .phrase dt { font-weight: 600; }
 .phrase dd { margin: .2rem 0 0; }
-.phrase .also { color: var(--muted); font-size: .9rem; }
 .tag { font-size: .75rem; font-weight: 600; background: var(--code-bg); color: var(--muted); padding: .1rem .45rem; border-radius: 999px; margin-left: .4rem; }
 .words code { display: inline-block; margin: .15rem; }
 #filter { font: inherit; padding: .35rem .6rem; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--text); width: 100%; max-width: 22rem; }

@@ -81,9 +81,14 @@ You can write these checks:
 - `is between 1 and 10`: both 1 and 10 count.
 - `contains`, `starts with` and `ends with`: for text. `contains` also looks for an item in a list.
 - `has`: whether a record has a value under a name, as in `if reply has "results"`. You'll meet records in [the lesson on spreadsheets](/learn/08-spreadsheets/).
-- `is empty`, `is a number`, `is a whole number`, `is even` and `is odd`.
+- `is empty`: yes for empty text, an empty list or nothing.
+- `is a number`, `is a whole number` and `is text`: what kind of value it is. An answer like "42" counts as a number, and "hello" counts as text.
+- `is a list`: whether the value is a list. You'll meet lists in [the lesson on lists](/learn/05-lists/).
+- `is even`, `is odd` and `is divisible by 3`: for whole numbers. `is divisible by 3` is yes when 3 goes into the number with nothing left over.
 
-If you're used to `=`, `>` and `<`, those work too. For a name that holds several things, write the words the way you'd say them: `if scores are empty`, `if names contain "Ann"` or `if todos do not contain "jam"`.
+Each check has a "not" form too, like `is not empty` or `is not divisible by 3`.
+
+If you're used to `=`, `>` and `<`, those work too, and `plain tidy` changes them to words for you. For a name that holds several things, write the words the way you'd say them: `if scores are empty`, `if names contain "Ann"` or `if todos do not contain "jam"`.
 
 ```plain
 ask "Pick a number from 1 to 10." and call it pick
@@ -100,6 +105,27 @@ otherwise
 ```output
 Pick a number from 1 to 10. 12
 12 is not from 1 to 10.
+```
+
+Here `is text` checks what kind of answer you typed, then `is divisible by 3` checks the number:
+
+```plain
+ask "Type a number." and call it answer
+if answer is text
+    show "That's a word, not a number."
+otherwise if answer is divisible by 3
+    show "{answer} is in the 3 times table."
+otherwise
+    show "{answer} is not in the 3 times table."
+```
+
+```answers
+12
+```
+
+```output
+Type a number. 12
+12 is in the 3 times table.
 ```
 
 When Plain compares text, it ignores capitals and any spaces at the start or end. So "Pineapple" counts as "pineapple":
@@ -240,3 +266,4 @@ Press **Try it** on any example above, then change it:
 - Ask for the temperature and show "It's freezing!" when it's at most 0.
 - Ask "Are you hungry?" and suggest a snack only when the answer is yes.
 - Ask for a word, and say whether it starts with "a".
+- Ask for a year, and say whether it is divisible by 4.

@@ -12,8 +12,8 @@ show the total => show total
 set total to price times 2 => set total to price times 2
 set total to price * 2 => set total to price times 2
 set total to price multiplied by 2 => set total to price times 2
-set total to bill times rate rounded to 2 places => set total to (bill times rate) rounded to 2 places
-set total to bill times rate rounded to 2 decimal places => set total to (bill times rate) rounded to 2 places
+set total to bill times rate rounded to 2 places => set total to (bill times rate) rounded to 2 decimal places
+set total to bill times rate rounded to 2 decimal places => set total to (bill times rate) rounded to 2 decimal places
 set total to price plus 8% of price => set total to price plus 8% of price
 set total to 15% of bill => set total to 15% of bill
 set total to 15 percent of bill => set total to 15% of bill
@@ -54,7 +54,7 @@ sort big sales by amount, largest first => sort big sales by amount largest firs
 for each sale in sales => repeat for each sale in sales
 repeat for every sale in sales => repeat for each sale in sales
 repeat 3 times => repeat 3 times
-repeat twice => repeat 2 times
+repeat twice => repeat twice
 repeat until guess is secret => repeat until guess is secret
 repeat for each n from 10 down to 1 => repeat for each n from 10 down to 1
 read "sales.csv" and call it sales => read "sales.csv" and call it sales
@@ -137,7 +137,7 @@ names: sales, scores, colors, name, age, done, bill, rate, story, project, pick,
 ! end the whole game right now
 # Brackets show what "rounded" and a second "times" cover (change 1).
 show bill plus rate rounded => show (bill plus rate) rounded
-show 15% of bill rounded to 2 places => show (15% of bill) rounded to 2 places
+show 15% of bill rounded to 2 places => show (15% of bill) rounded to 2 decimal places
 show bill rounded => show bill rounded
 repeat 2 times 3 times => repeat (2 times 3) times
 show (the total of scores where it is more than 1) rounded => show (the total of scores where it is more than 1) rounded
@@ -148,6 +148,7 @@ show the total of scores where it is more than (1 rounded) => show the total of 
 show the amounts of sales => show the amounts of sales
 show the first name of project => show the first name of project
 show sales's totals => show sales's totals
+show sales' totals => show sales' totals
 ! show the totals of sales
 ! show the numbers of sales
 ! show the items of sales
@@ -223,9 +224,23 @@ show story in uppercase => show story in capital letters
 show story in small letters => show story in small letters
 show story in lowercase => show story in small letters
 show a random number between 1 and 6 => show a random number from 1 to 6
-show 2.555 rounded to 2 decimals => show 2.555 rounded to 2 places
+show 2.555 rounded to 2 decimals => show 2.555 rounded to 2 decimal places
 sort scores smallest first => sort scores
 ! show story in big letters
 # Adding to a file needs "the file" (change 30).
 add todos to the file "todos.txt" => add todos to the file "todos.txt"
 ! add "milk" to "shopping.txt"
+# explain shows the apostrophe you wrote, once and twice, and decimal places (stage 4: changes 20 and 26).
+names: places, players, price
+show places' results => show places' results
+show places's results => show places's results
+show the first item of places' results => show the first item of places' results
+show price rounded to 1 place => show price rounded to 1 decimal place
+show price rounded to 2 decimal places => show price rounded to 2 decimal places
+show price rounded to 2 decimals => show price rounded to 2 decimal places
+! show price rounded to 2 decimal decimals
+! show price rounded to 2 places places
+repeat once => repeat once
+repeat 1 time => repeat 1 time
+repeat two times => repeat 2 times
+repeat for every p in places => repeat for each p in places

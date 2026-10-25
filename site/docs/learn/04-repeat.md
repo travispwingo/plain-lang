@@ -132,7 +132,7 @@ repeat while savings are less than 200
     set savings to savings times 1.10
     add 1 to years
 show "At 10% a year, $100 grows past $200 in {years} years."
-show "You'd have ${savings rounded to 2 places}."
+show "You'd have ${savings rounded to 2 decimal places}."
 ```
 
 ```output

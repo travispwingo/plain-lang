@@ -5,7 +5,7 @@ phrase_word_fields.plain, line 2: Write "the total of" instead of "the totals of
 Try one of these:
     show the total of sales
   or
-    show sales's totals
+    show sales' totals
 Why: "the totals of" looks like Plain's own phrase "the total of", so it could mean that phrase or a field called "totals". Plain never guesses which one you mean.
 
 phrase_word_fields.plain, line 3: Use 's for a field called "items".
@@ -13,7 +13,7 @@ phrase_word_fields.plain, line 3: Use 's for a field called "items".
     show the items of sales
          ^^^^^^^^^^^^^^^^^^
 Try this:
-    show sales's items
+    show sales' items
 Why: "items" is a word of Plain's own phrases, like "the first 2 items of". With 's it can only mean a field.
 
 phrase_word_fields.plain, line 4: Write "the characters of" instead of "the letters of".

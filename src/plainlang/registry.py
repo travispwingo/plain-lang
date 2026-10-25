@@ -9,6 +9,7 @@ Templates are written the way you'd say them, articles included ("a random numbe
 """
 
 import inspect
+import re
 from dataclasses import dataclass, field
 
 from .words import ARTICLES, INFLECTIONS, SPECIAL_WORDS, SYNONYMS
@@ -80,19 +81,27 @@ class Phrase:
 
     def render(self, args):
         """This phrase in its own wording with the given values filled in."""
-        out = []
-        for part in self.template.split():
+        out, count, slots = [], None, iter(self.slots)
+        for part in template_parts(self.template):
             if part.startswith("{"):
-                name = part.strip("{}")
-                out.append(args.get(name, part))
+                # Slots in order, so a bracketed name of your own with several words, like
+                # {the bill}, shows the value handed in (change 20).
+                slot = next(slots, None)
+                count = args.get(slot.name if slot else part.strip("{}"), part)
+                out.append(count)
             elif part.startswith("["):
                 continue
-            elif "|" in part:   # second|seconds: "1 second", "2 seconds"
+            elif "|" in part:   # second|seconds: "1 second", "2 decimal places"
                 alts = part.split("|")
-                out.append(alts[0] if out and out[-1] in ("1", "one") else alts[-1])
+                out.append(alts[0] if count in ("1", "one") else alts[-1])
             else:
                 out.append(part)
         return " ".join(out)
+
+
+def template_parts(template):
+    """A template's words and slots, keeping a slot of several words whole: "find the tip on {the bill}"."""
+    return re.findall(r"\{[^}]*\}|\S+", template)
 
 
 REGISTRY: list[Phrase] = []
@@ -191,10 +200,154 @@ def catalog():
         if phrase.main is not phrase or id(phrase) in seen:
             continue
         seen.add(id(phrase))
-        others = [p.template for p in REGISTRY if p.main is phrase and p is not phrase]
         out.append({
             "topic": phrase.topic, "wording": wording(phrase.template), "doc": phrase.doc,
-            "example": phrase.example, "also": [wording(o) for o in others], "effects": sorted(phrase.effects),
-            "template": phrase.template,
+            "example": phrase.example, "effects": sorted(phrase.effects), "template": phrase.template,
         })
+    return out
+
+
+def reference():
+    """The core steps, checks and words, then every phrase: what `plain phrases` and the website list."""
+    import plainlang.phrases  # noqa: F401  (registers everything)
+    entries = [dict(core, effects=[]) for core in CORE_FORMS]
+    return entries + catalog()
+
+
+def fixed_words(text):
+    """The words of a wording that you write as they are: not VALUE, LIST or the other placeholders."""
+    return [w.lower() for w in re.findall(r"[A-Za-z']+", text) if not w.isupper()]
+
+
+# Other ways you can write things (change 2) -------------------------------------------------
+
+@dataclass
+class OtherWay:
+    said: list                 # the other wordings: "is greater than", ">"
+    main: list                 # the main wording, or one for each of the other wordings
+    tidy: bool = True          # plain tidy writes the main wording, as plain explain shows it
+    note: str = ""
+    examples: list = field(default_factory=list)   # (a line written this way, the same line in main words)
+
+    def sentence(self, code=lambda text: f"`{text}`"):
+        said, main = [code(s) for s in self.said], [code(m) for m in self.main]
+        if not main:
+            return self.note
+        reading = f"{join(said)} {'is' if len(said) == 1 else 'are'} read as {join(main)}."
+        return f"{self.note} {reading}" if self.note else reading
+
+
+def join(items, last="and"):
+    return items[0] if len(items) == 1 else ", ".join(items[:-1]) + f" {last} " + items[-1]
+
+
+def shown(phrase):
+    """A phrase as the reference writes it, with words for its slots: "sort LIST smallest first"."""
+    return phrase.render({s.name: PLACEHOLDERS.get(s.name, s.name.upper()) for s in phrase.slots})
+
+
+SAMPLES = {"value": "2", "number": "2", "text": '"hello"', "list": "names", "items": "names",
+           "field": "amount", "place": "score"}
+
+CONTRACTION_EXAMPLES = {
+    "isn't": ('if answer isn\'t "no"', 'if answer is not "no"'),
+    "doesn't": ('if the file "notes.txt" doesn\'t exist', 'if the file "notes.txt" does not exist'),
+    "don't": ('if names don\'t contain "Ann"', 'if names do not contain "Ann"'),
+    "aren't": ("if scores aren't empty", "if scores are not empty"),
+}
+
+# The words that agree with a plural name, in INFLECTIONS, each in a line.
+PLURAL_EXAMPLES = {"are": "if scores are empty", "do": 'if names do not contain "Ann"',
+                   "contain": 'if names contain "Ann"', "have": 'if people have "email"'}
+
+
+def other_ways():
+    """Every other way to write something that Plain understands, made from the tables in words.py
+    and the registry, for `plain phrases`, the website and the tests."""
+    import plainlang.phrases  # noqa: F401  (registers everything)
+    from .nodes import StopProgram
+    from .words import (ADD_OPS, ARTICLES, COMPARISON_WORDS, COMPARISONS, CONTRACTIONS, INFLECTIONS,
+                        LINE_ALIASES, MUL_OPS, MUL_TWO_WORD_OPS, NUMBER_WORDS, POLITE_STARTS, SYNONYMS)
+    out = []
+    for main in dict.fromkeys(SYNONYMS.values()):
+        said = [word for word, m in SYNONYMS.items() if m == main]
+        phrase = next(p for p in REGISTRY if p.main is p and main in fixed_words(wording(p.template))
+                      and re.search(rf"\b{main}\b", p.example))
+        out.append(OtherWay(said, [main], examples=[(re.sub(rf"\b{main}\b", word, phrase.example, count=1),
+                                                      phrase.example) for word in said]))
+    stop = StopProgram(line=0).canonical()
+    aliases = [" ".join(words) for words in LINE_ALIASES]
+    out.append(OtherWay(aliases, [stop], examples=[(a, stop) for a in aliases]))
+    for op, main in COMPARISON_WORDS.items():
+        said = [w for w in dict.fromkeys(" ".join("the same" if x == "same" else x for x in words)
+                                         for words, o in COMPARISONS if o == op and words[0] not in INFLECTIONS)
+                if w != main]
+        if said:
+            out.append(OtherWay(said, [main], examples=[(f"if score {w} 10", f"if score {main} 10") for w in said]))
+    out.append(OtherWay(list(CONTRACTIONS), [" ".join(words) for words in CONTRACTIONS.values()],
+                        examples=[CONTRACTION_EXAMPLES[c] for c in CONTRACTIONS]))
+    signs = {}
+    for sign, word in list(ADD_OPS.items()) + list(MUL_OPS.items()) + \
+            [(" ".join(words), word) for words, word in MUL_TWO_WORD_OPS.items()]:
+        if sign != word:
+            signs.setdefault(word, []).append(sign)
+    for word, said in signs.items():
+        out.append(OtherWay(said, [word], examples=[(f"show 6 {s} 3", f"show 6 {word} 3") for s in said]))
+    out.append(OtherWay(["15 percent"], ["15%"], examples=[("show 15 percent of 80", "show 15% of 80")]))
+    alternatives = {}
+    for phrase in REGISTRY:
+        if phrase.main is not phrase:
+            alternatives.setdefault(phrase.main, []).append(phrase)
+    for main, alts in alternatives.items():
+        examples = []
+        for alt in alts:
+            args = {s.name: SAMPLES[s.kind] for s in main.slots}
+            show = "" if main.kind == "step" else "show "
+            examples.append((show + alt.render(args), show + main.render(args)))
+        out.append(OtherWay([shown(a) for a in alts], [shown(main)], examples=examples))
+    out.append(OtherWay(["for each", "while", "until"], ["repeat for each", "repeat while", "repeat until"],
+                        note="At the start of a line,",
+                        examples=[("for each sale in sales", "repeat for each sale in sales"),
+                                  ("while score is less than 10", "repeat while score is less than 10"),
+                                  ('until answer is "yes"', 'repeat until answer is "yes"')]))
+    out.append(OtherWay(["repeat for every"], ["repeat for each"],
+                        examples=[("repeat for every sale in sales", "repeat for each sale in sales")]))
+    out.append(OtherWay(["skip this round", "skip round"], ["skip to the next round"],
+                        examples=[("skip this round", "skip to the next round"),
+                                  ("skip round", "skip to the next round")]))
+    ends = ["end", "end if", "end repeat", "end try"]
+    out.append(OtherWay(ends, [], note=f"A line {join([f'`{e}`' for e in ends], 'or')} is left out, because Plain "
+                        "goes by how far each line is moved to the right. `plain tidy` deletes it. To finish the "
+                        "program, write `stop the program`.",
+                        examples=[(f"if score is 10\n    show score\n{e}", "if score is 10\n    show score")
+                                  for e in ends]))
+
+    # Plain reads these the same, and plain tidy leaves them as you wrote them.
+    out.append(OtherWay(['SHOW "Hi"'], ['show "Hi"'], tidy=False, note="Capitals don't matter:",
+                        examples=[('SHOW "Hi"', 'show "Hi"')]))
+    out.append(OtherWay(['Then show "Done"'], ['show "Done"'], tidy=False,
+                        note=f"These words at the start of a line are left out: {join(sorted(POLITE_STARTS))}.",
+                        examples=[(f'{w.capitalize()} show "Done"', 'show "Done"') for w in sorted(POLITE_STARTS)]))
+    out.append(OtherWay(["show the total"], ["show total"], tidy=False,
+                        note=f"You can leave out {join(sorted(ARTICLES))}:",
+                        examples=[("show the total", "show total")]))
+    out.append(OtherWay(['if answer is "y" or "yes"', "if age is more than 12 and less than 20"],
+                        ['if answer is "y" or answer is "yes"', "if age is more than 12 and age is less than 20"],
+                        tidy=False, note="You can leave out the words you'd say twice:",
+                        examples=[('if answer is "y" or "yes"', 'if answer is "y" or answer is "yes"'),
+                                  ("if age is more than 12 and less than 20",
+                                   "if age is more than 12 and age is less than 20")]))
+    plural = [PLURAL_EXAMPLES[word] for word in INFLECTIONS]
+    out.append(OtherWay(plural, [], tidy=False,
+                        note="After a name that holds several things, write the words the way you'd say them: "
+                        + join([f"`{p}`" for p in plural], "or") + ".",
+                        examples=[(p, p) for p in plural]))
+    out.append(OtherWay([], [], tidy=False, note="After a name that ends in s, you can write just the apostrophe, "
+                        "as in `players' score`.", examples=[("show players' score", "show players' score")]))
+    words = list(NUMBER_WORDS)
+    out.append(OtherWay([], [], tidy=False, note=f"The number words `{words[0]}` to `{words[-1]}` work like numbers, "
+                        "as in `repeat three times`. `$42.50` is the number 42.50, and `15%` is 0.15.",
+                        examples=[("repeat three times", "repeat three times"), ("show $42.50", "show $42.50")]))
+    out.append(OtherWay([], [], tidy=False, note='`“curly quotes”` from Word or Google Docs work like '
+                        '`"straight quotes"`.', examples=[("show “curly quotes”", 'show "curly quotes"')]))
     return out

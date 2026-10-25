@@ -123,6 +123,7 @@ class Field(Node):
     quoted: bool = False
     of_form: bool = False     # "the amounts of sales" rather than "sale's amount"
     raw: tuple | None = None  # the field words as you wrote them, capitals kept, for a new field
+    bare: bool | None = None  # written "players' score" (True) or "players's score" (False)
 
     def canonical(self):
         if self.of_form:
@@ -131,7 +132,7 @@ class Field(Node):
         if isinstance(self.target, (Value, Where, PercentOf, Math, Postfix)) or \
                 (isinstance(self.target, Field) and self.target.of_form):
             target = f"({target})"
-        return f"{target}'s {field_text(self.words, self.quoted)}"
+        return f"{possessive(target, self.bare)} {field_text(self.words, self.quoted)}"
 
 
 @dataclass(eq=False)
@@ -330,7 +331,10 @@ class Repeat(Statement):
             case "times":
                 if covers_arithmetic(self.count):
                     return f"repeat ({self.count.canonical()}) times"   # repeat (2 times 3) times
-                return f"repeat {self.count.canonical()} times"
+                count = self.count.canonical()
+                if count in ("once", "twice"):
+                    return f"repeat {count}"
+                return f"repeat {count} {'time' if count == '1' else 'times'}"
             case "forever":
                 return "repeat forever"
             case "until" | "while":
@@ -397,6 +401,14 @@ class ErrorBlock(Statement):
 
 
 # Helpers --------------------------------------------------------------------------
+
+def possessive(text, bare=None):
+    """sale's amount, and places' results the way you wrote it (change 20). When Plain writes it
+    itself, a name that ends in s takes just the apostrophe."""
+    if bare is None:
+        bare = text.endswith("s")
+    return text + ("'" if bare else "'s")
+
 
 def field_text(words, quoted):
     return f'"{words[0]}"' if quoted else " ".join(words)

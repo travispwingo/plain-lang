@@ -49,7 +49,7 @@ Some steps work something out. `give back` hands the answer back, and `and call 
 
 ```plain
 how to work out the tip on (bill) at (rate)
-    give back bill times rate rounded to 2 places
+    give back bill times rate rounded to 2 decimal places
 
 work out the tip on 42.50 at 15% and call it lunch tip
 show "Leave ${lunch tip}."
@@ -93,7 +93,7 @@ show "Dinner: leave ${dinner tip}."
 
 # The details
 how to work out the tip on (bill) at (rate)
-    give back bill times rate rounded to 2 places
+    give back bill times rate rounded to 2 decimal places
 ```
 
 ```output

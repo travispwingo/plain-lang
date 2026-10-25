@@ -71,7 +71,7 @@ This program splits a bill. It works until someone says 0 people:
 ```plain
 ask "How much was the bill?" and call it bill
 ask "How many people?" and call it people
-show "Each person pays ${bill divided by people rounded to 2 places}."
+show "Each person pays ${bill divided by people rounded to 2 decimal places}."
 show "Thanks!"
 ```
 
@@ -85,7 +85,7 @@ How much was the bill? 60
 How many people? 0
 your program, line 3, while running: Check that "people" is not 0 before you divide by it.
 
-    show "Each person pays ${bill divided by people rounded to 2 places}."
+    show "Each person pays ${bill divided by people rounded to 2 decimal places}."
                                              ^^^^^^
 Why: Plain can't divide by 0.
 ```
@@ -100,7 +100,7 @@ You can follow the fix in the message and check `people` with an `if`. Or, when 
 ask "How much was the bill?" and call it bill
 ask "How many people?" and call it people
 try
-    show "Each person pays ${bill divided by people rounded to 2 places}."
+    show "Each person pays ${bill divided by people rounded to 2 decimal places}."
 if that fails
     show "Plain couldn't split the bill."
     show the problem

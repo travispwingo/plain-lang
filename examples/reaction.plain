@@ -23,4 +23,4 @@ if results are empty
     show "No fair rounds this time. Run it again and wait for GO."
 otherwise
     show "Your best time: {the smallest of results} seconds."
-    show "Your average: {the average of results rounded to 2 places} seconds."
+    show "Your average: {the average of results rounded to 2 decimal places} seconds."

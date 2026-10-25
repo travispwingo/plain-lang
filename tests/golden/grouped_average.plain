@@ -5,5 +5,5 @@ repeat for each category in the different categories of expenses
     if rows is empty
         show "{category}: no amounts"
     otherwise
-        show "{category}: {the average of the amounts of rows rounded to 2 places}"
+        show "{category}: {the average of the amounts of rows rounded to 2 decimal places}"
 show "Total: {the total of the amounts of expenses}"

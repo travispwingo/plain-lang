@@ -6,6 +6,7 @@ import re
 from . import nodes as N
 from .parser import start_of
 from .source import normalize
+from .words import CONTRACTIONS
 
 EXPLAIN_WIDTH = 44
 
@@ -60,11 +61,15 @@ def explain(program):
 
 
 def collect_edits(statements, edits=None):
-    """{line number: [(col, end, new words)]} for every synonym Plain replaced with its main word."""
+    """{line number: [edits]} that write each part of a line in its main words, as explain shows
+    them: synonyms, older wordings of phrases, comparison words and signs, arithmetic signs,
+    15 percent, quit, skip this round and for every (change 2)."""
     edits = {} if edits is None else edits
     for stmt in statements:
         for edit in stmt.synonym_edits:
             edits.setdefault(stmt.line, []).append(edit)
+        if isinstance(stmt, (N.StopProgram, N.Skip, N.Repeat)):
+            edits.setdefault(stmt.line, []).append(Reword(stmt))
         if isinstance(stmt, N.If):
             # Each "otherwise" line keeps its own edits.
             for number, extra in getattr(stmt, "branch_edits", {}).items():
@@ -109,14 +114,107 @@ def rewrite(node):
         return [Rewrite(node, "fold")]
     if isinstance(node, N.Postfix) and N.covers_arithmetic(node.value):
         return [Rewrite(node.value, "brackets")]
+    if isinstance(node, (N.Compare, N.Math)) or isinstance(node, N.Lit) and node.percent:
+        return [Reword(node)]
     return []
 
 
+class Reword:
+    """Words or signs in a line that have a main wording, worked out once the line is known:
+    "is greater than" or ">" becomes "is more than", "*" becomes "times" (change 2)."""
+
+    def __init__(self, node):
+        self.node = node
+
+    def edits(self, raw):
+        node = self.node
+        if node.col is None:
+            return []
+        match node:
+            case N.Compare():
+                return compare_words(raw, node)
+            case N.Math():
+                return between(raw, node.left, node.right, node.op)
+            case N.Lit() if raw[node.col:node.end] != node.raw:
+                return [(node.col, node.end, node.raw)]    # 15 percent → 15%
+            case N.StopProgram() if words_of(raw[node.col:node.end]) in ("quit", "exit"):
+                return [(node.col, node.end, node.canonical())]
+            case N.Skip() if words_of(raw[node.col:node.end]) in ("skip this round", "skip round"):
+                return [(node.col, node.end, node.canonical())]
+            case N.Repeat() if node.kind in ("each", "count") and node.name.col is not None:
+                m = re.search(r"\bfor\s+(every)\s+$", raw[:node.name.col], flags=re.IGNORECASE)
+                return [(m.start(1), m.end(1), "each")] if m else []
+        return []
+
+
+# The words a comparison starts with when it says its own verb: "or is less than 10", but not "or less than 10".
+VERBS = frozenset({"is", "are", "isn't", "aren't", "does", "do", "doesn't", "don't", "equals",
+                   "contains", "contain", "has", "have", "starts", "ends"})
+
+
+def compare_words(raw, node):
+    if node.left.end is None:
+        return []
+    elided = node.col > node.left.end      # "or more than 100" reuses the subject before it
+    main = N.comparison_words(node.op, node.plural)
+    start = node.col if elided else node.left.end
+    edits = between(raw, start, node.right, main)
+    if elided and edits and raw[edits[0][0]:edits[0][1]].split()[0].lower() not in VERBS:
+        bare = main.split(" ", 1)[1] if main.startswith(("is ", "are ")) else main
+        edits = between(raw, start, node.right, bare)
+    return edits
+
+
+def between(raw, left, right, main):
+    """The edit that writes the words between two parts of a line in main words, if they differ."""
+    start = left if isinstance(left, int) else left.end
+    if start is None or right.col is None:
+        return []
+    stop = start_of(raw, right.col)
+    said = raw[start:stop]
+    a, b = start + len(said) - len(said.lstrip()), stop - len(said) + len(said.rstrip())
+    if a >= b or words_of(raw[a:b]) == main:
+        return []
+    before = " " if a > 0 and not raw[a - 1].isspace() else ""
+    after = " " if b < len(raw) and not raw[b].isspace() else ""
+    return [(a, b, before + main + after)]     # 2*3 becomes 2 times 3
+
+
+def words_of(text):
+    return " ".join(text.lower().split())
+
+
+def contractions(tokens):
+    """isn't, doesn't, don't and aren't, written out: Plain reads them as is not, does not, do not
+    and are not, and they're always Plain's own words (names can't have "not" in them)."""
+    out = []
+    for k, tok in enumerate(tokens):
+        if tok.kind == "text":
+            for piece in tok.value:
+                if not isinstance(piece, str):
+                    out += contractions(piece.tokens)
+        elif k + 1 < len(tokens) and (tokens[k + 1].col, tokens[k + 1].end) == (tok.col, tok.end) \
+                and tok.raw.lower().replace("’", "'") in CONTRACTIONS:
+            out.append((tok.col, tok.end, f"{tok.norm} {tokens[k + 1].norm}"))
+    return out
+
+
 def resolve(raw, edits):
-    """Turn each Rewrite into an ordinary (col, end, new words) edit. Edits inside a rewritten part
-    are done as part of it, smallest parts first."""
-    plain = [e for e in edits if not isinstance(e, Rewrite)]
-    for r in sorted((e for e in edits if isinstance(e, Rewrite)), key=lambda r: r.end - r.col):
+    """Turn each Reword and Rewrite into an ordinary (col, end, new words) edit. Edits inside a
+    rewritten part are done as part of it, smallest parts first."""
+    plain, rewrites, seen = [], [], set()
+    for e in edits:
+        key = (type(e), id(e.node), getattr(e, "kind", None)) if isinstance(e, (Reword, Rewrite)) else e
+        if key in seen:
+            continue     # a subject that two checks share: "if the sum of scores is 3 or 4"
+        seen.add(key)
+        if isinstance(e, Reword):
+            plain += [x for x in e.edits(raw) if x not in plain]
+        elif isinstance(e, Rewrite):
+            rewrites.append(e)
+        else:
+            plain.append(e)
+    for r in sorted(rewrites, key=lambda r: r.end - r.col):
         col = start_of(raw, r.col)
         inner = [e for e in plain if col <= e[0] and e[1] <= r.end]
         plain = [e for e in plain if e not in inner]
@@ -124,6 +222,8 @@ def resolve(raw, edits):
             parts = [(col, col, "("), (r.end, r.end, ")")]
         else:
             parts = fold_parts(raw, r.node)
+            # The folded check is written in main words already, so its own edits go.
+            inner = [e for e in inner if not any(a <= e[0] and e[1] <= b for a, b, _ in parts if a < b)]
         text = raw[col:r.end]
         for a, b, words in sorted(inner + parts, reverse=True):
             text = text[:a - col] + words + text[b - col:]
@@ -187,12 +287,23 @@ def tidy(text, program):
     depth = {}
     bare_loops = set()
 
+    by_number = {}
+
     def walk(code_lines, level):
         for line in code_lines:
             depth[line.number] = level
+            by_number[line.number] = line
             walk(line.body, level + 1)
 
     walk(program.lines, 0)
+    headers = {stmt.line for stmt in all_statements(program.statements) if isinstance(stmt, N.HowTo)}
+    own_words = {}     # the words of your own step in a line that uses it, which stay as its "how to" says
+    for stmt in all_statements(program.statements):
+        if isinstance(stmt, N.Step) and stmt.phrase.origin != "built-in" and stmt.col is not None:
+            spans = sorted((v.col, v.end) for v in stmt.args.values() if isinstance(v, N.Node) and v.col is not None)
+            starts = [stmt.col] + [end for _, end in spans]
+            stops = [col for col, _ in spans] + [stmt.end]
+            own_words[stmt.line] = list(zip(starts, stops))
     for stmt in all_statements(program.statements):
         if isinstance(stmt, N.Repeat):
             raw = lines[stmt.line - 1].lstrip().lower()
@@ -211,11 +322,16 @@ def tidy(text, program):
         raw = lines[number - 1]
         new = raw
         said = []
-        for col, end, word in sorted(resolve(raw, edits.get(number, [])), reverse=True):
+        found = resolve(raw, edits.get(number, []))
+        if number not in headers:      # a how-to's wording stays as you wrote it (amendment 1)
+            found += [c for c in contractions(by_number[number].tokens)
+                      if not any(a <= c[0] and c[1] <= b for a, b, _ in found)
+                      and not any(a <= c[0] and c[1] <= b for a, b in own_words.get(number, []))]
+        for col, end, word in sorted(found, reverse=True):
             old = new[col:end]
             if old.lower() != word:
                 # "sort names smallest first" becomes "sort names": those words go.
-                said.append(f"line {number}   {old} → {word}" if word else
+                said.append(f"line {number}   {old.strip()} → {word.strip()}" if word else
                             f"line {number}   deleted {old.strip(' ,')}")
                 new = new[:col] + word + new[end:]
         changes += reversed(said)

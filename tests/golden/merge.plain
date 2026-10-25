@@ -3,7 +3,7 @@ read "ages.csv" and call it ages
 repeat for each person in people
     set matches to ages where name is person's name
     if matches is not empty
-        set person's age to the first item of matches's age
+        set person's age to the first item of matches' age
 save people to "merged.csv"
 read "merged.csv" and call it merged
 show merged

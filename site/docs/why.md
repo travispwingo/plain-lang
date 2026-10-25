@@ -37,6 +37,8 @@ Why: In Plain, "is" only compares two values, as in: if score is 0
 Plain found 1 thing to fix, so it hasn't run your program yet.
 ```
 
+Each idea also has one main wording. Plain understands a few [other ways of writing things](/phrases/#other-ways-you-can-write-things), like `display` for `show`, but the lessons, the examples and Plain's messages use only the main words. `plain tidy` changes the others in your file, so the next person to read it meets the same words too.
+
 ## The most important thing first
 
 Plain's messages start with what to do. Then they show your line, with `^` marks under the part to change, and only then say why. Plain also helps if you bring a habit from another programming language:

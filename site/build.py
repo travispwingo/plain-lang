@@ -292,14 +292,10 @@ def home_page(examples):
 
 
 def phrases_page():
-    from plainlang.registry import CORE_FORMS, catalog
+    from plainlang.registry import reference
     from plainlang.words import SPECIAL_WORDS
-    entries = catalog()
     topics = {}
-    for core in CORE_FORMS:
-        topics.setdefault(core["topic"], []).append(
-            {"wording": core["wording"], "doc": core["doc"], "example": core["example"], "also": [], "effects": []})
-    for entry in entries:
+    for entry in reference():
         topics.setdefault(entry["topic"], []).append(entry)
     parts = ["<h1>All phrases</h1>",
              "<p>Every wording Plain understands, with an example you can run. Type a word to find a phrase.</p>",
@@ -308,19 +304,34 @@ def phrases_page():
     for topic, items in topics.items():
         parts.append(f'<h2 id="{slug(topic)}">{html.escape(topic)}</h2><dl class="phrases">')
         for item in items:
-            also = f'<p class="also">You can also write: {html.escape("; ".join(item["also"]))}</p>' if item["also"] else ""
             effect = "".join(f'<span class="tag">{labels[e]}</span>' for e in item["effects"] if e in labels)
             parts.append(f'<div class="phrase"><dt><code>{html.escape(item["wording"])}</code> {effect}</dt>'
-                         f'<dd><p>{html.escape(item["doc"])}</p>{also}'
+                         f'<dd><p>{html.escape(item["doc"])}</p>'
                          f'<pre class="plain"><code>{html.escape(item["example"])}</code></pre></dd></div>')
         parts.append("</dl>")
     parts.append('<h2 id="special-words">Plain\'s special words</h2>')
     parts.append("<p>Plain uses these words to tell where a name ends, so they can't be part of a name:</p>")
     parts.append("<p class=\"words\">" + " ".join(f"<code>{w}</code>" for w in sorted(SPECIAL_WORDS)) + "</p>")
-    other, _, _ = markdown((DOCS / "other-ways.md").read_text(encoding="utf-8"))
-    parts.append(other)
+    other, _, _ = markdown(other_ways_markdown())
+    parts.append(f'<section class="other-ways">{other}</section>')
     return page("All phrases", "\n".join(parts), "/phrases/", "Every wording Plain understands.",
                 scripts=["/phrases.js"])
+
+
+def other_ways_markdown():
+    """The "Other ways you can write things" section, made from words.py and the phrase registry (change 2)."""
+    from plainlang.registry import other_ways
+    ways = other_ways()
+    lines = ["## Other ways you can write things", "",
+             "Plain understands these too, so you don't have to remember the exact words. Each one means "
+             "exactly the same as the main wording. The lessons and examples use only the main wording.", "",
+             "### Plain changes these to the main words", "",
+             "`plain explain` shows the main words, and `plain tidy` writes them into your file for you.", ""]
+    lines += [f"- {way.sentence()}" for way in ways if way.tidy]
+    lines += ["", "### Plain also understands these", "",
+              "They mean the same as the main words, and `plain tidy` leaves them as you wrote them.", ""]
+    lines += [f"- {way.sentence()}" for way in ways if not way.tidy]
+    return "\n".join(lines) + "\n"
 
 
 def examples_page(examples):
@@ -341,7 +352,7 @@ def doc_pages():
     pages, search = [], []
     for path in sorted(DOCS.rglob("*.md")):
         rel = path.relative_to(DOCS)
-        if rel.parts[0] in ("home.md", "examples.md", "other-ways.md"):
+        if rel.parts[0] in ("home.md", "examples.md"):
             continue
         body, title, headings = markdown(path.read_text(encoding="utf-8"))
         if rel.name == "index.md":
@@ -445,8 +456,8 @@ def build():
     pages, search = doc_pages()
     for url, title, body in pages:
         write(url, page(title, body, url, ""))
-    search.append({"title": "All phrases", "url": "/phrases/",
-                   "headings": [e["wording"] for e in __import__("plainlang.registry", fromlist=["catalog"]).catalog()]})
+    from plainlang.registry import reference
+    search.append({"title": "All phrases", "url": "/phrases/", "headings": [e["wording"] for e in reference()]})
     search.append({"title": "Examples", "url": "/examples/", "headings": [e["title"] for e in examples]})
     (DIST / "search.json").write_text(json.dumps(search), encoding="utf-8")
     write("/search/", page("Search", '<h1>Search</h1><ul id="results"></ul>', "/search/", ""))

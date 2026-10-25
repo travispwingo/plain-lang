@@ -90,7 +90,7 @@ save big sales to "big_sales.csv"
 work out the tip on 42.50 at 15% and call it lunch tip
 show lunch tip
 how to work out the tip on (bill) at (rate)
-    give back bill times rate rounded to 2 places"""
+    give back bill times rate rounded to 2 decimal places"""
 
 
 class Unavailable(Exception):
@@ -129,16 +129,17 @@ def system_prompt():
         "- \"is\" only compares. \"plus\" only adds numbers.",
         "- Names are words you choose. These special words can't be part of a name: "
         + " ".join(sorted(SPECIAL_WORDS)) + ".",
-        "",
-        "Core steps:",
     ]
+    topic = None
     for core in CORE_FORMS:
+        if core["topic"] != topic:
+            topic = core["topic"]
+            lines += ["", f"{topic}:"]
         lines.append(f"- {core['wording']}: {core['doc']} Example: {core['example']}")
     lines.append("")
     lines.append("Phrases:")
     for entry in sorted(catalog(), key=lambda e: (e["topic"], e["wording"])):
-        also = f" Also: {'; '.join(entry['also'])}." if entry["also"] else ""
-        lines.append(f"- {entry['wording']}: {entry['doc']}{also} Example: {entry['example']}")
+        lines.append(f"- {entry['wording']}: {entry['doc']} Example: {entry['example']}")
     lines += ["", "Sample programs:", SAMPLES]
     return "\n".join(lines)
 

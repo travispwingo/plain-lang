@@ -207,7 +207,7 @@ class OlderWordings(unittest.TestCase):   # changes 11 and 27
     def test_explain_shows_the_main_wording(self):
         readings = line_readings(Reader().read(self.SOURCE).statements)
         self.assertEqual(["set r to an empty record", 'show "hi" in capital letters', 'show "hi" in capital letters',
-                          'show "Hi" in small letters', "show 2.555 rounded to 2 places", "sort n",
+                          'show "Hi" in small letters', "show 2.555 rounded to 2 decimal places", "sort n",
                           "show a random number from 1 to 1", "sort w"],
                          [readings[n] for n in (1, 2, 3, 4, 5, 7, 8, 10)])
         self.assertIn("an empty record", explain(Reader().read(self.SOURCE)))
@@ -215,7 +215,7 @@ class OlderWordings(unittest.TestCase):   # changes 11 and 27
     def test_tidy_writes_the_main_wording(self):
         text, changes = tidied(self.SOURCE)
         self.assertEqual(["set r to an empty record", 'show "hi" in capital letters', 'show "hi" in capital letters',
-                          'show "Hi" in small letters', "show 2.555 rounded to 2 places",
+                          'show "Hi" in small letters', "show 2.555 rounded to 2 decimal places",
                           "set n to a list of 3, 1 and 2", "sort n", "show a random number from 1 to 1",
                           'set w to a list of "b" and "a"', "sort w", "show w"], text.split("\n")[:-1])
         self.assertIn("line 1   a new record → an empty record", changes)

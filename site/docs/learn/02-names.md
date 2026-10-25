@@ -103,7 +103,7 @@ You can write prices and percentages the way you see them on a bill:
 set bill to $42.50
 set tip to 15% of bill
 show "The exact tip is ${tip}."
-show "Leave ${tip rounded to 2 places}."
+show "Leave ${tip rounded to 2 decimal places}."
 ```
 
 ```output
@@ -111,7 +111,7 @@ The exact tip is $6.375.
 Leave $6.38.
 ```
 
-Plain ignores a `$` in front of a number, and `15%` means 0.15. `rounded to 2 places` rounds the number, and halves go up.
+Plain ignores a `$` in front of a number, and `15%` means 0.15. `rounded to 2 decimal places` rounds the number, and halves go up.
 
 ## Put values into text
 
@@ -168,5 +168,5 @@ Press **Try it** on any example above, then change it:
 
 - Keep the name of a city and the number of days of a trip, and show one sentence with both.
 - Start `savings` at 100. Add 25, then add 40, then show how much you have.
-- Work out a 20% tip on a bill of $64.80, rounded to 2 places.
+- Work out a 20% tip on a bill of $64.80, rounded to 2 decimal places.
 - Write `set cups of tea to 3` and read what Plain says. Then pick a name it accepts.

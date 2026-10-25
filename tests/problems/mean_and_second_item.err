@@ -15,7 +15,7 @@ mean_and_second_item.plain, line 4: Write "item 2 of" instead of "the second ite
 Try one of these:
     show item 2 of colors
   or
-    show colors's second item
+    show colors' second item
 Why: Plain picks an item by its number, counting from 1, so the second item is "item 2 of".
 
 mean_and_second_item.plain, line 5: Write "it" instead of "each".

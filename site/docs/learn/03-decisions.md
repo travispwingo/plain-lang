@@ -1,6 +1,6 @@
 # Make decisions
 
-You can make your program take different steps depending on what's true. You write a check, like `age is at least 18`, and Plain takes the steps under it only when the answer to the check is yes.
+You can make your program take different steps depending on the answer to a check. You write a check, like `age is at least 18`, and Plain takes the steps under it only when the answer is yes.
 
 ## Take steps only when a check is yes
 
@@ -155,8 +155,8 @@ Join two checks with `and` when both must be yes. Use `or` when either one is en
 
 ```plain
 ask "How old are you?" and call it age
-ask "Do you have a ticket?" and call it ticket
-if age is at least 18 and ticket is yes
+ask "Do you have a ticket?" and call it got ticket
+if age is at least 18 and got ticket is yes
     show "Come on in."
 otherwise
     show "Sorry, not tonight."

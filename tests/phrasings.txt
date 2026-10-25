@@ -244,3 +244,10 @@ repeat once => repeat once
 repeat 1 time => repeat 1 time
 repeat two times => repeat 2 times
 repeat for every p in places => repeat for each p in places
+
+# remove VALUE and remove item NUMBER, side by side (change 33, kept as is): the word "item" makes the difference.
+names: scores, todos
+remove 3 from scores => remove 3 from scores
+remove item 3 from scores => remove item 3 from scores
+remove "milk" from todos => remove "milk" from todos
+delete item 2 from todos => remove item 2 from todos

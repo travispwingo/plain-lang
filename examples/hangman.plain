@@ -1,30 +1,30 @@
 # Hangman
 # Guess a secret word one letter at a time, before you make 6 wrong guesses.
-# Try: Add your own words to the list.
-# Try: Allow 8 wrong guesses instead of 6.
-# Try: Before each guess, show the letters you've tried so far.
+# Ideas to change:
+# - Add your own words to the list.
+# - Allow 8 wrong guesses instead of 6.
+# - Before each guess, show the letters you've tried so far.
 set words to a list of "garden", "pencil", "rocket", "window", "banana" and "kitten"
 set secret to a random item from words
 set letters to the characters of secret
 set alphabet to the characters of "abcdefghijklmnopqrstuvwxyz"
 set right guesses to an empty list
 set tried to an empty list
-set wrong to 0
-set most wrong to 6
+set guesses left to 6
 show "I'm thinking of a word with {the number of letters} letters."
 repeat forever
     # Show the word, with _ for each letter you haven't found yet
-    set shown to an empty list
+    set word so far to an empty list
     repeat for each letter in letters
         if letter is in right guesses
-            add letter to shown
+            add letter to word so far
         otherwise
-            add "_" to shown
-    show shown joined with " "
-    if "_" is not in shown
+            add "_" to word so far
+    show word so far joined with " "
+    if "_" is not in word so far
         show "You got it! The word was {secret}."
         stop repeating
-    if wrong is most wrong
+    if guesses left is 0
         show "Out of guesses! The word was {secret}."
         stop repeating
     ask "Guess a letter:" and call it guess
@@ -39,5 +39,5 @@ repeat forever
         add guess to right guesses
         show "Yes, {guess} is in the word."
     otherwise
-        add 1 to wrong
-        show "Sorry, there's no {guess}. Wrong guesses: {wrong} of {most wrong}."
+        subtract 1 from guesses left
+        show "Sorry, there's no {guess}. Wrong guesses left: {guesses left}."

@@ -72,7 +72,7 @@ VERB_HINTS = {
     "work": ["set total to price times 2"], "increase": ["add 1 to score"], "decrease": ["subtract 1 from score"],
     "delete": ['remove "milk" from shopping'], "check": ["if score is more than 10"],
     "sleep": ["wait 2 seconds"], "post": ['send message to "https://example.com/api" and call it reply'],
-    "return": ["give back total"], "call": ["work out the tip on 20 at 15% and call it tip"],
+    "return": ["give back total"], "call": ["find the tip on 20 at 15% and call it tip"],
 }
 
 # Habits from other languages, and everyday wordings Plain writes another way:
@@ -799,7 +799,7 @@ def giving_steps(reader, tok):
 
 def result_name(reader, phrase):
     """A name for what a step gives back: the word before a small word ("tip" in
-    "work out the tip on (bill)"), or "result"."""
+    "find the tip on (bill)"), or "result"."""
     words = phrase.elements
     options = [e.main for e, nxt in zip(words[1:], words[2:])
                if isinstance(e, Word) and isinstance(nxt, Word) and nxt.main in STOP_WORDS

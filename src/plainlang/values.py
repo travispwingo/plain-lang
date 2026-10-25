@@ -152,6 +152,15 @@ def quoted(v):
     return show_value(v)
 
 
+def missing_column(name, row):
+    """A table has no column with that name: "column" is the word for tables, and "field" for one
+    record (change 5)."""
+    columns = ", ".join(str(k) for k in row.data)
+    if not columns:
+        return Problem(f'Set "{name}" in each row before you use it.', "The rows of this table have nothing in them yet.")
+    return Problem(f"Use one of the columns this table has: {columns}.", f'There\'s no column "{name}" in this table.')
+
+
 class Quoted(str):
     """A field name written in quotes, matched exactly."""
 
@@ -182,17 +191,19 @@ class Record:
     def __init__(self, data=None):
         self.data = dict(data or {})
 
-    def find(self, name, exact=False):
-        """The original key for a field name, or None."""
+    def find(self, name, exact=False, table=False):
+        """The original key for a field name, or None. With table=True the record is a row of a
+        table, so a message says "column" (change 5)."""
         if exact or name in self.data:          # an exact name always wins
             return name if name in self.data else None
         wanted = norm_key(name)
         for form in plural_forms(wanted):
             matches = [k for k in self.data if norm_key(k) == form]
             if len(matches) > 1:
+                word, whole = ("column", "table") if table else ("field", "record")
                 raise Problem(
-                    f'Write the field name in quotes to pick one: {", ".join(chr(34) + m + chr(34) for m in matches)}.',
-                    f'This record has more than one field that matches "{name}".')
+                    f'Write the {word} name in quotes to pick one: {", ".join(chr(34) + m + chr(34) for m in matches)}.',
+                    f'This {whole} has more than one {word} that matches "{name}".')
             if matches:
                 return matches[0]
         return None
@@ -200,7 +211,10 @@ class Record:
     def get(self, name, exact=False):
         key = self.find(name, exact)
         if key is None:
-            fields = ", ".join(str(k) for k in self.data) or "none"
+            if not self.data:
+                raise Problem(f'Set the field "{name}" before you use it.',
+                              f'This is a record with no fields yet, so it has no field "{name}".')
+            fields = ", ".join(str(k) for k in self.data)
             raise Problem(
                 f'Use one of the fields this record has: {fields}.',
                 f'There\'s no field "{name}" in this record.')

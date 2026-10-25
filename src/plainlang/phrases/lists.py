@@ -8,18 +8,18 @@ from decimal import Decimal
 from .. import nodes as N
 from ..problems import Problem, things
 from ..registry import REGISTRY, Field, Items, List, Number, Place, Value, step, value
-from ..values import (Quoted, Record, as_number, fit, kind_name, order, places, quoted, same,
+from ..values import (Quoted, Record, as_number, fit, kind_name, missing_column, order, places, quoted, same,
                       show_value)
 
 TOPIC = "Lists and tables"
 
 
-@value("a list of {items}", example='set colors to a list of "red", "green" and "blue"', topic=TOPIC)
-def list_of(run, items: Items) -> List:
+@value("a list of {values}", example='set colors to a list of "red", "green" and "blue"', topic=TOPIC)
+def list_of(run, values: Items) -> List:
     """Makes a list. Commas and a final "and" separate the items."""
-    if len(items) == 1 and isinstance(items[0], list):
-        return list(items[0])
-    return list(items)
+    if len(values) == 1 and isinstance(values[0], list):
+        return list(values[0])
+    return list(values)
 
 
 @value("an empty list", example="set todos to an empty list", topic=TOPIC)
@@ -34,9 +34,9 @@ def empty_record(run) -> Value:
     return Record()
 
 
-@value("a copy of {value}", example="set backup to a copy of todos", topic=TOPIC)
+@value("a copy of {value}", example="cross off a task in a copy of todos", topic=TOPIC)
 def copy_of(run, value: Value) -> Value:
-    """A separate copy, so changing one doesn't change the other."""
+    """A separate copy, so changing one doesn't change the other. "set" already keeps a copy, so use this to hand your own step a copy of your list."""
     return copy.deepcopy(value)
 
 
@@ -80,13 +80,13 @@ def last_item(run, items: List) -> Value:
 
 @value("the first {n} items of {items}", example="show the first 2 items of colors", topic=TOPIC)
 def first_items(run, n: Number, items: List) -> List:
-    """The first N items, or all of them if there are fewer."""
+    """That many items from the start of the list, or all of them if there are fewer."""
     return items[:max(0, int(n))]
 
 
 @value("the last {n} items of {items}", example="show the last 2 items of colors", topic=TOPIC)
 def last_items(run, n: Number, items: List) -> List:
-    """The last N items, or all of them if there are fewer."""
+    """That many items from the end of the list, or all of them if there are fewer."""
     return items[-int(n):] if int(n) > 0 else []
 
 
@@ -111,7 +111,7 @@ def numbers_in(items, doing):
 
 @value("the total of {items}", example="show the total of a list of 1, 2 and 3", topic=TOPIC)
 def total(run, items: List) -> Number:
-    """Adds up the numbers. Empty cells (nothing) are skipped."""
+    """Adds up the numbers. Items that are nothing, like blank cells, are skipped."""
     numbers = numbers_in(items, "add them up")
     result = sum(numbers, Decimal(0))
     return fit(result, max((places(n) for n in numbers), default=0))
@@ -119,12 +119,12 @@ def total(run, items: List) -> Number:
 
 @value("the average of {items}", example="show the average of a list of 1, 2 and 3", topic=TOPIC)
 def average(run, items: List) -> Number:
-    """The total divided by how many numbers there are. Empty cells are skipped."""
+    """The total divided by how many numbers there are. Items that are nothing, like blank cells, are skipped."""
     numbers = numbers_in(items, "average them")
     if not numbers:
         if items:
             raise Problem("Check that some of the items are numbers before you average them.",
-                          "The list has no numbers in it (empty cells don't count), so there's no average.")
+                          "The list has no numbers in it (blank cells don't count), so there's no average.")
         raise empty_problem(run, "The list is empty, so there's no average.")
     result = sum(numbers, Decimal(0)) / len(numbers)
     return fit(result, max(places(n) for n in numbers))
@@ -224,20 +224,18 @@ def different_items(run, items: List) -> List:
     return distinct(items)
 
 
-@value("the different {field} of {table}", example="show the different categories of expenses", topic=TOPIC)
-def different_field(run, field: Field, table: List) -> List:
+@value("the different {columns} of {table}", example="show the different categories of expenses", topic=TOPIC)
+def different_field(run, columns: Field, table: List) -> List:
     """Each value of one column once, in the order they first appear."""
-    exact = isinstance(field[0], Quoted)
-    name = field[0] if exact else " ".join(field)
+    exact = isinstance(columns[0], Quoted)
+    name = columns[0] if exact else " ".join(columns)
     column = []
     for row in table:
         if not isinstance(row, Record):
             raise Problem(f'Use a table here. {quoted(row)} is {kind_name(row)}, not a row.', None)
-        key = row.find(name, exact=exact)
+        key = row.find(name, exact=exact, table=True)
         if key is None:
-            fields = ", ".join(str(k) for k in row.data)
-            raise Problem(f"Use one of the fields this table has: {fields}.",
-                          f'There\'s no field "{name}" in this table.')
+            raise missing_column(name, row)
         column.append(row.data[key])
     return distinct(column)
 
@@ -300,13 +298,13 @@ def subtract(run, value: Number, place: Place) -> None:
 
 @step("remove item {n} from {items}", example="remove item 1 from todos", topic=TOPIC)
 def remove_item(run, n: Number, items: List) -> None:
-    """Removes the item at that position."""
+    """Removes the item at that position. To remove an item by what it is, write remove VALUE from LIST."""
     del items[position(run, items, n)]
 
 
 @step("remove {value} from {items}", example='remove "milk" from shopping', topic=TOPIC)
 def remove(run, value: Value, items: List) -> None:
-    """Removes the first item that matches."""
+    """Removes the first item that matches. To remove an item by its position, write remove item NUMBER from LIST."""
     for index, item in enumerate(items):
         if same(item, value):
             del items[index]
@@ -362,7 +360,7 @@ def check_sort_words(run, keys):
     offer = SORT_WORDS[said][1]
     base = template[:-len(said)].strip()
     # Your own words for it, like "biggest first": the last words of the step, before any note.
-    items = node.args.get("items")
+    items = node.args.get("items") or node.args.get("table")
     raw = run.program.source_lines[node.line - 1]
     tail = raw[items.end:] if items is not None and items.end is not None else raw
     yours = re.findall(r"[A-Za-z]+", tail.split("#")[0])[-len(said.split()):]
@@ -385,14 +383,17 @@ def check_sort_words(run, keys):
     raise Problem(fix, why, try_lines=lines)
 
 
-def field_getter(field):
-    exact = isinstance(field[0], Quoted)
-    name = field[0] if exact else " ".join(field)
+def column_getter(column):
+    exact = isinstance(column[0], Quoted)
+    name = column[0] if exact else " ".join(column)
 
     def get(row):
         if not isinstance(row, Record):
             raise Problem(f'Use "sort by" on a table. {quoted(row)} is {kind_name(row)}.', None)
-        return row.get(name, exact)
+        key = row.find(name, exact, table=True)
+        if key is None:
+            raise missing_column(name, row)
+        return row.data[key]
     return get
 
 
@@ -414,23 +415,23 @@ def sort_z_to_a(run, items: List) -> None:
     sort_key_order(run, items, lambda x: x, reverse=True)
 
 
-@step("sort {items} by {field}", "sort {items} by {field} smallest first", "sort {items} by {field} from A to Z",
+@step("sort {table} by {column}", "sort {table} by {column} smallest first", "sort {table} by {column} from A to Z",
       example="sort sales by amount", topic=TOPIC)
-def sort_by(run, items: List, field: Field) -> None:
-    """Sorts a table by one field: numbers smallest first, and text from A to Z."""
-    sort_key_order(run, items, field_getter(field))
+def sort_by(run, table: List, column: Field) -> None:
+    """Sorts a table by one column: numbers smallest first, and text from A to Z."""
+    sort_key_order(run, table, column_getter(column))
 
 
-@step("sort {items} by {field} largest first", example="sort sales by amount, largest first", topic=TOPIC)
-def sort_by_largest(run, items: List, field: Field) -> None:
-    """Sorts a table by a field of numbers, largest first."""
-    sort_key_order(run, items, field_getter(field), reverse=True)
+@step("sort {table} by {column} largest first", example="sort sales by amount, largest first", topic=TOPIC)
+def sort_by_largest(run, table: List, column: Field) -> None:
+    """Sorts a table by a column of numbers, largest first."""
+    sort_key_order(run, table, column_getter(column), reverse=True)
 
 
-@step("sort {items} by {field} from Z to A", example="sort sales by customer from Z to A", topic=TOPIC)
-def sort_by_z_to_a(run, items: List, field: Field) -> None:
-    """Sorts a table by a field of text, from Z to A."""
-    sort_key_order(run, items, field_getter(field), reverse=True)
+@step("sort {table} by {column} from Z to A", example="sort sales by customer from Z to A", topic=TOPIC)
+def sort_by_z_to_a(run, table: List, column: Field) -> None:
+    """Sorts a table by a column of text, from Z to A."""
+    sort_key_order(run, table, column_getter(column), reverse=True)
 
 
 @step("reverse {items}", example="reverse names", topic=TOPIC)

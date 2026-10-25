@@ -66,7 +66,10 @@ What do you need? bread
 Your list: eggs, milk and bread
 ```
 
-`remove` takes an item out. You can name the item, or give its position:
+`remove` takes an item out. You can say which item, or give its position:
+
+- `remove "milk" from shopping` takes out the first item that is "milk".
+- `remove item 1 from shopping` takes out the item at position 1.
 
 ```plain
 set shopping to a list of "eggs", "milk", "bread" and "jam"
@@ -78,6 +81,8 @@ show shopping
 ```output
 bread and jam
 ```
+
+The word `item` makes the difference. In a list of numbers, `remove 3 from scores` takes out the first 3 in the list, and `remove item 3 from scores` takes out the third item, whatever it is.
 
 ## Sort a list
 
@@ -107,7 +112,7 @@ Cy, Bo and Ann
 
 ## Add up a list of numbers
 
-You can add up a list of numbers, work out their average, and find the largest and the smallest:
+You can add up a list of numbers, find their average, and find the largest and the smallest:
 
 ```plain
 set scores to a list of 72, 95, 58 and 88
@@ -145,8 +150,9 @@ show "{the number of scores where it is at least 80} scores passed."
 
 ```plain
 set votes to a list of "tea", "coffee", "Tea", "juice" and "coffee"
-show the different items of votes
-show "People asked for {the number of the different items of votes} drinks."
+set drinks to the different items of votes
+show drinks
+show "People asked for {the number of drinks} drinks."
 ```
 
 ```output
@@ -188,6 +194,23 @@ how to finish the first chore in (tasks)
 ```output
 Done: dishes
 Still to do: laundry and dusting
+```
+
+To keep your list as it is, hand the step a copy, with `a copy of`:
+
+```plain
+set chores to a list of "dishes", "laundry" and "dusting"
+list in order a copy of chores
+show "Your list as you wrote it: {chores}"
+
+how to list in order (tasks)
+    sort tasks
+    show "In order: {tasks}"
+```
+
+```output
+In order: dishes, dusting and laundry
+Your list as you wrote it: dishes, laundry and dusting
 ```
 
 You'll learn to write your own steps in [the next lesson](/learn/06-your-own-steps/).

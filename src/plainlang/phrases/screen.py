@@ -46,7 +46,7 @@ def ask_choices(run, question: Value, choices: Items) -> Value:
 
 @step("wait {seconds} second|seconds", example="wait 2 seconds", topic=TOPIC_SCREEN)
 def wait_seconds(run, seconds: Number) -> None:
-    """Pauses for that many seconds."""
+    """Waits for that many seconds."""
     if seconds < 0:
         raise Problem("Use 0 or more seconds.", f"Plain can't wait {seconds} seconds.")
     run.host.wait(float(seconds))
@@ -54,7 +54,7 @@ def wait_seconds(run, seconds: Number) -> None:
 
 @step("wait {minutes} minute|minutes", example="wait 1 minute", topic=TOPIC_SCREEN)
 def wait_minutes(run, minutes: Number) -> None:
-    """Pauses for that many minutes."""
+    """Waits for that many minutes."""
     if minutes < 0:
         raise Problem("Use 0 or more minutes.", f"Plain can't wait {minutes} minutes.")
     run.host.wait(float(minutes) * 60)
@@ -62,7 +62,7 @@ def wait_minutes(run, minutes: Number) -> None:
 
 @step("wait for Enter", example="wait for Enter", topic=TOPIC_SCREEN)
 def wait_for_enter(run) -> None:
-    """Pauses until you press Enter."""
+    """Waits until you press Enter."""
     run.host.ask("Press Enter to go on.")
 
 

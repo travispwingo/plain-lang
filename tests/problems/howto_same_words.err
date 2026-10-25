@@ -4,6 +4,6 @@ howto_same_words.plain, line 2: Use different words for this "how to".
     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Try this:
     how to put (amount) into (account)
-Why: It uses the same words in the same places as Plain's own phrase "add ... to ...", as in add 1 to score, so Plain couldn't tell them apart.
+Why: It uses the same words in the same places as Plain's own step "add ... to ...", as in add 1 to score, so Plain couldn't tell them apart.
 
 Plain found 1 thing to fix, so it hasn't run your program yet.

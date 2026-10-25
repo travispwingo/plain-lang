@@ -24,14 +24,14 @@ Press **Try it** to see the weather in London right now. Your numbers will be di
 
 ## Reach inside a reply with 's
 
-Use `'s` to get each piece of a reply. The weather service answers in **JSON**, a format many websites use. Plain turns a JSON reply into a record, so `'s` works just as it does on a row of a [spreadsheet](/learn/08-spreadsheets/):
+Use `'s` to get each field of a reply. The weather service answers in **JSON**, a format many websites use. Plain turns a JSON reply into a record, so `'s` works just as it does on a row of a [spreadsheet](/learn/08-spreadsheets/):
 
-- `weather's current` is the part of the reply called `current`.
-- `weather's current's temperature 2m` is the `temperature_2m` inside that part.
+- `weather's current` is the field of the reply called `current`. It holds a record of its own.
+- `weather's current's temperature 2m` is the field `temperature_2m` inside that record.
 
-Capitals don't matter, and a space works the same as `_`, just as with column names. Not sure what a reply holds? Show it, as the first `show` above does, and you'll see the name of every piece.
+Capitals don't matter, and a space works the same as `_`, just as with column names. Not sure what a reply holds? Show it, as the first `show` above does, and you'll see the name of every field.
 
-To check whether a reply has a piece before you use it, write `has`, or `does not have`:
+To check whether a reply has a field before you use it, write `has`, or `does not have`:
 
 ```plain web=09-weather
 read "https://api.open-meteo.com/v1/forecast?latitude=51.51&longitude=-0.13&current=temperature_2m,wind_speed_10m" and call it weather
@@ -46,7 +46,7 @@ It's 12.4°C.
 This reply has no daily forecast.
 ```
 
-`has` checks the names of the pieces. To look inside text or a list, write `contains`.
+`has` checks the names of the fields. To look inside text or a list, write `contains`.
 
 ## Put your own values into an address
 
@@ -99,7 +99,7 @@ Without `try`, the program would stop at that line and show the message. With `t
 
 ## Send data to a website
 
-`send` hands a value to a website. A record or a list goes as JSON, and anything else goes as text. The website's reply comes back the same way `read` gives it. Here, `an empty record` makes a record with nothing in it yet, and `set note's title to "Buy milk"` puts a value in it under the name `title`:
+`send` hands a value to a website. A record or a list goes as JSON, and anything else goes as text. The website's reply comes back the same way `read` gives it. Here, `an empty record` makes a record with no fields yet, and `set note's title to "Buy milk"` gives it a field called `title`:
 
 ```plain web=09-send
 set note to an empty record

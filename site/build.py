@@ -224,6 +224,9 @@ def write(path, text):
     target.write_text(text, encoding="utf-8")
 
 
+IDEAS = "Ideas to change:"
+
+
 def example_programs():
     out = []
     for path in sorted((ROOT / "examples").glob("*.plain")):
@@ -240,8 +243,10 @@ def example_programs():
             data = path.parent / name
             if data.exists():
                 files[name] = data.read_text(encoding="utf-8")
+        # "# Ideas to change:", then one "# - idea" line each (change 23: not "# Try:", next to a real try step).
+        ideas = notes[notes.index(IDEAS) + 1:] if IDEAS in notes else []
         out.append({"name": path.stem, "title": title, "about": notes[1] if len(notes) > 1 else "",
-                    "change": [n[len("Try:"):].strip() for n in notes if n.startswith("Try:")],
+                    "change": [n[1:].strip() for n in ideas if n.startswith("-")],
                     "code": "\n".join(lines).strip() + "\n", "files": files})
     order = ["hello", "guess", "big_sales", "github", "tips", "todo"]
     out.sort(key=lambda e: (order.index(e["name"]) if e["name"] in order else len(order), e["name"]))

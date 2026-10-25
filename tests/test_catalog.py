@@ -30,6 +30,8 @@ set lives to 3
 set total to 0
 set price to 10
 set reply to nothing
+how to cross off a task in (tasks)
+    remove item 1 from tasks
 '''
 
 FILES = {

@@ -263,8 +263,8 @@ class Messages(unittest.TestCase):
                            {"people.csv": PEOPLE})
         self.assertEqual("name  age\nBo    25\nAnn   30\n1, 2 and 3\n", out)
         out, _ = in_folder('read "people.csv" and call it people\nsort people by height\n', {"people.csv": PEOPLE})
-        self.assertIn("while running: Use one of the fields this record has: name, age.\n", out)
-        self.assertIn('Why: There\'s no field "height" in this record.', out)
+        self.assertIn("while running: Use one of the columns this table has: name, age.\n", out)   # change 5
+        self.assertIn('Why: There\'s no column "height" in this table.', out)
         out, _, _ = run_source('set xs to a list of 1, "b" and 2\nsort xs\n')
         self.assertIn("Check that the items are all numbers, or all text, before you sort them.", out)
 

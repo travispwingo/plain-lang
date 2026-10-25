@@ -2,6 +2,6 @@ name_split.plain, line 3: Rename "file count" so this line has only one meaning.
 
     add 1 to file count
              ^^^^^^^^^^
-Why: Plain can read this line two ways, because "file count" also contains words of one of its phrases. Plain never guesses, so you choose.
+Why: This line can mean two things, because "file count" also contains words of one of Plain's phrases. Plain never guesses, so you choose.
 
 Plain found 1 thing to fix, so it hasn't run your program yet.

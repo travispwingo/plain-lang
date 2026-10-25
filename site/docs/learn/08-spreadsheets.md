@@ -57,11 +57,11 @@ date        customer  amount
 You have 5 sales.
 ```
 
-Each row is a **record**: a set of values, each kept under a column name. Cells that look like numbers become numbers, so you can add them up.
+Each row is a **record**. Its value in one column is a **field**, like `sale's amount`. Cells that look like numbers become numbers, so you can add them up.
 
-## Get one value from a row
+## Get one field from a row
 
-After the name for a row, write `'s` and a column name. `sale's amount` is the amount in one row. It works well when you repeat for each row:
+To get one field, write the name for a row, then `'s` and a column name. `sale's amount` is the amount in one row. It works well when you repeat for each row:
 
 ```plain files=sales.csv
 read "sales.csv" and call it sales
@@ -119,7 +119,7 @@ date        customer  amount
 
 ## Sort the rows
 
-`sort sales by amount` puts the rows in order, smallest first. Add `largest first` to start with the biggest. A column of text sorts from A to Z, and `from Z to A` goes the other way, as in `sort sales by customer from Z to A`.
+`sort sales by amount` puts the rows in order, smallest first. Add `largest first` to start with the largest. A column of text sorts from A to Z, and `from Z to A` goes the other way, as in `sort sales by customer from Z to A`.
 
 ```plain files=sales.csv
 read "sales.csv" and call it sales
@@ -185,9 +185,9 @@ date,name,category,amount
 ```plain files=08-spending.csv
 read "08-spending.csv" and call it spending
 show the different categories of spending
-repeat for each kind in the different categories of spending
-    set rows to spending where category is kind
-    show "{kind}: ${the total of the amounts of rows}"
+repeat for each group in the different categories of spending
+    set rows to spending where category is group
+    show "{group}: ${the total of the amounts of rows}"
 ```
 
 ```output
@@ -197,7 +197,7 @@ food: $149.50
 travel: $68.50
 ```
 
-In `where category is kind`, the left side is a column of each row, and the right side is your name `kind`.
+In `where category is group`, the left side is a column of each row, and the right side is your name `group`.
 
 ## Handle blank cells
 

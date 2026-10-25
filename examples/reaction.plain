@@ -1,8 +1,9 @@
 # Reaction time
 # See how fast you can press Enter when Plain says GO.
-# Try: Play 5 rounds instead of 3.
-# Try: Make the wait anywhere from 1 to 10 seconds.
-# Try: Show "Lightning fast!" when a time is under 0.3 seconds.
+# Ideas to change:
+# - Play 5 rounds instead of 3.
+# - Make the wait anywhere from 1 to 10 seconds.
+# - Show "Lightning fast!" when a time is under 0.3 seconds.
 set rounds to 3
 set results to an empty list
 show "Press Enter as soon as you see GO. Don't press it before!"
@@ -11,7 +12,8 @@ repeat for each round from 1 to rounds
     show "Round {round} of {rounds}. Get ready..."
     wait a random number from 2 to 5 seconds
     start the stopwatch
-    ask "GO!"
+    show "GO!"
+    wait for Enter
     set reaction to the stopwatch
     # No one can react in under 0.1 seconds, so a time that short means you pressed Enter early.
     if reaction is less than 0.1

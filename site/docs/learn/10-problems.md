@@ -134,13 +134,13 @@ $ plain explain dice.plain
   2  ask "How many dice should I roll?" and call it count
                                             ask "How many dice should I roll?" and call it count
   3  set the total to 0                     set total to 0
-  4  for each die from 1 to count           repeat for each die from 1 to count
-  5  add a random number from 1 to 6 to total
+  4  for each roll from 1 to count          repeat for each roll from 1 to count
+  5      add a random number from 1 to 6 to total
                                             add a random number from 1 to 6 to total
   6  Show the total!                        show total
   7  if total is more than 10 and less than 15
                                             if total is more than 10 and total is less than 15
-  8  show "Nice roll."                      show "Nice roll."
+  8      show "Nice roll."                  show "Nice roll."
 ```
 
 You can see that Plain leaves out "Please", "the" and the "!", reads `for each` as `repeat for each`, and reads line 7 as two checks on `total`. When your program does something you didn't expect, this shows you whether Plain read a line the way you meant it. If a line has a problem, `plain explain` shows the message at the end.

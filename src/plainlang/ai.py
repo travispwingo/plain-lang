@@ -87,9 +87,9 @@ show "{the number of big sales} big sales, worth ${the total of the amounts of b
 save big sales to "big_sales.csv"
 
 # Your own steps come after the main steps
-work out the tip on 42.50 at 15% and call it lunch tip
+find the tip on 42.50 at 15% and call it lunch tip
 show lunch tip
-how to work out the tip on (bill) at (rate)
+how to find the tip on (bill) at (rate)
     give back bill times rate rounded to 2 decimal places"""
 
 

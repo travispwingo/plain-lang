@@ -1,17 +1,18 @@
 # Add up a monthly budget
 # Read your budget from a spreadsheet, see the total for each category, and save the totals to a new file.
-# Try: Add a row to budget.csv for a new category, like Gifts, then run it again.
-# Try: Fill in the blank amounts in budget.csv and watch the totals change.
-# Try: Add the line show summary at the end, to see the totals lined up in a table.
+# Ideas to change:
+# - Add a row to budget.csv for a new category, like Gifts, then run it again.
+# - Fill in the blank amounts in budget.csv and watch the totals change.
+# - Add the line show summary at the end, to see the totals lined up in a table.
 read "budget.csv" and call it budget
 set summary to an empty list
 show "Your budget, by category:"
-repeat for each kind in the different categories of budget
-    set rows to budget where category is kind
+repeat for each group in the different categories of budget
+    set rows to budget where category is group
     set category total to the total of the amounts of rows rounded to 2 decimal places
-    show "  {kind}: ${category total}"
+    show "  {group}: ${category total}"
     set entry to an empty record
-    set entry's category to kind
+    set entry's category to group
     set entry's total to category total
     add entry to summary
 show "Altogether: ${the total of the amounts of budget rounded to 2 decimal places}"

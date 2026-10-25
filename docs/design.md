@@ -50,6 +50,10 @@ Notes from building it (these also win over the spec):
 - **explain shows the value handed in and the apostrophe you wrote (change 20).** A bracketed name of several words, like `(the bill)`, shows the value handed in (`find the tip on 42.50 at 15%`), because phrases fill their slots in order. A field keeps the apostrophe you wrote: `places' results` and `players's score` both show as written. When Plain writes a field itself, in a fix or a message, a name that ends in s takes just the apostrophe (`show sales' totals`). tidy leaves the apostrophe as you wrote it, since `address's city` is good English too. examples/weather.plain no longer has a plural name before 's (stage 3 named it `reply`), so tests/golden/merge.plain shows the form: `matches' age`. explain also shows `repeat once` and `repeat twice` as written, and a count of 1 as `repeat 1 time`, not `repeat 1 times`.
 - **`rounded to 2 decimal places` is the main wording (change 26, Travis's call).** `rounded to 2 places` and `rounded to 2 decimals` are accepted, and explain and tidy show `decimal places` (`1 decimal place`). The examples, lessons and the AI's samples use it. Messages still quote the words you wrote.
 - **`skip this round` and `skip round` stay accepted (change 31, kept as is)** and are listed on the Other ways page; tidy writes `skip to the next round`.
+- **"column" for a table, "field" for one record (change 5).** Messages about a table say "column": "Use one of the columns this table has: …" for `sort TABLE by COLUMN`, `the different COLUMNs of TABLE`, `the COLUMNs of TABLE`, `sales's price` and a `where` check on a table (a `where` remembers whether it goes through a table). Messages about one record say "field": `RECORD's FIELD`, `has`, and a record with no fields yet ("Set the field "age" before you use it."). Before running, when Plain can't know whether a value is a table or a record (`the totals of sales`), a message says "field". The JSON message counts characters ("line 1, character 9"), not columns. Lesson 8 teaches the words once ("Each row is a record. Its value in one column is a field, like sale's amount."), and lesson 9 says "field" for the parts of a reply. tests/test_wording.py checks that each message uses the word for its kind of value.
+- **Plain explains itself in the words people write (change 22).** "Ends your own step and gives back a value", "Items that are nothing, like blank cells, are skipped", "Waits for that many seconds" (not "Pauses"), "This line can mean two things", "Plain couldn't read the characters in this file", "your own step" in messages (never "how-to"), and "Plain's own step" for a built-in step. There's one placeholder for each kind: NUMBER (never N), LIST, TABLE, COLUMN, FIELD, `read FILE or ADDRESS` and `a list of A, B and C`. NAME stays for somewhere a value is kept (a name, a field or an item), as in `add VALUE to NAME`. The `a copy of` example hands a copy to your own step (`cross off a task in a copy of todos`), and lesson 5 shows why. Lesson 4's headings say "until a check is yes". The stale lines in sections 2 to 6 of the spec are marked superseded. tests/test_banned_words.py checks that explanations use no word that plain tidy changes, no retired wording, and only those placeholders.
+- **Examples use plain names and in-between values (change 23).** hangman.plain: `guesses left` and `word so far`; budget.plain and lesson 8: `repeat for each group in …` with `where category is group`; lesson 3: `got ticket` (since `has` is a check word now, change 3); lesson 10: `for each roll`; tips.plain, lesson 6 and the AI's samples: `how to find the tip on (bill) at (rate)`; reaction.plain: `show "GO!"`, then `wait for Enter`; todo.plain: `set actions to a list of …`, then `ask … with choices actions`; lesson 5: `set drinks to the different items of votes`. An example's notes say `# Ideas to change:` with one `# - idea` line each, never `# Try:` next to a real `try` step, and site/build.py reads them.
+- **`remove VALUE from LIST` and `remove item NUMBER from LIST` stay as they are (change 33, kept as is).** Lesson 5 shows the two side by side, and each explanation names the other. A written number after `remove` stays accepted, as in `remove 0 from readings`, unless readers misread it.
 
 ## Part 1: Amendments
 
@@ -204,7 +208,7 @@ Notes from building it (these also win over the spec):
 | **Everyday words** | The main words are everyday words: `show`, `ask`, `set`, `add`, `read`, `save`, `send`, `repeat`, `how to`, `give back`, `try`, `if that fails`. Messages and docs say *name, value, text, number, list, table, record, yes/no, nothing, step, how to, check*. A CI test fails the build if a banned word appears in message templates, CLI text or site docs. The banned words are: variable, function, argument, parameter, boolean, null, string, array, iterate, exception, syntax, parse, token, runtime, invalid. Quoted code from other languages is the only exception. |
 | **One meaning per word** | There is a closed synonym table, and each synonym means its main word everywhere. `plain tidy` rewrites synonyms to the main word. Some words that other languages overload have exactly one meaning here: `is` and `=` only compare (storing is `set`), `plus` only adds numbers (text joins with `{}`), `stop repeating` and `stop the program` are separate (there is no bare `stop`), and `it` means only "the current item" inside `where`. |
 | **Short sentences** | One step per line. Actions (`ask`, `read`, `save`, `send`, `wait` and your own how-tos) are whole steps that can't sit inside another line, so long work naturally splits into named steps. A line longer than 40 words gets the problem "Split this line into shorter steps." |
-| **Active voice, verbs first** | Every step starts with a verb. The only exception is decision lines, which start with `if` or `otherwise`. Every loop starts with `repeat`. A how-to starts with a verb (`how to work out the tip on (bill) at (rate)`). |
+| **Active voice, verbs first** | Every step starts with a verb. The only exception is decision lines, which start with `if` or `otherwise`. Every loop starts with `repeat`. Your own step starts with a verb (`how to find the tip on (bill) at (rate)`). |
 | **Positive constructions** | Plain offers `if … otherwise`, `repeat until` and `is at least`. Messages say what to do before they say what went wrong. |
 | **Speak to "you"** | Every message, CLI line and doc page addresses "you". Plain refers to itself as "Plain". |
 | **Most important first** | Messages lead with the fix. A program reads like a document: main steps first, under optional `#` headings, then the how-to details. A how-to can be used above the place where it is written. `plain tidy` moves how-to sections to the end. Every doc page opens with what you can do. |
@@ -224,6 +228,8 @@ Notes from building it (these also win over the spec):
 ---
 
 ## 2. Sample programs
+
+*(Superseded where they differ: the programs in `examples/` are the current versions, in main words, with names that read as plain English: `find the tip on (bill) at (rate)` (change 23), `cross off a task in (tasks)` (amendment 3), `if tasks are empty` (change 6), `rounded to 2 decimal places` (change 26) and `set actions to a list of …` before `ask … with choices actions` (change 23).)*
 
 **(a) Greeting**, `hello.plain`
 ```text
@@ -357,7 +363,7 @@ A how-to gets the very list you hand it, so removing an item from `tasks` also r
   - Any width works as long as it is consistent. A Tab counts as 4 spaces, and `plain tidy` uses 4.
   - A header line may end with `:`, and an `if` line may end with `then`. Both are optional.
 - One-line form: `if score is 10 then show "You win!"`.
-- **`end` is optional.** Lines such as `end`, `end if` and `end repeat` are accepted and ignored when they line up with their header. One that doesn't line up gets a problem. Plain never requires them.
+- **`end` is optional.** Lines such as `end`, `end if` and `end repeat` are accepted and ignored when they line up with their header. One that doesn't line up gets a problem. Plain never requires them. *(Superseded: only `end`, `end if`, `end repeat` and `end try` are end lines; every other line that starts with `end` is a problem with an offered fix (change 0).)*
 
 ### 3.2 Notes and headings
 `#` starts a note that runs to the end of the line, unless it is inside quotes. A note on its own line works as a heading. `plain tidy` keeps each heading together with the how-to under it.
@@ -375,11 +381,11 @@ A how-to gets the very list you hand it, so removing an item from `tasks` also r
   - A leading `$`, `€` or `£` is allowed and ignored.
   - `15%` and `15 percent` both mean 0.15.
   - The words `zero` to `twelve` are numbers, and `once` and `twice` work after `repeat`.
-- **Exact decimals.** `0.1 plus 0.2` is `0.3`, and halves round up (`6.375` rounded to 2 places is `6.38`).
+- **Exact decimals.** `0.1 plus 0.2` is `0.3`, and halves round up (`6.375` rounded to 2 places is `6.38`). *(Superseded: the main wording is `rounded to 2 decimal places` (change 26).)*
 - **How numbers are shown:**
   - Adding and taking away keep decimal places: `48.50 plus 9.70` is `58.20`.
   - Multiplying and dividing drop zeros at the end: `80 times 0.20` is `16`.
-  - `rounded to 2 places` always shows 2 places, so `16.00`.
+  - `rounded to 2 places` always shows 2 places, so `16.00`. *(Superseded: written `rounded to 2 decimal places` (change 26).)*
   - At most 10 decimal places are shown.
 - Numbers can't contain commas. `1,000` gets: "Write 1000 without the comma."
 
@@ -388,14 +394,14 @@ A how-to gets the very list you hand it, so removing an item from `tasks` also r
 - **How names are told apart from Plain's words.** A name is the longest run of words that contains no Plain word, so Plain words always end it.
   - There are about 35 Plain words, listed at the end of `plain phrases` and on the website:
 
-    `and or not is to from by in of with as than then where it its plus minus times divided rounded percent split joined contains starts ends exists yes no nothing true false`, plus the number words.
+    `and or not is to from by in of with as than then where it its plus minus times divided rounded percent split joined contains starts ends exists yes no nothing true false`, plus the number words. *(Superseded: the list is `SPECIAL_WORDS` in words.py. `true` and `false` are no longer special words (change 25), and `are`, `contain`, `does`, `equals`, `has`, `have` and `multiplied` are (changes 3 and 6).)*
   - Words like `number`, `total`, `item`, `list`, `random`, `file` and `time` are **not** Plain words. They only mean something inside their phrases (`the number of`, `a random number from`). If a run of words fits both one of your names and a Plain phrase, Plain stops and asks you to rename (rule R8). It never picks.
   - These cannot be names because they are built-in values: `problem`, `stopwatch`, `time now`, `date today`.
 - **Keeping a value:**
   - `set NAME to VALUE` keeps a value you work out.
-  - `STEP and call it NAME` keeps what a step gives back: `ask`, `read`, `send` and your how-tos. `and call them NAME` also works.
+  - `STEP and call it NAME` keeps what a step gives back: `ask`, `read`, `send` and your own steps. `and call them NAME` also works.
 - **Changing a value:**
-  - `add V to NAME` raises a number, puts an item at the end of a list, or joins text onto the end of text.
+  - `add V to NAME` raises a number, puts an item at the end of a list, or joins text onto the end of text. *(Superseded: adding to text is a problem that offers `{ }` or a list (amendment 13).)*
   - `subtract V from NAME` lowers a number.
   - The target can be a name, a field (`sale's amount`) or an item (`item 2 of todos`).
 
@@ -416,10 +422,10 @@ A how-to gets the very list you hand it, so removing an item from `tasks` also r
 - **How field names match:**
   - Matching ignores capitals and treats spaces, `_`, `-` and camelCase as the same.
   - If there's no exact field, Plain tries the name without a final "s".
-  - A field name ends at the next Plain word, so `sale's amount rounded to 2 places` works.
-  - A missing field is a problem that lists the fields the record has.
+  - A field name ends at the next Plain word, so `sale's amount rounded to 2 decimal places` works.
+  - A missing field is a problem that lists the fields the record has. For a table, the message lists the columns the table has (change 5).
 - **A whole column:** `the amounts of big sales` gives a list of each sale's amount. So `the total of the amounts of big sales` adds up a column.
-- **Property words.** After `the … of`, these words mean the property: `number`, `total`, `average`, `largest`, `smallest`, `length`, `first item`, `last item`, `words`, `lines`, `letters`, `text`, `links`. To reach a field with one of those names, use `'s`, as in `order's total`.
+- **Property words.** After `the … of`, these words mean the property: `number`, `total`, `average`, `largest`, `smallest`, `length`, `first item`, `last item`, `words`, `lines`, `letters`, `text`, `links`. To reach a field with one of those names, use `'s`, as in `order's total`. *(Superseded: `characters` replaces `letters` (amendment 15), and `the F of X` with one of Plain's phrase words is a problem that offers the phrase or `X's F` (change 4).)*
 - **Row checks.** These apply in `LIST where CHECK`:
   - A run of words that is one of your names means your name, as in `sales where amount is more than limit`.
   - Any other run means that field of each row.
@@ -428,7 +434,7 @@ A how-to gets the very list you hand it, so removing an item from `tasks` also r
   - If a row has a field with the same name as one of your names that you used bare, Plain stops and asks you to write `its amount`. It never chooses based on the data.
 
 ### 3.8 Yes/no and nothing
-- **Yes/no values** are `yes` and `no`. `true` and `false` mean the same.
+- **Yes/no values** are `yes` and `no`. `true` and `false` mean the same. *(Superseded: `true` and `false` in a line are offered fixes that offer `yes` and `no` (change 25). Typed answers and CSV cells still count them.)*
   - When text is compared with yes/no, `"yes"`, `"y"` and `"true"` count as yes, and `"no"`, `"n"` and `"false"` count as no. So `if answer is yes` works after `ask`.
 - **`nothing`** means no value. JSON `null` becomes `nothing`.
 - **`is empty`** is yes for `""`, for an empty list and for `nothing`.
@@ -443,15 +449,15 @@ A how-to gets the very list you hand it, so removing an item from `tasks` also r
 | `15% of bill` | |
 | `V rounded`, `V rounded to 2 places` | |
 
-Plain follows school order: times and divide come before plus and minus, and brackets group. `rounded` applies to everything on its left that is arithmetic, so `bill times rate rounded to 2 places` rounds the result. v1 has no powers.
+Plain follows school order: times and divide come before plus and minus, and brackets group. `rounded` applies to everything on its left that is arithmetic, so `bill times rate rounded to 2 places` rounds the result. v1 has no powers. *(Superseded: `plain tidy` writes the words, not the signs (change 2), and the main wording is `rounded to 2 decimal places` (change 26).)*
 
 ### 3.10 Comparisons and logic
 | Main wording | Also accepted (right after `is`, or as a symbol) |
 |---|---|
-| `A is B` (text ignores capitals and spaces at either end) | `=`, `==`, `equals`, `is equal to`, `is the same as` |
+| `A is B` (text ignores capitals and spaces at either end) | `=`, `==`, `equals`, `is equal to`, `is the same as` *(Superseded: `==` is an offered fix (change 8).)* |
 | `A is exactly B` | Text must match exactly, including capitals. |
-| `A is not B` | `isn't`, `!=`, `≠`, `does not equal`, `is different from` |
-| `A is more than B` | `is over`, `is above`, `is greater/bigger/larger/higher than`, `>` |
+| `A is not B` | `isn't`, `!=`, `≠`, `does not equal`, `is different from` *(Superseded: `!=` is an offered fix (change 8).)* |
+| `A is more than B` | `is over`, `is above`, `is greater/bigger/larger/higher than`, `>` *(Superseded: `is over` is an offered fix (amendment 25).)* |
 | `A is less than B` | `is under`, `is below`, `is smaller/fewer/lower than`, `<` |
 | `A is at least B` / `A is at most B` | `>=`, `≥`, `is no less than` / `<=`, `≤`, `is no more than` |
 | `A is between B and C` | Both ends count. It uses up exactly one `and`. |
@@ -459,7 +465,7 @@ Plain follows school order: times and divide come before plus and minus, and bra
 | `A has B` (A is a record, B a field name) | `does not have` |
 | `A is empty`, `A is a number`, `A is a whole number`, `A is text`, `A is a list`, `A is even`, `A is odd`, `A is divisible by B` | Each also works with `is not`. |
 
-- **Logic:** `not` binds tightest, then `and`, then `or`. Brackets group.
+- **Logic:** `not` binds tightest, then `and`, then `or`. Brackets group. *(Superseded: mixing `and` and `or` without brackets is a problem that offers both bracketings (amendment 7).)*
 - **Elided comparisons.** When the right side of `and` / `or` is a **written value** (number, text, yes/no, nothing) or **starts with a comparison word**, Plain reuses the left side's subject:
   - `answer is "y" or "yes"` means `answer is "y" or answer is "yes"`.
   - `guess is less than 1 or more than 100` reuses `guess`.
@@ -482,9 +488,9 @@ Every loop starts with `repeat`. `for each`, `while` and `until` written without
 |---|---|
 | `repeat 5 times` | Also `repeat once` and `repeat twice`. |
 | `repeat forever` | Runs until you leave with `stop repeating` or end with `stop the program`. |
-| `repeat until CHECK` / `repeat while CHECK` | The check is made before each round. |
-| `repeat for each X in LIST` | Goes through list items, table rows, or the letters of a text. `repeat for every` also works. |
-| `repeat for each X from A to B` | Counts from A to B, both included. It counts down if A is bigger. |
+| `repeat until CHECK` / `repeat while CHECK` | The check is made before each round. *(Superseded: `repeat until` checks after each round (amendment 14).)* |
+| `repeat for each X in LIST` | Goes through list items, table rows, or the letters of a text. `repeat for every` also works. *(Superseded: going through text must be written with `the characters of`, `the lines of` or `the words of` (amendment 14).)* |
+| `repeat for each X from A to B` | Counts from A to B, both included. It counts down if A is bigger. *(Superseded: `to` only counts up and `down to` counts down; `from 5 to 1` with written numbers is a problem (amendment 14, change 12).)* |
 | `stop repeating` | Leaves the innermost loop. |
 | `skip to the next round` | Goes straight to the next round. |
 
@@ -492,17 +498,17 @@ Ctrl-C in the terminal, or Stop in the browser, prints `Stopped.`
 
 ### 3.13 Your own steps ("how to")
 ```text
-how to work out the tip on (bill) at (rate)
+how to find the tip on (bill) at (rate)
     set tip to bill times rate
-    give back tip rounded to 2 places
+    give back tip rounded to 2 decimal places
 ```
 - **The header:**
   - Words in brackets are the values you hand in. They can be several words long.
   - The header starts with a word, and that word can't be one of Plain's line-starting words.
   - At least one word sits outside brackets, and two bracketed parts can't sit side by side.
-- **Using it.** Use it as a whole step: `work out the tip on lunch at 15% and call it lunch tip`. It can't go inside another line (one action per line). Plain spots the attempt and offers the two-step version.
+- **Using it.** Use it as a whole step: `find the tip on lunch at 15% and call it lunch tip`. It can't go inside another line (one action per line). Plain spots the attempt and offers the two-step version.
 - **Giving back a value:**
-  - `give back VALUE` ends the how-to and hands back the value. `return` also works.
+  - `give back VALUE` ends your own step and gives back the value. `return` also works. *(Superseded: `return` is an offered fix (change 25).)*
   - A how-to with no `give back` gives nothing. Writing `and call it` after it is a problem.
 - **Where it can go:**
   - How-tos go at the top level, anywhere in the file, and work above the place they are written.
@@ -520,7 +526,7 @@ try
 if that fails
     show "Plain couldn't read it: {the problem}"
 ```
-`if it fails` also works. `the problem` holds the same friendly message Plain would have shown. Only problems that happen while the program runs can be caught. A program with lines Plain can't follow never starts.
+`if it fails` also works. *(Superseded: `if it fails` is an offered fix (amendment 25).)* `the problem` holds the same friendly message Plain would have shown. Only problems that happen while the program runs can be caught. A program with lines Plain can't follow never starts.
 
 ### 3.15 Showing and asking
 - **`show VALUE`** shows a value on its own line.
@@ -533,7 +539,7 @@ if that fails
 
 ## 4. Built-in phrase catalog (v1)
 
-Placeholders: VALUE, TEXT, NUMBER, LIST, TABLE, FIELD, NAME, CHECK (a question with a yes or no answer), FILE (a file name), ADDRESS (a web address starting with `https://`). Articles are optional everywhere. File names are looked up next to your program. The "Label" column is what AI ideas get tagged with.
+Placeholders: VALUE, TEXT, NUMBER, LIST, TABLE, FIELD, NAME, CHECK (a question with a yes or no answer), FILE (a file name), ADDRESS (a web address starting with `https://`). Articles are optional everywhere. *(Superseded: the reference is generated from the registry (`plain phrases` and the site's All phrases page). It has one placeholder for each kind (change 22): NUMBER, never N; COLUMN for a table's column (`sort TABLE by COLUMN`, `the different COLUMNs of TABLE`) and FIELD for one record's field (`RECORD's FIELD`) (change 5); `read FILE or ADDRESS`; and `a list of A, B and C`. The "You can also write" column below is replaced by the generated "Other ways you can write things" list (change 2).)* File names are looked up next to your program. The "Label" column is what AI ideas get tagged with.
 
 **Show and ask** (`phrases/screen.py`)
 | Phrase | What it does | You can also write |
@@ -564,7 +570,7 @@ Placeholders: VALUE, TEXT, NUMBER, LIST, TABLE, FIELD, NAME, CHECK (a question w
 | `VALUE as a number` / `VALUE as text` | Changes the kind of value. Text that isn't a number is a problem. | |
 | `the length of TEXT` | How many letters, spaces and signs. | |
 | `TEXT in capital letters` / `TEXT in small letters` | New text in capital letters or small letters. | in capitals, in uppercase, in lowercase |
-| `the words of TEXT`, `the lines of TEXT`, `the letters of TEXT` | A list. | |
+| `the words of TEXT`, `the lines of TEXT`, `the letters of TEXT` | A list. *(Superseded: `the characters of TEXT` replaces `the letters of TEXT` (amendment 15).)* | |
 | `TEXT split by TEXT` / `LIST joined with TEXT` | Splits text into a list, or joins a list into one text. | |
 | `replace TEXT with TEXT in NAME` | Changes every match in the text kept under NAME. | |
 
@@ -575,11 +581,11 @@ Placeholders: VALUE, TEXT, NUMBER, LIST, TABLE, FIELD, NAME, CHECK (a question w
 | `item N of LIST`, `the first item of LIST`, `the last item of LIST`, `the first N items of LIST` | Gets items by position, starting at 1. | |
 | `the number of LIST` | How many items. | |
 | `the total of LIST`, `the average of LIST`, `the largest of LIST`, `the smallest of LIST` | Adds up, averages, or finds the largest or smallest number. | sum, mean, biggest, highest, lowest |
-| `the FIELDs of TABLE` | One column as a list, as in `the amounts of sales`. | |
+| `the COLUMNs of TABLE` | One column as a list, as in `the amounts of sales`. | |
 | `LIST where CHECK` | The items or rows for which the check is yes. | |
 | `add VALUE to LIST` | Puts the value at the end. | |
 | `remove VALUE from LIST` / `remove item N from LIST` | Removes the first match / the item at position N. | delete |
-| `sort LIST`, `sort LIST by FIELD`, plus `largest first` (numbers) or `from Z to A` (text) | Sorts in place: numbers smallest first, text A to Z, ignoring capitals. | biggest first, from A to Z |
+| `sort LIST`, `sort TABLE by COLUMN`, plus `largest first` (numbers) or `from Z to A` (text) | Sorts in place: numbers smallest first, text A to Z, ignoring capitals. | biggest first, from A to Z |
 | `reverse LIST` | Reverses in place. | |
 
 **Files** (`phrases/files.py`)
@@ -613,13 +619,13 @@ Placeholders: VALUE, TEXT, NUMBER, LIST, TABLE, FIELD, NAME, CHECK (a question w
 | 4 | A final `.` `!` `;` `:`, an optional `:` or `then` on headers, and commas outside lists | `sort sales by amount, largest first` | Commas only mean "next item" inside `a list of` and `with choices`. |
 | 5 | Curly quotes, long dashes, non-breaking spaces | `show “hi”` | Turned into plain forms before reading. |
 | 6 | Contractions | `isn't`, `doesn't`, `don't` | Expanded to `is not`, `does not`, `do not`. |
-| 7 | Synonyms from the closed table (section 4) | `print`, `else`, `return`, `load` | Each synonym maps to exactly one main word, everywhere, for code and templates alike. CI checks that the table is one-to-one and never contains a Plain word. `plain tidy` rewrites them. |
-| 8 | Comparison wordings and symbols | `is over 3`, `x > 3` | The wordings apply only right after `is`. The symbol table is fixed. |
+| 7 | Synonyms from the closed table (section 4) | `print`, `else`, `return`, `load` *(Superseded: `print`, `else` and `return` are offered fixes; the table is `SYNONYMS` in words.py (amendment 25, changes 8 and 25).)* | Each synonym maps to exactly one main word, everywhere, for code and templates alike. CI checks that the table is one-to-one and never contains a Plain word. `plain tidy` rewrites them. |
+| 8 | Comparison wordings and symbols | `is over 3`, `x > 3` *(Superseded: `is over` is an offered fix (amendment 25).)* | The wordings apply only right after `is`. The symbol table is fixed. |
 | 9 | Words or symbols for arithmetic | `bill * rate` | Fixed table. |
-| 10 | `for each`, `while`, `until` without `repeat`, and `if it fails` | `for each sale in sales` | Each is a fixed alternative spelling of one core form. |
+| 10 | `for each`, `while`, `until` without `repeat`, and `if it fails` *(Superseded: `if it fails` is an offered fix (amendment 25).)* | `for each sale in sales` | Each is a fixed alternative spelling of one core form. |
 | 11 | Singular or plural in fixed words, and in field names | `repeat 1 time`, `the amounts of sales` | Templates mark fixed words as `time|times`. Field lookup tries the exact name first, then without the final "s". **This is never done for your names.** |
 | 12 | Number forms | `$42.50`, `15%`, `three`, `twice` | Fixed reading rules. |
-| 13 | Indentation of any consistent width, Tabs, and optional lined-up `end` lines | | Blocks come from an indentation stack. Only inconsistent indentation is a problem. |
+| 13 | Indentation of any consistent width, Tabs, and optional lined-up `end` lines *(Superseded: only `end`, `end if`, `end repeat` and `end try` (change 0).)* | | Blocks come from an indentation stack. Only inconsistent indentation is a problem. |
 | 14 | Elided comparisons | `answer is "y" or "yes"` | One rule (section 3.10). It applies only to written values and comparison words. |
 | 15 | Field names written your way | `stargazers count` | One matching function applies to both sides. Two fields in one record that match the same way are a problem that names both. |
 | 16 | Friendly equality | `"Yes " is "yes"`, `"y" is yes` | It is written down in one place, and `is exactly` is the strict form. |
@@ -692,7 +698,7 @@ class Host(Protocol):
     def ask(self, question: str) -> str: ...      # blocks until an answer arrives
     def wait(self, seconds: float) -> None: ...
     def clear(self) -> None: ...
-    def clock(self) -> float: ...                 # only goes forward; drives the timer
+    def clock(self) -> float: ...                 # only goes forward; drives the stopwatch
     def now(self) -> datetime: ...                # the time now, the date today
     def web(self, method: str, url: str, body: bytes | None, kind: str | None) -> Reply: ...
 ```
@@ -815,6 +821,7 @@ def random_number(run: Run, low: Number, high: Number) -> Number:
       if hours is the same as over time
   Plain never guesses, so you choose. For example, rename "over time" to "overtime hours".
   ```
+  *(Superseded: the message says "This line can mean two things" (change 22), offers only a rename (change 15), and `is over` is an offered fix (amendment 25).)*
 - **R9 Elision.** Covered in section 3.10.
 - **R10 Row checks.** Covered in section 3.7. Your name wins statically. If the data has a field with the same name, that is a problem while running. Plain never chooses based on the data.
 - **R11 `and` inside lists.** Inside `a list of` and `with choices`, `and` separates items. `between A and B` takes exactly one `and`. A yes/no check inside a list needs brackets.
@@ -832,7 +839,7 @@ def random_number(run: Run, low: Number, high: Number) -> Number:
 | list (a table is a list of records) | `list` | `a, b and c`; tables as columns |
 | record | `Record(dict)`: lookup by normalized key, keeping the original keys and their order | `name: Ann, age: 30` |
 
-- There are no other types. Times and dates are text, and the timer is a number.
+- There are no other types. Times and dates are text, and the stopwatch is a number.
 - JSON is loaded with `parse_float=Decimal` and `parse_int=Decimal`.
 - CSV is read with `csv.Sniffer`, which handles comma, semicolon or tab, and tolerates a BOM. Saving writes headers in first-seen order.
 
@@ -1098,7 +1105,7 @@ $ plain tidy messy.plain
 Tidied messy.plain:
   line 1   print → show
   line 4   for each → repeat for each
-  moved "how to work out the tip on (bill) at (rate)" after the main steps
+  moved "how to find the tip on (bill) at (rate)" after the main steps
 Your file from before is in messy.plain.bak.
 ```
 

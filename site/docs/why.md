@@ -86,7 +86,7 @@ Try one of these:
     show (a random number from 1 to 6) plus 1
   or
     show a random number from 1 to (6 plus 1)
-Why: Plain can read this two ways: the plus could belong to the last number of "a random number from …", or come after it.
+Why: This line can mean two things: the plus could belong to the last number of "a random number from …", or come after it.
 
 Plain found 1 thing to fix, so it hasn't run your program yet.
 ```

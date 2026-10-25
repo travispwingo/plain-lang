@@ -1,14 +1,14 @@
-# Work out the tips for two meals
+# Find the tips for two meals
 set lunch to 42.50
-work out the tip on lunch at 15% and call it lunch tip
+find the tip on lunch at 15% and call it lunch tip
 show "Lunch was ${lunch}. Leave ${lunch tip}."
 
 ask "How much was dinner?" and call it dinner
-work out the tip on dinner at 20% and call it dinner tip
+find the tip on dinner at 20% and call it dinner tip
 show "Dinner was ${dinner}. Leave ${dinner tip}."
 show "Tips altogether: ${lunch tip plus dinner tip}"
 
-# How the tip is worked out
-how to work out the tip on (bill) at (rate)
+# How to find the tip
+how to find the tip on (bill) at (rate)
     set tip to bill times rate
     give back tip rounded to 2 decimal places

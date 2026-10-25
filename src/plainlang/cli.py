@@ -1,6 +1,7 @@
 """The plain command. All of its text is written by hand, in plain words."""
 
 import os
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -198,7 +199,9 @@ def phrases(words, again="plain phrases"):
     entries, ways = reference(), other_ways()
     wanted = [w.lower() for w in words]
     if wanted:
-        ways = [w for w in ways if all(x in " ".join(w.said + w.main + [w.note]).lower() for x in wanted)]
+        # A placeholder like COLUMN or LIST isn't a word you write, so it doesn't make an other way match.
+        ways = [w for w in ways if all(x in re.sub(r"\b[A-Z]{2,}s?\b", " ", " ".join(w.said + w.main + [w.note])).lower()
+                                      for x in wanted)]
         # The phrase's own words first ("plain phrases at least"), then what other ways mean, then the
         # explanations.
         mains = [fixed_words(m) for way in ways for m in way.main]

@@ -1,7 +1,7 @@
 I'm thinking of a word with 6 letters.
 _ _ _ _ _ _
 Guess a letter: e
-Sorry, there's no e. Wrong guesses: 1 of 6.
+Sorry, there's no e. Wrong guesses left: 5.
 _ _ _ _ _ _
 Guess a letter: a
 Yes, a is in the word.
@@ -19,7 +19,7 @@ Guess a letter: n
 Yes, n is in the word.
 _ a n a n a
 Guess a letter: t
-Sorry, there's no t. Wrong guesses: 2 of 6.
+Sorry, there's no t. Wrong guesses left: 4.
 _ a n a n a
 Guess a letter: b
 Yes, b is in the word.

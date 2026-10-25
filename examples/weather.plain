@@ -1,7 +1,8 @@
 # What's the weather?
 # Type a city and Plain looks up the temperature there right now.
-# Try: Show how many people live there too, with place's population.
-# Try: Add &temperature_unit=fahrenheit to the end of the forecast address, and change °C to °F.
+# Ideas to change:
+# - Show how many people live there too, with place's population.
+# - Add &temperature_unit=fahrenheit to the end of the forecast address, and change °C to °F.
 show "Type a city to see its weather. Press Enter on its own to stop."
 repeat forever
     ask "Which city?" and call it city

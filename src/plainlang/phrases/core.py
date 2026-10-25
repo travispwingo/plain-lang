@@ -11,17 +11,18 @@ core("STEP and call it NAME", "Keeps what a step gives back under a name.", 'ask
 core("if CHECK", "Takes the steps under it only when the check is yes.", 'if score is more than 10')
 core("otherwise if CHECK", "Another check, tried when the ones above weren't yes.", "otherwise if score is 10")
 core("otherwise", "The steps to take when none of the checks above were yes.", "otherwise")
-core("repeat N times", "Takes the steps under it N times. Also: repeat once, repeat twice.", "repeat 3 times")
+core("repeat NUMBER times", "Takes the steps under it that many times. Also: repeat once, repeat twice.", "repeat 3 times")
 core("repeat forever", "Repeats until you leave with \"stop repeating\" or end with \"stop the program\".", "repeat forever")
 core("repeat until CHECK", "Takes the steps, then checks. Stops once the check is yes.", "repeat until guess is secret")
 core("repeat while CHECK", "Checks first, and takes the steps while the check is yes.", "repeat while lives is more than 0")
 core("repeat for each NAME in LIST", "Takes the steps once for each item of the list.", "repeat for each sale in sales")
-core("repeat for each NAME from A to B", "Counts up from A to B. Write \"down to\" to count down.", "repeat for each n from 1 to 10")
+core("repeat for each NAME from NUMBER to NUMBER", "Counts up from the first number to the second, both included. "
+     "Write \"down to\" to count down.", "repeat for each n from 1 to 10")
 core("stop repeating", "Leaves the repeat it's in.", "stop repeating")
 core("skip to the next round", "Goes straight to the next round of the repeat.", "skip to the next round")
 core("stop the program", "Ends the program now.", "stop the program")
 core("how to WORDS (NAME)", "Makes a step of your own. Words in brackets are values you hand in.", "how to greet (person)")
-core("give back VALUE", "Ends your own step and hands back a value.", "give back total")
+core("give back VALUE", "Ends your own step and gives back a value.", "give back total")
 core("try", "Takes the steps under it. If one has a problem, Plain goes to \"if that fails\".", "try")
 core("if that fails", "The steps to take when a step under \"try\" had a problem. \"the problem\" says what went wrong.", "if that fails")
 
@@ -60,10 +61,12 @@ KIND_ENTRIES = {
     "list": ("VALUE", "Yes for a list, or a table read from a file.", "if reply is a list"),
     "even": ("NUMBER", "Yes for 0, 2, 4 and so on.", "if score is even"),
     "odd": ("NUMBER", "Yes for 1, 3, 5 and so on.", "if score is odd"),
-    "divisible": ("NUMBER", "Yes when the number divides by N with nothing left over.", "if year is divisible by 4"),
+    "divisible": ("NUMBER", "Yes when the first number divides by the second with nothing left over.",
+                  "if year is divisible by 4"),
 }
 
-KIND_WORDS = {"number": "a number", "whole number": "a whole number", "list": "a list", "divisible": "divisible by N"}
+KIND_WORDS = {"number": "a number", "whole number": "a whole number", "list": "a list",
+              "divisible": "divisible by NUMBER"}
 
 
 for op, words in COMPARISON_WORDS.items():
@@ -73,13 +76,13 @@ for op, words in COMPARISON_WORDS.items():
     core(f"{left} {words} {right}", f'{doc} The opposite is "{COMPARISON_WORDS[OPPOSITES[op]]}".', example,
          topic="Checks")
 
-core("NUMBER is between A and B", 'Yes when the number is from A to B. Both A and B count. The opposite is '
-     '"is not between".', "if pick is between 1 and 10", topic="Checks")
+core("NUMBER is between NUMBER and NUMBER", 'Yes when the first number is from the second to the third. Both ends '
+     'count. The opposite is "is not between".', "if pick is between 1 and 10", topic="Checks")
 for kind in list(dict.fromkeys(TYPE_CHECKS.values())) + ["divisible"]:
     left, doc, example = KIND_ENTRIES[kind]
     words = KIND_WORDS.get(kind, kind)
     core(f"{left} is {words}", f'{doc} The opposite is "is not {words}".', example, topic="Checks")
-core("CHECK and CHECK", "Yes when both checks are yes.", "if age is at least 18 and ticket is yes", topic="Checks")
+core("CHECK and CHECK", "Yes when both checks are yes.", "if age is at least 18 and got ticket is yes", topic="Checks")
 core("CHECK or CHECK", "Yes when either check is yes. Use brackets when one check has both \"and\" and \"or\".",
      'if answer is "y" or answer is "yes"', topic="Checks")
 core("not CHECK", "Yes when the check is no.", "if not (score is 10 or score is 20)", topic="Checks")
@@ -98,11 +101,11 @@ ARITHMETIC_ENTRIES = {
 for word in dict.fromkeys(list(ADD_OPS.values()) + list(MUL_OPS.values()) + list(MUL_TWO_WORD_OPS.values())):
     doc, example = ARITHMETIC_ENTRIES[word]
     core(f"NUMBER {word} NUMBER", doc, example, topic="Numbers and names")
-core("N% of VALUE", "A part of a value, like 15% of a bill.", "show 15% of 80",
+core("NUMBER% of VALUE", "A part of a value, like 15% of a bill.", "show 15% of 80",
      topic="Numbers and names")
 core("RECORD's FIELD", "One field of a record, like one cell of a row. After a name that ends in s, you can write just "
      "the apostrophe: players' score.", "show person's name", topic="Numbers and names")
-core("the FIELDs of TABLE", "One column of a table, as a list: the amounts of sales.", "show the amounts of sales",
+core("the COLUMNs of TABLE", "One column of a table, as a list: the amounts of sales.", "show the amounts of sales",
      topic="Numbers and names")
 core("LIST where CHECK", "The items of a list for which the check is yes. In the check, \"it\" is the item being "
      "checked.", "show scores where it is more than 3", topic="Numbers and names")

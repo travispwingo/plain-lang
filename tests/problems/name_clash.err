@@ -4,6 +4,6 @@ name_clash.plain, line 2: Rename "number" so this line has only one meaning, for
                    ^^^^^^
 Try this:
     if my number is a number
-Why: Plain can read this line two ways: with your name "number", or with Plain's own words. Plain never guesses, so you choose. Change the name everywhere you use it.
+Why: This line can mean two things: one with your name "number", and one with Plain's own words. Plain never guesses, so you choose. Change the name everywhere you use it.
 
 Plain found 1 thing to fix, so it hasn't run your program yet.

@@ -12,7 +12,7 @@ from decimal import Decimal
 
 from . import nodes as N
 from .problems import Problem
-from .registry import REGISTRY, Phrase, Slot, Word, word_matches
+from .registry import REGISTRY, Phrase, Slot, Word, word_matches, wording
 from .suggest import reads_cleanly, reads_renamed, reads_with_name
 from .source import (Piece, build_blocks, indent_problem, inline_break, read_lines, step_words,
                      tokenize)
@@ -285,7 +285,7 @@ class Reader:
                 k += 1
             else:
                 problems.append(Problem(
-                    "Use only words and (bracketed names) in a how-to's wording.",
+                    "Use only words and (bracketed names) in the wording of your own step.",
                     f'Plain found "{tok.raw}" in the wording of your step.',
                     line=line.number, col=tok.col, end=tok.end))
                 return None
@@ -350,8 +350,8 @@ class Reader:
             if other is not None:
                 example = other.example if isinstance(other, Phrase) and other.example else ""
                 theirs = " ".join("..." if s == "_" else s for s in shape)
-                whose = "Plain's own phrase" if other.run is not None and not isinstance(other.run, HowToDef) \
-                    else "another how-to"
+                whose = "Plain's own step" if other.run is not None and not isinstance(other.run, HowToDef) \
+                    else "another of your own steps"
                 problems.append(Problem(
                     'Use different words for this "how to".',
                     f'It uses the same words in the same places as {whose} "{theirs}"'
@@ -363,7 +363,7 @@ class Reader:
                 theirs = " ".join("..." if s == "_" else s for s in other.shape)
                 problems.append(Problem(
                     'Use different words for this "how to".',
-                    f'A line that uses it could also be read as Plain\'s own phrase "{theirs}", as in '
+                    f'A line that uses it could also be read as Plain\'s own step "{theirs}", as in '
                     f"{other.example}, so Plain couldn't tell them apart.",
                     line=line.number, col=line.indent, end=len(line.raw.rstrip()),
                     try_lines=reworded(howto.phrase, line)))
@@ -1514,7 +1514,7 @@ class LineReader:
             try_lines = [indent + replace_span(line.raw, col, end, r.canonical()) for r in (a, b)]
             return Problem(
                 "Add brackets, or reword this, so it has only one meaning.",
-                "Plain can read it two ways, and it never guesses which one you mean.",
+                "This line can mean two things, and Plain never guesses which one you mean.",
                 line=line.number, col=col, end=end, try_lines=try_lines, choices=[[t] for t in try_lines],
                 ideas=list(try_lines), ask_claude=True)
         # Only a rename fixes it, never a new wording, which could change what the line means
@@ -1529,7 +1529,7 @@ class LineReader:
             reads_renamed(self, line, indent + text, name.words, tuple(new.split())) else []
         return Problem(
             f'Rename "{words}" so this line has only one meaning, for example to "{new}".',
-            f'Plain can read this line two ways: with your name "{words}", or with Plain\'s own words. '
+            f'This line can mean two things: one with your name "{words}", and one with Plain\'s own words. '
             "Plain never guesses, so you choose. Change the name everywhere you use it.",
             line=line.number, col=name.col, end=name.end, try_lines=try_lines, ask_claude=True)
 
@@ -1665,7 +1665,7 @@ class LineReader:
             builtin = [r for r in good if not isinstance(r[0].run, HowToDef)]
             if howto and builtin:
                 raise self.step_tie(howto[0], builtin[0], line,
-                                    "It reads as your own step and also as one of Plain's own phrases.")
+                                    "It reads as your own step and also as one of Plain's own steps.")
             if len(howto) > 1:
                 raise self.step_tie(howto[0], howto[1], line, "It reads as two of your own steps.")
             # Between built-ins, the reading that uses more of Plain's words wins,
@@ -1679,11 +1679,11 @@ class LineReader:
                                 name.col <= self.t[k].col < name.end for k in best[2]):
                             raise Problem(
                                 f'Rename "{name.canonical()}" so this line has only one meaning.',
-                                f'Plain can read this line two ways, because "{name.canonical()}" '
-                                f'also contains words of one of its phrases. Plain never guesses, so you choose.',
+                                f'This line can mean two things, because "{name.canonical()}" '
+                                f'also contains words of one of Plain\'s phrases. Plain never guesses, so you choose.',
                                 line=line.number, col=name.col, end=name.end)
             if len(good[1][2]) == len(best[2]):
-                raise self.step_tie(best, good[1], line, "Plain can read it two ways.")
+                raise self.step_tie(best, good[1], line, "This line can mean two things.")
             readings = [best]
         else:
             readings = good
@@ -1704,8 +1704,9 @@ class LineReader:
         howto = any(isinstance(r[0].run, HowToDef) for r in (a, b))
         for phrase, args, _, _ in (a, b):
             text = phrase.main.render({k: N.arg_text(v, wrap_math=False) for k, v in args.items()})
-            origin = "your step" if isinstance(phrase.run, HowToDef) else "Plain's phrase"
-            texts.append(text if same else f"{text}    ({origin} \"{phrase.main.template}\")")
+            origin = (f'your step "how to {phrase.main.template.replace("{", "(").replace("}", ")")}"'
+                      if isinstance(phrase.run, HowToDef) else f'Plain\'s step "{wording(phrase.main.template)}"')
+            texts.append(text if same else f"{text}    ({origin})")
         fix = "Reword this line, or rename your step, so the line has only one meaning." if howto else \
             "Add brackets, or reword this, so it has only one meaning."
         indent = line.raw[:len(line.raw) - len(line.raw.lstrip())]
@@ -2145,7 +2146,7 @@ class LineReader:
             alts = [a or f"({phrase_text}) {op} {right_text}", b_inner]
             return N.Bad(Problem(
                 "Add brackets to show which numbers go together.",
-                f'Plain can read this two ways: the {op} could belong to the last number of '
+                f'This line can mean two things: the {op} could belong to the last number of '
                 f'"{tail.phrase.main.template.split("{")[0].strip()} …", or come after it.'),
                 alts, col=col, end=end)
         if op == "plus" and (isinstance(left, N.TextLit) or isinstance(right, N.TextLit)):
@@ -2415,7 +2416,7 @@ class LineReader:
                 if self.line is not None:
                     raise sub.tie_problem(readings[0], readings[1], view[0].col, view[-1].end, self.line)
                 raise Problem("Add brackets inside the { } so it has only one meaning.",
-                              "Plain can read it two ways, and it never guesses which one you mean.",
+                              "This line can mean two things, and Plain never guesses which one you mean.",
                               col=piece.col, end=piece.end)
             self.synonym_edits += sub.synonym_edits
             pieces.append(readings[0])

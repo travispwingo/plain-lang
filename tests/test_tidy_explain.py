@@ -183,7 +183,7 @@ class PhrasesReference(unittest.TestCase):   # changes 18 and 2
     CONTEXT = ('set answer to "yes"\nset name to "Ann"\nset score to 12\nset temperature to 3\nset age to 20\n'
                'set shopping to a list of "milk"\nset person to an empty record\nset person\'s name to "Ann"\n'
                'set email to "a@b.org"\nset pick to 4\nset guess to 7\nset reply to a list of 1\nset year to 2024\n'
-               'set ticket to yes\nset scores to a list of 1, 5 and 9\nread "sales.csv" and call it sales\n')
+               'set got ticket to yes\nset scores to a list of 1, 5 and 9\nread "sales.csv" and call it sales\n')
     SALES = "date,customer,amount\n2026-10-01,Ann,120.50\n2026-10-02,Bo,80\n"
 
     def entries(self, topic):
@@ -217,7 +217,7 @@ class PhrasesReference(unittest.TestCase):   # changes 18 and 2
 
     def test_find_by_the_words_of_a_phrase(self):
         for words, wording in ((["contains"], "LIST contains VALUE"), (["at", "least"], "NUMBER is at least NUMBER"),
-                               (["where"], "LIST where CHECK"), (["divisible"], "NUMBER is divisible by N"),
+                               (["where"], "LIST where CHECK"), (["divisible"], "NUMBER is divisible by NUMBER"),
                                (["greater"], "NUMBER is more than NUMBER"), (["uppercase"], "TEXT in capital letters"),
                                (["plus"], "NUMBER plus NUMBER"), (["display"], "show VALUE")):
             with self.subTest(words=words):

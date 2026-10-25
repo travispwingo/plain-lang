@@ -6,6 +6,6 @@ Try one of these:
     if a and (b or c)
   or
     if (a and b) or c
-Why: Plain can read it two ways, and it never guesses which one you mean.
+Why: This line can mean two things, and Plain never guesses which one you mean.
 
 Plain found 1 thing to fix, so it hasn't run your program yet.

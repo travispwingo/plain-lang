@@ -2,8 +2,9 @@
 set todos to an empty list
 if the file "todos.txt" exists
     read the lines of "todos.txt" and call it todos
+set actions to a list of "Add", "Show", "Cross off" and "Quit"
 repeat forever
-    ask "What now?" with choices "Add", "Show", "Cross off" and "Quit" and call it choice
+    ask "What now?" with choices actions and call it choice
     if choice is "Add"
         ask "What do you need to do?" and call it task
         add task to todos

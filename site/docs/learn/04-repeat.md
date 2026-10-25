@@ -1,6 +1,6 @@
 # Repeat steps
 
-You can make Plain take the same steps again and again: a set number of times, once for each item in a list, or until something is true. Each time through the steps is one round.
+You can make Plain take the same steps again and again: a set number of times, once for each item in a list, or until a check is yes. Each time through the steps is one round.
 
 ## Repeat steps a set number of times
 
@@ -96,7 +96,7 @@ Everyone is here.
 
 You'll learn much more about lists in [the next lesson](/learn/05-lists/).
 
-## Repeat until something is true
+## Repeat until a check is yes
 
 `repeat until` takes the steps, then checks. It stops once the check is yes:
 
@@ -121,7 +121,7 @@ Hooray!
 
 Because Plain checks after each round, the steps always run at least once. That's why this works: `answer` gets its first value in the first round, before Plain checks it.
 
-## Repeat while something is true
+## Repeat while a check is yes
 
 `repeat while` checks first, and takes the steps only while the check is yes. If the check is no from the start, the steps never run:
 

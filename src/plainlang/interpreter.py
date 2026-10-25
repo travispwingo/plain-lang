@@ -14,8 +14,8 @@ from .parser import HowToDef, Reader, start_of
 from .problems import Problem, things
 from .registry import Phrase
 from .suggest import MISNAMED_PHRASES
-from .values import (Percent, Record, as_number, contains, exactly, fit, is_empty, kind_name, order,
-                     number_text, percent, places, quoted, same, show_value)
+from .values import (Percent, Record, as_number, contains, exactly, fit, is_empty, kind_name, missing_column,
+                     order, number_text, percent, places, quoted, same, show_value)
 
 MAX_DEPTH = 100
 
@@ -84,6 +84,7 @@ class Run:
         self.globals = {}
         self.frames = []
         self.items = []          # the current item inside "where"
+        self.tables = []         # for each "where" being checked: is it going through a table?
         self.problem_text = None
         self.stopwatch_start = host.clock()
         self.depth = 0
@@ -124,7 +125,7 @@ class Run:
         except RecursionError:
             raise Problem(
                 f"Make your step stop using itself before it goes {MAX_DEPTH} steps deep.",
-                f"A how-to can use itself, but only up to {MAX_DEPTH} times inside itself.",
+                f"Your own step can use itself, but only up to {MAX_DEPTH} times inside itself.",
                 line=stmt.line, running=True)
         finally:
             self.check_line = None
@@ -287,7 +288,7 @@ class Run:
         if self.depth >= MAX_DEPTH:
             raise Problem(
                 f"Make your step stop using itself before it goes {MAX_DEPTH} steps deep.",
-                f"A how-to can use itself, but only up to {MAX_DEPTH} times inside itself.")
+                f"Your own step can use itself, but only up to {MAX_DEPTH} times inside itself.")
         frame = {}
         for slot, name in zip(howto.phrase.slots, howto.params):
             frame[name] = self.eval(args[slot.name])
@@ -529,7 +530,13 @@ class Run:
                 if not isinstance(item, Record):
                     raise Problem(f'Write "it" instead of "its {" ".join(node.words)}" for items that aren\'t records.',
                                   f"{quoted(item)} is {kind_name(item)}, so it has no fields.")
-                return item.get(node.words[0] if node.quoted else " ".join(node.words), exact=node.quoted)
+                name = node.words[0] if node.quoted else " ".join(node.words)
+                if self.tables and self.tables[-1]:     # a row of a table: the word is "column" (change 5)
+                    key = item.find(name, exact=node.quoted, table=True)
+                    if key is None:
+                        raise missing_column(name, item)
+                    return item.data[key]
+                return item.get(name, exact=node.quoted)
             case N.Neg():
                 return -self.number(node.value, "make it negative")
             case N.Math():
@@ -694,12 +701,10 @@ class Run:
         if isinstance(target, list) and target and all(isinstance(r, Record) for r in target):
             column = []
             for row in target:
-                key = row.find(name, exact=node.quoted)
+                key = row.find(name, exact=node.quoted, table=True)
                 column.append(row.data[key] if key is not None else None)
-            if all(row.find(name, exact=node.quoted) is None for row in target):
-                fields = ", ".join(str(k) for k in target[0].data)
-                raise Problem(f"Use one of the fields this table has: {fields}.",
-                              f'There\'s no field "{name}" in this table.')
+            if all(row.find(name, exact=node.quoted, table=True) is None for row in target):
+                raise missing_column(name, target[0])
             return column
         if isinstance(target, list) and not target:
             return []
@@ -728,13 +733,17 @@ class Run:
                           f"{quoted(items)} is {kind_name(items)}, not a list.",
                           col=node.base.col, end=node.base.end)
         out = []
-        for item in items:
-            self.items.append(item)
-            try:
-                if self.truth(node.check):
-                    out.append(item)
-            finally:
-                self.items.pop()
+        self.tables.append(bool(items) and all(isinstance(item, Record) for item in items))
+        try:
+            for item in items:
+                self.items.append(item)
+                try:
+                    if self.truth(node.check):
+                        out.append(item)
+                finally:
+                    self.items.pop()
+        finally:
+            self.tables.pop()
         return out
 
     def truth(self, node):
@@ -985,10 +994,10 @@ def data_problem(error, folder=None):
     match error:
         case json.JSONDecodeError():
             return Problem("Check that the file or page holds JSON.",
-                           f"Plain couldn't read it as JSON. It went wrong at line {error.lineno}, column {error.colno}.")
+                           f"Plain couldn't read it as JSON. It went wrong at line {error.lineno}, character {error.colno}.")
         case UnicodeDecodeError():
             return Problem("Save the file as text (UTF-8), then try again.",
-                           "Plain couldn't read the letters in this file.")
+                           "Plain couldn't read the characters in this file.")
         case csv.Error():
             return Problem("Check that the file is a CSV file.", "Plain couldn't read it as a CSV table.")
         case FileNotFoundError():

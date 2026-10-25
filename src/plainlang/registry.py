@@ -169,9 +169,12 @@ def word_matches(token, alts):
     return token.norm in alts or SYNONYMS.get(token.norm) in alts or INFLECTIONS.get(token.norm) in alts
 
 
+# One placeholder for each kind of value (change 22). "column" is for tables and "field" for one
+# record (change 5).
 PLACEHOLDERS = {
-    "file": "FILE", "source": "FILE", "address": "ADDRESS", "folder": "FOLDER", "question": "QUESTION",
-    "choices": "LIST", "field": "FIELD", "table": "TABLE", "items": "LIST", "text": "TEXT",
+    "file": "FILE", "source": "FILE or ADDRESS", "address": "ADDRESS", "folder": "FOLDER", "question": "QUESTION",
+    "choices": "LIST", "field": "FIELD", "column": "COLUMN", "columns": "COLUMNs", "table": "TABLE",
+    "items": "LIST", "values": "A, B and C", "text": "TEXT",
     "separator": "TEXT", "old": "TEXT", "new": "TEXT", "n": "NUMBER", "places": "NUMBER",
     "seconds": "NUMBER", "minutes": "NUMBER", "low": "NUMBER", "high": "NUMBER", "value": "VALUE",
     "data": "VALUE", "place": "NAME", "page": "PAGE", "new_name": "FILE",
@@ -215,8 +218,10 @@ def reference():
 
 
 def fixed_words(text):
-    """The words of a wording that you write as they are: not VALUE, LIST or the other placeholders."""
-    return [w.lower() for w in re.findall(r"[A-Za-z']+", text) if not w.isupper()]
+    """The words of a wording that you write as they are: not VALUE, LIST, COLUMNs, FILE or ADDRESS
+    or the other placeholders."""
+    text = re.sub(r"\b([A-Z]{2,}) or ([A-Z]{2,})\b", r"\1 \2", text)
+    return [w.lower() for w in re.findall(r"[A-Za-z']+", text) if not (w.isupper() or re.match(r"[A-Z]{2}", w))]
 
 
 # Other ways you can write things (change 2) -------------------------------------------------

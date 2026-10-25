@@ -1,0 +1,12 @@
+words_where.plain, line 2: Add brackets around "the words of story", or keep the words under a name first.
+
+    show the words of story where it starts with "b"
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Try one of these:
+    show (the words of story) where it starts with "b"
+  or
+    set story words to the words of story
+    show story words where it starts with "b"
+Why: "where" goes with the value right before it, so here it would pick from "story" itself, which is text, not a list.
+
+Plain found 1 thing to fix, so it hasn't run your program yet.

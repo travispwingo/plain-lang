@@ -1,0 +1,3 @@
+how to first greet (person)
+    show "Hello, {person}!"
+first greet "Ann"

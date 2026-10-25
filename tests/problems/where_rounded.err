@@ -1,0 +1,21 @@
+where_rounded.plain, line 2: Add brackets to show what "rounded to 2 places" goes with.
+
+    show the total of amounts where it is more than 100 rounded to 2 places
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Try one of these:
+    show (the total of amounts where it is more than 100) rounded to 2 places
+  or
+    show the total of amounts where it is more than (100 rounded to 2 places)
+Why: "rounded to 2 places" could go with everything before it, or only with "100" at the end of the "where" check. Plain never guesses which one you mean.
+
+where_rounded.plain, line 4: Add brackets to show what "joined with" goes with.
+
+    show names where it starts with "a" joined with ", "
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Try one of these:
+    show (names where it starts with "a") joined with ", "
+  or
+    show names where it starts with ("a" joined with ", ")
+Why: "joined with" could go with everything before it, or only with "a" at the end of the "where" check. Plain never guesses which one you mean.
+
+Plain found 2 things to fix, so it hasn't run your program yet.

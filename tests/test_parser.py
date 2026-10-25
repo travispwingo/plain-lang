@@ -29,7 +29,7 @@ class Precedence(unittest.TestCase):
 
     def test_rounded_applies_to_everything_on_its_left(self):
         self.check("set a to 1\nset b to 2\nset x to a times b rounded to 2 places plus 1",
-                   "set x to (a times b rounded to 2 places) plus 1")
+                   "set x to ((a times b) rounded to 2 places) plus 1")
 
     def test_of_slot_takes_one_value(self):
         self.check("set guests to an empty list\nset x to the number of guests plus 1",

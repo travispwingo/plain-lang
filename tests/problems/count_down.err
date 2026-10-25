@@ -1,0 +1,9 @@
+count_down.plain, line 1: Write "repeat for each n from 5 down to 1" to count down.
+
+    repeat for each n from 5 to 1
+                           ^^^^^^
+Try this:
+    repeat for each n from 5 down to 1
+Why: "to" only counts up, so from 5 to 1 would take no rounds at all.
+
+Plain found 1 thing to fix, so it hasn't run your program yet.

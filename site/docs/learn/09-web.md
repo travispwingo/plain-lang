@@ -96,6 +96,8 @@ show "The website saved your note as number {reply's id}."
 The website saved your note as number 101.
 ```
 
+In `and call it reply`, "it" is the website's reply, so `reply` holds what the website sent back.
+
 JSONPlaceholder only pretends to save what you send, so it's a safe place to practice. A real website's own instructions tell you which address to send to, and what to put in the record you send.
 
 ## Get the words on a web page

@@ -1,0 +1,9 @@
+polite_howto.plain, line 1: Start your own step with a different word.
+
+    how to first greet (person)
+           ^^^^^
+Try this:
+    how to greet (person)
+Why: Plain leaves out "first" at the start of a line, so no line could use this step.
+
+Plain found 1 thing to fix, so it hasn't run your program yet.

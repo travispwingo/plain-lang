@@ -1,0 +1,2 @@
+set story to "a big brown cat"
+show the words of story where it starts with "b"

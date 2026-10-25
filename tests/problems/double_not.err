@@ -1,0 +1,17 @@
+double_not.plain, line 3: Write "if done is empty" instead.
+
+    if not done is not empty
+       ^^^^^^^^^^^^^^^^^^^^^
+Try this:
+    if done is empty
+Why: A "not" in front of a check that already says "not" is hard to follow. The check without either one means the same.
+
+double_not.plain, line 5: Write "if the number of scores is more than 3" instead.
+
+    if not (the number of scores is not more than 3)
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Try this:
+    if the number of scores is more than 3
+Why: A "not" in front of a check that already says "not" is hard to follow. The check without either one means the same.
+
+Plain found 2 things to fix, so it hasn't run your program yet.

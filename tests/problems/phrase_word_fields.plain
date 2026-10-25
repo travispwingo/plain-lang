@@ -1,0 +1,6 @@
+read "sales.csv" and call it sales
+show the totals of sales
+show the items of sales
+show the letters of "abc"
+show the max of the amounts of sales
+show a random item of sales

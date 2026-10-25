@@ -1,0 +1,33 @@
+end_lines.plain, line 4: Write "stop the program" instead.
+
+        end the game
+        ^^^^^^^^^^^^
+Try this:
+        stop the program
+Why: To Plain, a line that starts with "end" only marks where steps end, like "end if". To finish the program, Plain says "stop the program".
+
+end_lines.plain, line 8: Write "stop repeating" instead.
+
+        end repeating
+        ^^^^^^^^^^^^^
+Try this:
+        stop repeating
+Why: To Plain, a line that starts with "end" only marks where steps end, like "end repeat". To leave the repeat, Plain says "stop repeating".
+
+end_lines.plain, line 12: Delete this line, or write "end repeat" instead.
+
+    end for
+    ^^^^^^^
+Try this:
+    end repeat
+Why: Plain knows only "end", "end if", "end repeat" and "end try", and it doesn't need them. It goes by how far each line is moved to the right.
+
+end_lines.plain, line 13: Write "stop the program" instead.
+
+    if 1 is 2 then end it
+                   ^^^^^^
+Try this:
+    if 1 is 2 then stop the program
+Why: To Plain, a line that starts with "end" only marks where steps end, like "end if". To finish the program, Plain says "stop the program".
+
+Plain found 4 things to fix, so it hasn't run your program yet.

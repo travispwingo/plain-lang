@@ -13,6 +13,7 @@ from . import nodes as N
 from .parser import HowToDef, Reader
 from .problems import Problem, things
 from .registry import Phrase
+from .suggest import MISNAMED_PHRASES
 from .values import (Percent, Record, as_number, contains, exactly, fit, is_empty, kind_name, order,
                      number_text, percent, places, quoted, same, show_value)
 
@@ -695,6 +696,9 @@ class Run:
             raise Problem(f'Write "{word} {node.target.canonical()}" to count '
                           + ("the items in a list." if isinstance(target, list) else "the characters in text."),
                           f'{"Lists" if isinstance(target, list) else "Texts"} have no field "{name}".')
+        if isinstance(target, (list, str)) and not node.quoted and name.lower() in MISNAMED_PHRASES:
+            phrase, why = MISNAMED_PHRASES[name.lower()]   # words's letters: the characters of words
+            raise Problem(f'Write "{phrase} {node.target.canonical()}" instead.', why)
         raise Problem(
             f'Use a record or a table before "{name}".',
             f"{quoted(target)} is {kind_name(target)}, so it has no field \"{name}\".")

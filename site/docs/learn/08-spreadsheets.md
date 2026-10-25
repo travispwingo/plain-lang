@@ -170,7 +170,7 @@ In the playground, open it from the **Files** tab.
 You can list each different value in a column once, then use that list to add up each group. The next examples use `08-spending.csv`, a household budget with a `category` column:
 
 ```text
-date,item,category,amount
+date,name,category,amount
 2026-10-01,Rent,home,950
 2026-10-02,Groceries,food,82.40
 2026-10-03,Bus pass,travel,45
@@ -216,7 +216,7 @@ show missing
 Total: $1229.15
 Average: $204.86
 Still to fill in:
-date        item         category  amount
+date        name         category  amount
 2026-10-05  Pizza night  food      nothing
 ```
 

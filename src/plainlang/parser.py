@@ -7,12 +7,13 @@ that shows both. Plain never guesses.
 
 import re
 from dataclasses import dataclass, field
+from itertools import takewhile
 from decimal import Decimal
 
 from . import nodes as N
 from .problems import Problem
 from .registry import REGISTRY, Phrase, Slot, Word, word_matches
-from .suggest import reads_cleanly, reads_renamed
+from .suggest import reads_cleanly, reads_renamed, reads_with_name
 from .source import (Piece, build_blocks, indent_problem, inline_break, read_lines, step_words,
                      tokenize)
 from .values import Quoted
@@ -128,6 +129,7 @@ class Program:
     howtos: list
     origins: dict
     lines: list
+    left_out: list = field(default_factory=list)   # "end" lines, which Plain leaves out
 
 
 class Reader:
@@ -171,7 +173,8 @@ class Reader:
         source_lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
         if source_lines and source_lines[0].startswith("﻿"):
             source_lines[0] = source_lines[0][1:]
-        top, problems = build_blocks(lines)
+        left_out = []
+        top, problems = build_blocks(lines, left_out)
         for line in walk(top):
             if line.problem is not None:
                 problems.append(line.problem)
@@ -228,7 +231,7 @@ class Reader:
         problems.sort(key=lambda p: (p.line or 0, p.col or 0))
         problems = group_unknown_names(dedupe_problems(problems), source_lines)
         return Program(statements, problems, source_lines, self.main_names,
-                       self.howtos, self.origins, top)
+                       self.howtos, self.origins, top, left_out)
 
     def walk_main(self, lines):
         """Every line, leaving out "how to" lines and the steps under them."""
@@ -294,11 +297,28 @@ class Reader:
                 "Start your own step with a word that says what it does, like: how to greet (person)",
                 why, line=line.number, col=view[2].col, end=view[-1].end))
             return None
+        start = 2
+        if parts[0].main in POLITE_STARTS:
+            # how to first greet (person): a line that starts with "first" leaves it out (change 24).
+            # The step is kept without that word, so the lines that use it don't pile up problems.
+            word = parts[0].main
+            keep = len(parts) > 1 and isinstance(parts[1], Word) and parts[1].main not in CORE_STARTS
+            fixed = (line.raw[:view[2].col] + line.raw[view[3].col:]).rstrip() if keep else None
+            if fixed is not None and not self.header_reads(line, fixed):
+                fixed = None
+            problems.append(Problem(
+                "Start your own step with a different word.",
+                f'Plain leaves out "{word}" at the start of a line, so no line could use this step.',
+                line=line.number, col=view[2].col, end=view[2].end,
+                try_lines=[fixed] if fixed else [], ideas=[fixed] if fixed else []))
+            if not keep:
+                return None
+            parts, start = parts[1:], 3
         for name, col, end in bracketed:
             problem = name_problem(name, line.number, col, end)
             if problem is not None:
                 problems.append(problem)
-        template = howto_template(line, view)
+        template = howto_template(line, view, start)
         phrase = Phrase(template, tuple(parts), "step", None, origin=f"line {line.number}")
         phrase.main = phrase
         howto = HowToDef(phrase, params, line)
@@ -306,6 +326,17 @@ class Reader:
         howto.gives = any(self.first(inner) in ("give", "return") for inner in walk(line.body))
         phrase.gives = howto.gives
         return howto
+
+    def header_reads(self, line, text):
+        """Does this text read as a "how to" line with no problems?"""
+        try:
+            tokens, _, _ = tokenize(text, line_no=line.number)
+        except Problem:
+            return False
+        found = []
+        from .source import Line
+        return self.read_howto_header(Line(line.number, line.indent, text, tokens), found) is not None \
+            and not found
 
     def check_shapes(self, howto_lines, problems):
         self.clashing = {}     # id of a how-to whose words clash -> its problem
@@ -551,6 +582,8 @@ class Reader:
             if first == "how":
                 return self.read_howto(line, problems)
             stmt = reader.read_step_line(0, len(view), line)
+        if stmt is not None and not isinstance(stmt, N.HowTo):
+            check_reading(stmt, reader, line)
         if isinstance(stmt, N.Statement):
             stmt.synonym_edits = reader.synonym_edits
             if stmt.col is None:
@@ -708,7 +741,7 @@ class Reader:
                           line=L, col=view[0].col, end=view[-1].end)
 
         if first == "end":
-            return None
+            raise end_problem(line)
         return NotCore
 
     def read_inline_step(self, tokens, line, scope, problems, word="if"):
@@ -729,6 +762,7 @@ class Reader:
             raise Problem(f'Put this step on its own line under the "{word}".',
                           "It has steps of its own, so it needs a line of its own.",
                           line=line.number, col=tokens[0].col, end=tokens[-1].end)
+        check_reading(stmt, reader, line)
         if stmt.col is None:
             stmt.col, stmt.end = tokens[0].col, tokens[-1].end
         return stmt
@@ -739,8 +773,9 @@ class Reader:
         if then is None or then == len(view) - 1:
             return then
         nxt = view[then + 1]
-        if nxt.kind == "word" and (nxt.norm in self.step_words or nxt.norm in self.howto_index):
-            return then
+        if nxt.kind == "word" and (nxt.norm in self.step_words or nxt.norm in self.howto_index
+                                   or nxt.norm == "end" and ("end",) not in reader.names):
+            return then   # "then end the game" gets the "end" line problem
         return None
 
     def check_one_line(self, view, then, line, reader):
@@ -822,6 +857,15 @@ class Reader:
             low_end = to - 1 if down else to
             start_value = reader.one(reader.arith(stop + 1, low_end), stop + 1, low_end, line)
             stop_value = reader.one(reader.arith(to + 1, n), to + 1, n, line)
+            low, high = written_number(start_value), written_number(stop_value)
+            if not down and low is not None and high is not None and low > high:
+                # from 5 to 1: "to" only counts up, so it would take no rounds (change 12).
+                raw = line.raw
+                fixed = (raw[:view[to].col] + "down " + raw[view[to].col:]).rstrip()
+                raise Problem(f'Write "{fixed.strip()}" to count down.',
+                              f'"to" only counts up, so from {raw[view[stop + 1].col:view[low_end - 1].end]} '
+                              f"to {raw[view[to + 1].col:view[-1].end]} would take no rounds at all.",
+                              line=L, col=view[stop + 1].col, end=view[-1].end, try_lines=[fixed], ideas=[fixed])
             return N.Repeat("count", body(), name=name, start=start_value, stop=stop_value, down=down, line=L)
         if k == 1 and norms[-1] in ("times", "time") and n > 2:
             count = reader.one(reader.arith(1, n - 1), 1, n - 1, line)
@@ -1016,6 +1060,274 @@ def find_call_it_habit(view):
     return None
 
 
+# "end" lines Plain offers a fix for (change 0). The words after "end", as written.
+ENDS_THAT_STOP_REPEATING = {("repeating",), ("looping",), ("the", "repeat"), ("this", "repeat"),
+                            ("the", "loop"), ("this", "loop")}
+# Words after "end" that other languages use to mark where steps end, like "end for".
+ENDS_OF_STEPS = {"if", "repeat", "try", "for", "while", "until", "each", "every", "loop", "forever",
+                 "otherwise", "else", "elif", "how", "function", "def", "sub"}
+END_LINE_FOR = {"if": "end if", "otherwise": "end if", "repeat": "end repeat", "try": "end try",
+                "if that fails": "end try", "how to": "end"}
+
+
+def end_problem(line):
+    """A line that starts with "end" but isn't one of the end lines Plain knows (change 0)."""
+    from .source import header_words
+    toks = [t for t in line.tokens if t.kind != "symbol"]
+    while toks and toks[0].norm in POLITE_STARTS:
+        toks.pop(0)
+    rest = tuple(t.norm for t in toks[1:])
+    one_step = isinstance(line, Line_)      # the step after "then", where "the" is already left out
+    raw = line.raw
+    col, end = toks[0].col, line.tokens[-1].end
+
+    def offer(fix, text, why):
+        fixed = (raw[:col] + text + raw[end:]).rstrip()
+        return Problem(fix, why, line=line.number, col=col, end=end, try_lines=[fixed], ideas=[fixed])
+
+    marks = 'To Plain, a line that starts with "end" only marks where steps end, like "{0}".'
+    if rest in ENDS_THAT_STOP_REPEATING or (one_step and rest in (("repeat",), ("loop",))):
+        return offer('Write "stop repeating" instead.', "stop repeating",
+                     marks.format("end repeat") + ' To leave the repeat, Plain says "stop repeating".')
+    if rest and rest[0] in ENDS_OF_STEPS and not one_step:
+        why = ('Plain knows only "end", "end if", "end repeat" and "end try", and it doesn\'t need them. '
+               "It goes by how far each line is moved to the right.")
+        header = getattr(line, "lines_up_with", None)
+        if header is None:
+            return Problem("Delete this line.", why, line=line.number, col=col, end=end)
+        known = END_LINE_FOR.get(header_words(header), "end")
+        return offer(f'Delete this line, or write "{known}" instead.', known, why)
+    if len([w for w in rest if w not in ARTICLES]) > 2:
+        return Problem('Start this line with a different word, or write "stop the program" to finish the program.',
+                       marks.format("end if"), line=line.number, col=col, end=end)
+    return offer('Write "stop the program" instead.', "stop the program",
+                 marks.format("end if") + ' To finish the program, Plain says "stop the program".')
+
+
+# Checks before running ----------------------------------------------------------------
+
+def check_reading(stmt, reader, line):
+    """Problems in a line that reads, which Plain can see before anything runs: a word like
+    "rounded" after a "where" check (change 1), "where" after the words of a text (change 16),
+    and the lines of a file name (change 17)."""
+    values = statement_values(stmt)
+    for value in values:
+        for tail, outer in where_postfix(value):
+            raise where_postfix_problem(tail, outer, reader, line)
+    for value in values:
+        for node in nodes_in(value):
+            problem = split_where_problem(node, reader, line) or file_text_problem(node, stmt, reader, line)
+            if problem is not None:
+                raise problem
+
+
+def statement_values(stmt):
+    """The values and checks a line holds, leaving out the steps under it."""
+    if isinstance(stmt, tuple):
+        return [stmt[1][0]] if stmt[0] == "otherwise" and stmt[1][0] is not None else []
+    if isinstance(stmt, N.If):
+        return [stmt.branches[0][0]]
+    if isinstance(stmt, N.Step):
+        return [v for v in stmt.args.values() if isinstance(v, (N.Node, list))]
+    return [v for v in vars(stmt).values() if isinstance(v, N.Node)]
+
+
+FRESH_VALUE = (N.Compare, N.Between, N.TypeCheck, N.Not, N.Logic, N.Paren, N.TextLit)
+
+
+def where_postfix(node, top=None):
+    """(word, the whole value before it) for each "where" whose check ends with a word like
+    "rounded", which could also go with everything before it."""
+    if isinstance(node, list):
+        for item in node:
+            yield from where_postfix(item)
+        return
+    if not isinstance(node, N.Node):
+        return
+    here = None if isinstance(node, FRESH_VALUE) else (top or node)
+    if isinstance(node, N.Where):
+        tail = trailing_postfix(node.check)
+        if tail is not None:
+            yield tail, here
+        yield from where_postfix(node.base, here)
+        yield from where_postfix(node.check)
+        return
+    for value in vars(node).values():
+        if isinstance(value, dict):
+            for item in value.values():
+                yield from where_postfix(item, here)
+        elif isinstance(value, (N.Node, list)):
+            yield from where_postfix(value, here)
+
+
+def trailing_postfix(check):
+    """The word like "rounded" at the very end of a check, if there is one."""
+    node = check
+    while True:
+        if isinstance(node, N.Logic):
+            node = node.items[-1]
+        elif isinstance(node, N.Not):
+            node = node.value
+        elif isinstance(node, N.Compare):
+            node = node.right
+        elif isinstance(node, N.Between):
+            node = node.high
+        elif isinstance(node, N.TypeCheck) and node.arg is not None:
+            node = node.arg
+        else:
+            return node if isinstance(node, N.Postfix) else None
+
+
+def start_of(raw, col):
+    """Where a part of a line starts, counting a "the", "a" or "an" Plain left out in front of it
+    (it leaves one out only before a word)."""
+    m = re.search(r"\b(the|an|a)\s+$", raw[:col], flags=re.IGNORECASE)
+    return m.start() if m and raw[col:col + 1].isalpha() else col
+
+
+def checked(reader, line, texts, name=None):
+    """The lines that read cleanly in place (all of them while Plain is checking a fix)."""
+    if reader.r.quiet:
+        return texts
+    if name is not None:
+        return [t for t in texts if reads_with_name(reader, line, t, name)]
+    return [t for t in texts if reads_cleanly(reader, line, t)]
+
+
+def where_postfix_problem(tail, outer, reader, line):
+    """the total of amounts where it is more than 100 rounded to 2 places (change 1)."""
+    raw = line.raw
+    operand = tail.value
+    after = raw[operand.end:tail.end].strip()
+    words = after
+    if '"' in words or "“" in words:   # joined with ", ": name it by its own words
+        words = " ".join(w.main for w in takewhile(lambda e: isinstance(e, Word), tail.phrase.elements[1:]))
+    said = raw[start_of(raw, operand.col):operand.end]
+    said = said if said.startswith(('"', "“")) else f'"{said}"'
+    start = start_of(raw, outer.col)
+    whole = (raw[:start] + "(" + raw[start:operand.end] + ") " + after + raw[tail.end:]).rstrip()
+    part = start_of(raw, tail.col)
+    inner = (raw[:part] + "(" + raw[part:tail.end] + ")" + raw[tail.end:]).rstrip()
+    texts = checked(reader, line, [whole, inner])
+    return Problem(
+        f'Add brackets to show what "{words}" goes with.',
+        f'"{words}" could go with everything before it, or only with {said} at the end of the "where" '
+        "check. Plain never guesses which one you mean.",
+        line=line.number, col=start, end=tail.end, try_lines=texts,
+        choices=[[t] for t in texts] if len(texts) > 1 else [], ideas=list(texts), ask_claude=True)
+
+
+TEXT_SPLITTERS = {"the words of {text}": "words", "the lines of {text}": "lines",
+                  "the characters of {text}": "characters", "{text} split by {separator}": "parts"}
+
+
+def splitter(node):
+    """"words", "lines", "characters" or "parts" when this node splits a text, or None."""
+    if isinstance(node, (N.Value, N.Postfix)):
+        return TEXT_SPLITTERS.get(node.phrase.main.template)
+    return None
+
+
+def free_name(reader, options):
+    """The first of these that can be a new name."""
+    return next((o for o in options if tuple(o.split()) not in reader.names and name_problem(tuple(o.split())) is None),
+                None)
+
+
+def split_where_problem(node, reader, line):
+    """the words of story where it starts with "b": "where" would pick from the text (change 16)."""
+    word = splitter(node)
+    if word is None:
+        return None
+    where = next((v for v in node.args.values() if isinstance(v, N.Where)), None)
+    if where is None:
+        return None
+    raw = line.raw
+    indent = raw[:len(raw) - len(raw.lstrip())]
+    start = start_of(raw, node.col)
+    split = raw[start:where.base.end]
+    bracketed = (raw[:start] + "(" + split + ")" + raw[where.base.end:]).rstrip()
+    choices = [[t] for t in checked(reader, line, [bracketed])]
+    text = where.base if word != "parts" else node.value
+    base = text.canonical() + " " if isinstance(text, N.Name) else ""
+    name = free_name(reader, [base + word, word, "my " + word])
+    if name is not None:
+        first = f"{indent}set {name} to {split}"
+        second = (raw[:start] + name + raw[where.base.end:]).rstrip()
+        if len(checked(reader, line, [first, second], tuple(name.split()))) == 2:
+            choices.append([first, second])
+    texts = [t for c in choices for t in c]
+    return Problem(
+        f'Add brackets around "{split}", or keep the {word} under a name first.',
+        f'"where" goes with the value right before it, so here it would pick from '
+        f'"{raw[where.base.col:where.base.end]}" itself, which is text, not a list.',
+        line=line.number, col=start, end=where.end, try_lines=texts,
+        choices=choices if len(choices) > 1 else [], ideas=[t for c in choices if len(c) == 1 for t in c],
+        ask_claude=True)
+
+
+FILE_ENDINGS = (".txt", ".csv", ".json")
+
+
+def file_text_problem(node, stmt, reader, line):
+    """the lines of "todos.txt": the text itself, not the file (change 17)."""
+    word = splitter(node)
+    if word not in ("words", "lines", "characters"):
+        return None
+    lit = node.args.get("text")
+    if not isinstance(lit, N.TextLit) or not lit.pieces or not isinstance(lit.pieces[0], str):
+        return None
+    content = "".join(p for p in lit.pieces if isinstance(p, str)).strip()
+    web = content.lower().startswith("https://")
+    if not (web or len(lit.pieces) == 1 and content.lower().endswith(FILE_ENDINGS)):
+        return None
+    raw = line.raw
+    indent = raw[:len(raw) - len(raw.lstrip())]
+    start = start_of(raw, node.col)
+    quoted = raw[lit.col:lit.end]
+    what = "page" if web else "file"
+    choices = []
+    target = stmt.target if isinstance(stmt, N.SetStep) and stmt.value is node else None
+    if word == "lines" and isinstance(target, N.Name):
+        # set todos to the lines of "todos.txt": read the lines of "todos.txt" and call it todos
+        choices += [[t] for t in checked(reader, line, [f"{indent}read {raw[start:node.end]} and call it "
+                                                         f"{target.canonical()}"])]
+    else:
+        stem = re.sub(r"[^a-z]+", " ", content.lower().rsplit("/", 1)[-1].rsplit(".", 1)[0]).strip()
+        name = free_name(reader, ([stem] if stem and not web else []) + [f"{what} {word}" if word == "lines"
+                                                                          else f"{what} text"])
+        if name is not None:
+            if word == "lines":   # read the lines of "todos.txt" and call it todos, then use todos
+                first, second = f"{indent}read {raw[start:node.end]} and call it {name}", \
+                    raw[:start] + name + raw[node.end:]
+            else:                 # read "notes.txt" and call it notes, then the words of notes
+                first, second = f"{indent}read {quoted} and call it {name}", raw[:lit.col] + name + raw[lit.end:]
+            if len(checked(reader, line, [first, second.rstrip()], tuple(name.split()))) == 2:
+                choices.append([first, second.rstrip()])
+    name = free_name(reader, ["my text", "written text"])
+    if name is not None:
+        first, second = f"{indent}set {name} to {quoted}", (raw[:lit.col] + name + raw[lit.end:]).rstrip()
+        if len(checked(reader, line, [first, second], tuple(name.split()))) == 2:
+            choices.append([first, second])
+    texts = [t for c in choices for t in c]
+    return Problem(
+        f'Use "read" to get the {word} in the {what} {quoted}, or keep the text under a name first.',
+        f'"the {word} of" splits the text {quoted} itself. To get what\'s in the {what}, Plain says "read".',
+        line=line.number, col=start, end=node.end, try_lines=texts,
+        choices=choices if len(choices) > 1 else [], ideas=[t for c in choices if len(c) == 1 for t in c],
+        ask_claude=True)
+
+
+def written_number(node):
+    """The number itself, when it's written in the line (5, -2, five), or None."""
+    if isinstance(node, N.Neg):
+        value = written_number(node.value)
+        return -value if value is not None else None
+    if isinstance(node, N.Lit) and isinstance(node.value, Decimal) and not node.percent:
+        return node.value
+    return None
+
+
 def dedupe_problems(problems):
     seen, out = set(), []
     for p in problems:
@@ -1206,6 +1518,8 @@ class LineReader:
         if bad.alts and bad.col is not None:
             indent = line.raw[:len(line.raw) - len(line.raw.lstrip())]
             problem.try_lines = [indent + replace_span(line.raw, bad.col, bad.end, alt) for alt in bad.alts]
+            if bad.check_alts:
+                problem.try_lines = checked(self, line, problem.try_lines)
             problem.choices = [[t] for t in problem.try_lines]
             problem.ideas = list(problem.try_lines)
         return problem
@@ -1244,7 +1558,39 @@ class LineReader:
         stmt = self.choose_step(readings, i, j, line)
         stmt.call_it = call_it
         stmt.call_span = call_span if call_it else None
+        if call_it and is_word(self.t[j + 2], "it"):
+            self.check_it_twice(stmt, i, j, line)
         return stmt
+
+    def check_it_twice(self, stmt, i, k, line):
+        """ask "Pick one" with choices scores where it is more than 60 and call it pick: "it" would
+        mean the item being checked and also what the step gives back (change 14)."""
+        w = next((m for m in range(i, k) if is_word(self.t[m], "where")), None)
+        it = next((self.t[m] for m in range(w + 1, k) if is_word(self.t[m], "it", "its")), None) \
+            if w is not None else None
+        if it is None:
+            return
+        raw = line.raw
+        indent = raw[:len(raw) - len(raw.lstrip())]
+        where = next((n for n in nodes_in(list(stmt.args.values()))
+                      if isinstance(n, N.Where) and n.col <= it.col < n.end), None)
+        texts = []
+        if where is not None:
+            base = where.base.inner if isinstance(where.base, N.Paren) else where.base
+            last = base.words[-1] if isinstance(base, (N.Name, N.Field)) and isinstance(base.words[-1], str) \
+                else "items"
+            name = free_name(self, [f"matching {last}", "matching items"])
+            start = start_of(raw, where.col)
+            if name is not None:
+                first = f"{indent}set {name} to {raw[start:where.end]}"
+                second = (raw[:start] + name + raw[where.end:]).rstrip()
+                texts = checked(self, line, [first, second], tuple(name.split()))
+                texts = texts if len(texts) == 2 else []
+        raise Problem('Split this line into two steps, so "it" has only one meaning.',
+                      'Inside "where", "it" means each item being checked, but in "and call it" it means what the '
+                      "step gives back. One word can't mean two things in one line.",
+                      line=line.number, col=it.col, end=self.t[k + 2].end, try_lines=texts,
+                      ideas=["\n".join(texts)] if texts else [], ask_claude=True)
 
     def mark_step_boundaries(self, i, j):
         """A "where" check can end right before one of a step's own words, like "to" in save … to."""
@@ -1455,6 +1801,9 @@ class LineReader:
         places = self.places(i, j)
         if len(places) == 1:
             return places[0]
+        bad = next((r for r in self.ofv(i, j, False) if isinstance(r, N.Bad)), None)
+        if bad is not None and not places:   # set the totals of order to 5
+            raise self.bad_problem(bad, self.line) if self.line is not None else bad.problem
         col, end = span_cols(self.t, i, j)
         if declaring and None not in words and toks and toks[0].kind == "word":
             problem = name_problem(words, col=col, end=end)
@@ -1618,8 +1967,20 @@ class LineReader:
             return []
         out = []
         if is_word(self.t[i], "not") and i + 1 < j:
-            out += [N.Not(x, col=self.t[i].col, end=self.t[j - 1].end) if not isinstance(x, N.Bad) else x
-                    for x in self.notlevel(i + 1, j, w)]
+            col, end = self.t[i].col, self.t[j - 1].end
+            for x in self.notlevel(i + 1, j, w):
+                if isinstance(x, N.Bad):
+                    out.append(x)
+                elif N.is_negative(x):
+                    # not done is not empty: offer the check without either "not" (change 13).
+                    positive = N.flipped(x).canonical()
+                    whole = replace_span(self.line.raw, col, end, positive) if self.line is not None else positive
+                    out.append(N.Bad(Problem(
+                        f'Write "{whole}" instead.',
+                        'A "not" in front of a check that already says "not" is hard to follow. '
+                        "The check without either one means the same."), [positive], col=col, end=end))
+                else:
+                    out.append(N.Not(x, col=col, end=end))
         out += self.compare(i, j, w)
         return out
 
@@ -2113,11 +2474,16 @@ def names_in(node):
 
 
 def misnamed_field(words, target, col, end):
-    """the mean of scores, the second item of colors: everyday words for one of Plain's own
-    phrases. Plain offers that phrase, or 's for a field with that name."""
+    """the mean of scores, the second item of colors, the totals of orders: everyday words for one
+    of Plain's own phrases, or one of its words. Plain offers that phrase, or 's for a field with
+    that name, and never guesses which one you mean."""
+    from .suggest import MISNAMED_PHRASES, PHRASE_WORD_EXAMPLES, PHRASE_WORDS
     if isinstance(words[0], Quoted):
         return None
     of = N.arg_text(target)
+    field = " ".join(words)
+    said = f"the {field} of"
+    written = isinstance(target, (N.TextLit, N.Lit))     # written text has no fields
     if words == ("mean",):
         short, said, phrase = "average", "mean", f"the average of {of}"
         why = '"mean" has other everyday meanings, like "unkind", so Plain says "average".'
@@ -2125,11 +2491,35 @@ def misnamed_field(words, target, col, end):
         n = ORDINALS.index(words[0]) + 1
         short, said, phrase = f"item {n} of", f"the {words[0]} item of", f"item {n} of {of}"
         why = f'Plain picks an item by its number, counting from 1, so the {words[0]} item is "item {n} of".'
+    elif words == ("random", "item"):
+        return N.Bad(Problem('Write "a random item from" instead of "a random item of".',
+                             'Plain picks an item by chance from a list, as in: a random item from colors'),
+                     [f"a random item from {of}"], col=col, end=end, check_alts=True)
+    elif len(words) == 1 and words[0] in MISNAMED_PHRASES:
+        short, why = MISNAMED_PHRASES[words[0]]
+        if short == "the number of" and written:
+            short, why = "the length of", 'Plain says "the length of" for how many characters a text has.'
+        phrase = f"{short} {of}"
+    elif words[0] == "unique":
+        rest = " ".join(words[1:]) or "items"
+        short, said, phrase = f"the different {rest} of", f"the unique {rest} of", f"the different {rest} of {of}"
+        why = 'Plain says "different" for each value once, as in: the different categories of budget'
+    elif len(words) == 1 and words[0] in PHRASE_WORDS:
+        short = PHRASE_WORDS[words[0]]
+        phrase = f"{short} {of}"
+        why = (f'"{said}" looks like Plain\'s own phrase "{short}", so it could mean that phrase or a field '
+               f'called "{field}". Plain never guesses which one you mean.')
+    elif len(words) == 1 and words[0] in PHRASE_WORD_EXAMPLES:
+        return N.Bad(Problem(f'Use \'s for a field called "{field}".',
+                             f'"{field}" is a word of Plain\'s own phrases, like "{PHRASE_WORD_EXAMPLES[field]}". '
+                             "With 's it can only mean a field."),
+                     [N.Field(target, words).canonical()], col=col, end=end, check_alts=True)
     else:
         return None
-    field = " ".join(words)
+    if written:
+        return N.Bad(Problem(f'Write "{short}" instead of "{said}".', why), [phrase], col=col, end=end, check_alts=True)
     return N.Bad(Problem(f'Write "{short}" instead of "{said}", or use \'s for a field called "{field}".', why),
-                 [phrase, N.Field(target, words).canonical()], col=col, end=end)
+                 [phrase, N.Field(target, words).canonical()], col=col, end=end, check_alts=True)
 
 
 def split_name(a, b):
@@ -2163,10 +2553,10 @@ def replace_span(raw, col, end, text):
     return (before + text + raw[end:]).strip()
 
 
-def howto_template(line, view):
+def howto_template(line, view, first=2):
     """The wording of your step as you wrote it, with {name} for each bracketed part."""
     raw = line.raw
-    start = view[2].col
+    start = view[first].col
     text = raw[start:view[-1].end]
     out, k = [], 0
     while k < len(text):

@@ -1,0 +1,2 @@
+set todos to the lines of "todos.txt"
+show the number of the words of "notes.txt"

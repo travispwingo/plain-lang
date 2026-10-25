@@ -17,6 +17,6 @@ repeat for each kind in the different categories of budget
 show "Altogether: ${the total of the amounts of budget rounded to 2 places}"
 set missing to budget where amount is empty
 if missing is not empty
-    show "No amount yet for {the items of missing}, so they aren't in the totals."
+    show "No amount yet for {the names of missing}, so they aren't in the totals."
 save summary to "budget_summary.csv"
 show "Saved the totals to budget_summary.csv."

@@ -467,5 +467,244 @@ class RenameSuggestions(unittest.TestCase):   # change 21: a suggested name keep
         self.assertEqual(['    show member\'s "date joined"'], lines)
 
 
+
+# Stage 2 of the plain-language review: reading ---------------------------------------------
+
+def each_choice_reads(test, source):
+    """The first problem, after checking that every choice it offers reads in place of its line."""
+    p = problems(source)[0]
+    lines = source.split("\n")
+    for choice in p.choices or [p.try_lines]:
+        fixed = "\n".join(lines[:p.line - 1] + choice + lines[p.line:])
+        test.assertEqual([], [q.fix for q in problems(fixed)], fixed)
+    return p
+
+
+def tidied(source):
+    from plainlang.tidy import tidy
+    return tidy(source, Reader().read(source))
+
+
+def explained(source):
+    from plainlang.tidy import explain
+    return explain(Reader().read(source))
+
+
+class EndLines(unittest.TestCase):   # change 0
+    def test_known_end_lines_are_left_out(self):
+        source = ('repeat 2 times\n    if 1 is 1\n        show "a"\n    end if\nend repeat\n'
+                  'try\n    show "b"\nEnd Try.\nhow to greet (p)\n    show p\nend\ngreet "c"')
+        self.assertEqual([], fixes(source))
+        self.assertEqual("a\na\nb\nc\n", output(source))
+
+    def test_any_other_end_line_is_a_problem(self):
+        # These were left out without a word, so the game never ended.
+        source = 'repeat 3 times\n    if 1 is 1\n        show "You win!"\n    end the game\n    show "round"'
+        p = each_choice_reads(self, source)
+        self.assertEqual((4, 'Write "stop the program" instead.', ["    stop the program"]),
+                         (p.line, p.fix, p.try_lines))
+        for line, fix in (("end it", 'Write "stop the program" instead.'),
+                          ("end the program", 'Write "stop the program" instead.'),
+                          ("end repeating", 'Write "stop repeating" instead.'),
+                          ("end the repeat", 'Write "stop repeating" instead.'),
+                          ("end the program now and then", 'Start this line with a different word, '
+                                                           'or write "stop the program" to finish the program.')):
+            with self.subTest(line=line):
+                self.assertEqual([fix], fixes(f"repeat 2 times\n    show 1\n    {line}"))
+
+    def test_end_words_from_other_languages(self):
+        p = problems("for each n from 1 to 2\n    show n\nend for")[0]
+        self.assertEqual(('Delete this line, or write "end repeat" instead.', ["end repeat"]), (p.fix, p.try_lines))
+        self.assertEqual([], fixes("for each n from 1 to 2\n    show n\nend repeat"))
+        p = problems("how to greet (p)\n    show p\nend function")[0]
+        self.assertEqual(["end"], p.try_lines)
+        self.assertEqual(["Delete this line."], fixes("repeat 2 times\n    show 1\n    end while"))
+
+    def test_after_then(self):
+        p = each_choice_reads(self, "if 1 is 2 then end the game")
+        self.assertEqual(["if 1 is 2 then stop the program"], p.try_lines)
+        self.assertEqual([], fixes("set end to 3\nset start to 1\nif start is less than end\n    show 1"))
+
+    def test_explain_and_tidy(self):
+        source = 'if 1 is 1\n    show "a"\nend if  # done\nrepeat 2 times\n    show "b"\nend repeat\nshow "c"\n'
+        self.assertIn("end if  # done", explained(source).split("\n")[2])
+        self.assertTrue(explained(source).split("\n")[2].endswith("(Plain leaves this line out)"))
+        text, changes = tidied(source)
+        self.assertEqual('if 1 is 1\n    show "a"\n# done\nrepeat 2 times\n    show "b"\nshow "c"\n', text)
+        self.assertEqual(["line 3   deleted end if", "line 6   deleted end repeat"], changes)
+
+
+class PostfixBrackets(unittest.TestCase):   # change 1
+    def test_a_word_after_a_where_check_is_a_tie(self):
+        source = ("set amounts to a list of 120.555, 80 and 300.111\n"
+                  "show the total of amounts where it is more than 100 rounded to 2 places")
+        p = each_choice_reads(self, source)
+        self.assertEqual('Add brackets to show what "rounded to 2 places" goes with.', p.fix)
+        self.assertEqual([["show (the total of amounts where it is more than 100) rounded to 2 places"],
+                          ["show the total of amounts where it is more than (100 rounded to 2 places)"]],
+                         p.choices)
+        first, second = (source.split("\n")[0] + "\n" + c[0] for c in p.choices)
+        self.assertEqual(("420.67\n", "420.666\n"), (output(first), output(second)))
+
+    def test_explain_shows_what_it_covers(self):
+        source = "set bill to 10.4\nset rate to 0.4\nshow bill plus rate rounded\nrepeat 2 times 3 times\n    show 1"
+        self.assertEqual(([], "show (bill plus rate) rounded"), reading(source, 3))
+        self.assertEqual(([], "repeat (2 times 3) times"), reading(source, 4))
+        self.assertEqual(([], "show bill rounded"), reading("set bill to 1\nshow bill rounded", 2))
+        self.assertEqual(([], "set x to the total of scores rounded to 2 places"),
+                         reading("set scores to a list of 1\nset x to the total of scores rounded to 2 places", 2))
+
+    def test_tidy_adds_the_brackets(self):
+        source = ("set bill to 10.4\nset rate to 0.4\nshow the bill plus rate rounded\nrepeat 2 times 3 times\n"
+                  "    show 1\nset scores to a list of 1 and 2\nshow sum of scores plus 1 rounded\n")
+        text, changes = tidied(source)
+        self.assertEqual("show (the bill plus rate) rounded", text.split("\n")[2])
+        self.assertEqual("repeat (2 times 3) times", text.split("\n")[3])
+        self.assertEqual("show (total of scores plus 1) rounded", text.split("\n")[6])
+        self.assertIn("line 3   the bill plus rate → (the bill plus rate)", changes)
+        self.assertEqual(output(source), output(text))
+        self.assertEqual([], tidied(text)[1])
+
+
+class PhraseWordsAfterThe(unittest.TestCase):   # change 4
+    def test_phrase_words_are_a_problem(self):
+        orders = "set o to a new record\nset o's total to 10\nset orders to a list of o\n"
+        p = each_choice_reads(self, orders + "show the totals of orders")
+        self.assertEqual('Write "the total of" instead of "the totals of", or use \'s for a field called "totals".',
+                         p.fix)
+        self.assertEqual([["show the total of orders"], ["show orders's totals"]], p.choices)
+        p = each_choice_reads(self, orders + "show the items of orders")
+        self.assertEqual(['show orders\'s items'], p.try_lines)
+        for said, phrase in (("numbers", "the number of"), ("averages", "the average of"),
+                             ("lengths", "the length of"), ("first", "the first item of"),
+                             ("last", "the last item of"), ("copies", "a copy of")):
+            with self.subTest(said=said):
+                p = problems(orders + f"show the {said} of orders")[0]
+                self.assertEqual(f'show {phrase} orders', p.try_lines[0])
+
+    def test_everyday_words_for_phrases(self):
+        for line, fixed in (('show the letters of "abc"', 'show the characters of "abc"'),
+                            ("show the max of scores", "show the largest of scores"),
+                            ("show the minimum of scores", "show the smallest of scores"),
+                            ("show the count of scores", "show the number of scores"),
+                            ('show the size of "abc"', 'show the length of "abc"'),
+                            ("show the unique items of scores", "show the different items of scores"),
+                            ("show a random item of scores", "show a random item from scores")):
+            with self.subTest(line=line):
+                p = each_choice_reads(self, "set scores to a list of 1 and 2\n" + line)
+                self.assertEqual(fixed, p.try_lines[0])
+
+    def test_ordinary_words_keep_working(self):
+        source = ("set p to a new record\nset p's first name to \"Ann\"\nset p's amount to 3\n"
+                  "show the first name of p\nshow the amount of p\nshow the \"items\" of p\nshow p's items")
+        self.assertEqual([], fixes(source))
+
+    def test_while_running(self):
+        out = output('set t to "abc"\nshow t\'s letters')
+        self.assertIn('Write "the characters of t" instead.', out)
+
+    def test_the_table_covers_every_phrase_word(self):
+        # Each word before "of" in Plain's own value phrases, and each noun's plural, is a phrase
+        # or gets a problem, so it never quietly reads as a field.
+        from plainlang.registry import REGISTRY, Slot
+        from plainlang.suggest import PHRASE_WORD_EXAMPLES, PHRASE_WORDS
+        reader = Reader()
+        nouns = {"number", "total", "average", "length", "item", "text", "copy", "list"}
+        for phrase in REGISTRY:
+            if phrase.kind != "value" or "of" not in phrase.template.split():
+                continue
+            for element in phrase.elements:
+                if isinstance(element, Slot):
+                    break
+                for word in [w for w in element.alts if w != "of"]:
+                    plural = word[:-1] + "ies" if word.endswith("y") else word + "s"
+                    forms = {word, plural} if word in nouns else {word}
+                    for form in forms:
+                        with self.subTest(word=form):
+                            self.assertTrue((form,) in reader.property_prefixes or form in PHRASE_WORDS
+                                            or form in PHRASE_WORD_EXAMPLES, form)
+
+
+class CountingDown(unittest.TestCase):   # change 12
+    def test_written_numbers(self):
+        p = each_choice_reads(self, "repeat for each n from 5 to 1\n    show n")
+        self.assertEqual('Write "repeat for each n from 5 down to 1" to count down.', p.fix)
+        self.assertEqual("5\n4\n", output("repeat for each n from 5 down to 4\n    show n"))
+
+    def test_worked_out_ends_take_no_rounds(self):
+        self.assertEqual("done\n", output("set todos to an empty list\n"
+                                          "repeat for each n from 1 to the number of todos\n"
+                                          '    show n\nshow "done"'))
+        self.assertEqual("5\n", output("repeat for each n from 5 to 5\n    show n"))
+
+
+class NotFolds(unittest.TestCase):   # change 13
+    def test_two_nots_are_a_problem(self):
+        source = "set done to an empty list\nif not done is not empty\n    show 1"
+        p = each_choice_reads(self, source)
+        self.assertEqual(('Write "if done is empty" instead.', ["if done is empty"]), (p.fix, p.try_lines))
+        p = each_choice_reads(self, "set scores to a list of 1\nif not (the number of scores is not more than 3)\n"
+                                    "    show 1")
+        self.assertEqual(["if the number of scores is more than 3"], p.try_lines)
+
+    def test_explain_and_tidy_fold_a_not(self):
+        source = ("set scores to a list of 1 and 5\nset done to an empty list\n"
+                  "if not (the number of scores is at most 3)\n    show 1\nif not done is empty\n    show 2\n"
+                  "if not (done is empty or scores is empty)\n    show 3\nshow scores where not it > 1\n")
+        self.assertEqual(([], "if the number of scores is more than 3"), reading(source, 3))
+        self.assertEqual(([], "if done is not empty"), reading(source, 5))
+        self.assertEqual(([], "if not (done is empty or scores is empty)"), reading(source, 7))
+        text, changes = tidied(source)
+        self.assertEqual(["if the number of scores is more than 3", "if done is not empty",
+                          "if not (done is empty or scores is empty)", "show scores where it is at most 1"],
+                         [text.split("\n")[n] for n in (2, 4, 6, 8)])
+        self.assertEqual(output(source), output(text))
+
+
+class ItTwice(unittest.TestCase):   # change 14
+    def test_where_it_and_call_it(self):
+        source = ('set scores to a list of 50, 72 and 95\n'
+                  'ask "Pick one" with choices scores where it is more than 60 and call it pick\nshow pick')
+        p = problems(source)[0]
+        self.assertEqual('Split this line into two steps, so "it" has only one meaning.', p.fix)
+        self.assertEqual(['set matching scores to scores where it is more than 60',
+                          'ask "Pick one" with choices matching scores and call it pick'], p.try_lines)
+        lines = source.split("\n")
+        self.assertEqual([], fixes("\n".join(lines[:1] + p.try_lines + lines[2:])))
+
+    def test_one_meaning_reads(self):
+        self.assertEqual([], fixes('set scores to a list of 50 and 72\nset high to scores where it is more than 60\n'
+                                   'ask "Pick one" with choices high and call it pick'))
+
+
+class TextSplits(unittest.TestCase):   # changes 16 and 17
+    def test_where_after_the_words_of_a_text(self):
+        source = 'set story to "a big brown cat"\nshow the words of story where it starts with "b"'
+        p = problems(source)[0]
+        self.assertEqual([['show (the words of story) where it starts with "b"'],
+                          ["set story words to the words of story", 'show story words where it starts with "b"']],
+                         p.choices)
+        for choice in p.choices:
+            self.assertEqual("big and brown\n", output(source.split("\n")[0] + "\n" + "\n".join(choice)))
+
+    def test_the_lines_of_a_file_name(self):
+        source = 'set todos to the lines of "todos.txt"\nshow the number of todos'
+        p = problems(source)[0]
+        self.assertEqual([['read the lines of "todos.txt" and call it todos'],
+                          ['set my text to "todos.txt"', 'set todos to the lines of my text']], p.choices)
+        for choice in p.choices:
+            self.assertEqual([], fixes("\n".join(choice + source.split("\n")[1:])))
+        self.assertEqual([], fixes('set x to "a.txt"\nshow the lines of x\nshow the words of "hi there.txt now"'))
+
+
+class PoliteHowTo(unittest.TestCase):   # change 24
+    def test_a_how_to_that_starts_with_a_polite_word(self):
+        source = 'how to first greet (person)\n    show "Hello, {person}!"\nfirst greet "Ann"'
+        p = problems(source)
+        self.assertEqual([(1, "Start your own step with a different word.", ["how to greet (person)"])],
+                         [(q.line, q.fix, q.try_lines) for q in p])
+        self.assertIn('leaves out "first"', p[0].why)
+        self.assertEqual("Hello, Ann!\n", output(source.replace("how to first greet", "how to greet")))
+
 if __name__ == "__main__":
     unittest.main()

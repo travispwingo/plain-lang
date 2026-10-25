@@ -1,0 +1,45 @@
+phrase_word_fields.plain, line 2: Write "the total of" instead of "the totals of", or use 's for a field called "totals".
+
+    show the totals of sales
+         ^^^^^^^^^^^^^^^^^^^
+Try one of these:
+    show the total of sales
+  or
+    show sales's totals
+Why: "the totals of" looks like Plain's own phrase "the total of", so it could mean that phrase or a field called "totals". Plain never guesses which one you mean.
+
+phrase_word_fields.plain, line 3: Use 's for a field called "items".
+
+    show the items of sales
+         ^^^^^^^^^^^^^^^^^^
+Try this:
+    show sales's items
+Why: "items" is a word of Plain's own phrases, like "the first 2 items of". With 's it can only mean a field.
+
+phrase_word_fields.plain, line 4: Write "the characters of" instead of "the letters of".
+
+    show the letters of "abc"
+         ^^^^^^^^^^^^^^^^^^^^
+Try this:
+    show the characters of "abc"
+Why: Plain says "the characters of" for the letters, digits and spaces of a text.
+
+phrase_word_fields.plain, line 5: Write "the largest of" instead of "the max of", or use 's for a field called "max".
+
+    show the max of the amounts of sales
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Try one of these:
+    show the largest of the amounts of sales
+  or
+    show (the amounts of sales)'s max
+Why: Plain says "the largest of" for the biggest item of a list.
+
+phrase_word_fields.plain, line 6: Write "a random item from" instead of "a random item of".
+
+    show a random item of sales
+         ^^^^^^^^^^^^^^^^^^^^^^
+Try this:
+    show a random item from sales
+Why: Plain picks an item by chance from a list, as in: a random item from colors
+
+Plain found 5 things to fix, so it hasn't run your program yet.

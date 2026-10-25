@@ -55,7 +55,26 @@ show "Liftoff!"
 Liftoff!
 ```
 
-`from 5 to 1` takes no rounds at all, because `to` only counts up. Always write `down to` to count down.
+`to` only counts up, so always write `down to` to count down. If you write `from 5 to 1`, Plain points it out before it runs anything:
+
+```plain
+repeat for each count from 5 to 1
+    show "{count}..."
+```
+
+```problem
+your program, line 1: Write "repeat for each count from 5 down to 1" to count down.
+
+    repeat for each count from 5 to 1
+                               ^^^^^^
+Try this:
+    repeat for each count from 5 down to 1
+Why: "to" only counts up, so from 5 to 1 would take no rounds at all.
+
+Plain found 1 thing to fix, so it hasn't run your program yet.
+```
+
+When an end is worked out while the program runs, as in `from 1 to the number of guests`, Plain can't see it in advance. If the first number turns out bigger, the repeat takes no rounds.
 
 ## Take steps for each item in a list
 

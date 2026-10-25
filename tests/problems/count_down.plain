@@ -1,0 +1,3 @@
+repeat for each n from 5 to 1
+    show n
+show "Liftoff!"

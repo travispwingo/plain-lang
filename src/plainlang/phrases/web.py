@@ -85,7 +85,8 @@ def read_web(run, url, raw=False):
 @step("send {data} to {address}", example='send message to "https://example.com/api" and call it reply',
       effects={"internet"}, topic=TOPIC)
 def send(run, data: Value, address: Text) -> Value:
-    """Sends records and lists as JSON, and anything else as text. The reply comes back the way "read" gives it."""
+    """Sends records and lists as JSON, and anything else as text. The reply comes back the way "read" gives it. \
+In "send note to ADDRESS and call it reply", "it" is the reply."""
     check_address(address)
     if isinstance(data, (Record, list)):
         body, kind = json_text(data).encode(), "application/json"

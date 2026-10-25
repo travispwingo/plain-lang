@@ -1,0 +1,13 @@
+repeat 3 times
+    if 1 is 1
+        show "You win!"
+    end the game
+    show "round"
+repeat 2 times
+    show "again"
+    end repeating
+end repeat
+for each n from 1 to 2
+    show n
+end for
+if 1 is 2 then end it

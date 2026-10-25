@@ -1,4 +1,4 @@
-date,item,category,amount
+date,name,category,amount
 2026-10-01,Rent,home,950
 2026-10-02,Groceries,food,82.40
 2026-10-03,Bus pass,travel,45

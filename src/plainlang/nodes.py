@@ -6,7 +6,7 @@ from decimal import Decimal
 
 from .registry import Slot
 from .values import number_text
-from .words import COMPARISON_WORDS, PLURAL_COMPARISON_WORDS
+from .words import COMPARISON_WORDS, NEGATIVE_COMPARISONS, PLURAL_COMPARISON_WORDS
 
 PRECEDENCE = {"plus": 1, "minus": 1, "times": 2, "divided by": 2}
 
@@ -155,7 +155,8 @@ class Postfix(Node):
     def canonical(self):
         args = {k: arg_text(v) for k, v in self.args.items()}
         first = self.phrase.slots[0].name
-        args[first] = wrap(self.value, 0.5)
+        # (bill plus rate) rounded: brackets show that it covers all the arithmetic on its left (change 1).
+        args[first] = "(" + self.value.canonical() + ")" if covers_arithmetic(self.value) else wrap(self.value, 0.5)
         return self.phrase.render(args)
 
 
@@ -228,6 +229,10 @@ class Not(Node):
     value: Node
 
     def canonical(self):
+        # not (score is at most 3) shows as: score is more than 3 (change 13)
+        folded = flipped(self.value)
+        if folded is not None:
+            return folded.canonical()
         return "not " + wrap_check(self.value)
 
 
@@ -248,6 +253,7 @@ class Bad(Node):
     """A reading that is itself a problem, like an ambiguous line."""
     problem: object
     alts: list = field(default_factory=list)   # replacement texts for col..end
+    check_alts: bool = False                    # offer only the replacements that read in place
 
     def canonical(self):
         return "<problem: " + self.problem.fix + ">"
@@ -323,6 +329,8 @@ class Repeat(Statement):
     def canonical(self):
         match self.kind:
             case "times":
+                if covers_arithmetic(self.count):
+                    return f"repeat ({self.count.canonical()}) times"   # repeat (2 times 3) times
                 return f"repeat {self.count.canonical()} times"
             case "forever":
                 return "repeat forever"
@@ -407,6 +415,48 @@ def wrap(node, level):
     if isinstance(node, (Compare, Logic, Between, TypeCheck, Not, Where)) and level > 0:
         return "(" + node.canonical() + ")"
     return node.canonical()
+
+
+def covers_arithmetic(node):
+    """Arithmetic that a word after it, like "rounded" or a second "times", covers all of."""
+    return isinstance(node, (Math, PercentOf))
+
+
+# Each check and the check that means its opposite.
+OPPOSITES = {"is": "is not", "exact": "not exact", "more": "at most", "less": "at least", "in": "not in",
+             "contains": "not contains", "starts": "not starts", "ends": "not ends"}
+OPPOSITES.update({b: a for a, b in list(OPPOSITES.items())})
+
+
+def flipped(node):
+    """The check that means the opposite of this one, for folding a "not" in front of it, or None
+    when there's no single check that does (not (a or b))."""
+    if isinstance(node, Paren):
+        node = node.inner
+    match node:
+        case Compare():
+            return Compare(node.left, OPPOSITES[node.op], node.right, plural=node.plural, col=node.col, end=node.end)
+        case TypeCheck():
+            return TypeCheck(node.value, node.kind, not node.negated, node.arg, node.plural, col=node.col, end=node.end)
+        case Between():
+            return Between(node.value, node.low, node.high, not node.negated, node.plural, col=node.col, end=node.end)
+        case Not():
+            return node.value.inner if isinstance(node.value, Paren) else node.value
+    return None
+
+
+def is_negative(node):
+    """A check that already says "not": is not, does not contain, is not more than, is not empty."""
+    if isinstance(node, Paren):
+        node = node.inner
+    match node:
+        case Compare():
+            return node.op in NEGATIVE_COMPARISONS or node.said_not
+        case TypeCheck() | Between():
+            return node.negated
+        case Not():
+            return True
+    return False
 
 
 def wrap_check(node):

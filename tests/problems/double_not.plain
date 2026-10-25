@@ -1,0 +1,6 @@
+set done to an empty list
+set scores to a list of 50, 72 and 95
+if not done is not empty
+    show "nothing yet"
+if not (the number of scores is not more than 3)
+    show "lots"

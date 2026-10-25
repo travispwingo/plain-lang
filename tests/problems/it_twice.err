@@ -1,0 +1,10 @@
+it_twice.plain, line 2: Split this line into two steps, so "it" has only one meaning.
+
+    ask "Pick one" with choices scores where it is more than 60 and call it pick
+                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Try this:
+    set matching scores to scores where it is more than 60
+    ask "Pick one" with choices matching scores and call it pick
+Why: Inside "where", "it" means each item being checked, but in "and call it" it means what the step gives back. One word can't mean two things in one line.
+
+Plain found 1 thing to fix, so it hasn't run your program yet.

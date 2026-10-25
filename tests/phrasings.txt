@@ -12,8 +12,8 @@ show the total => show total
 set total to price times 2 => set total to price times 2
 set total to price * 2 => set total to price times 2
 set total to price multiplied by 2 => set total to price times 2
-set total to bill times rate rounded to 2 places => set total to bill times rate rounded to 2 places
-set total to bill times rate rounded to 2 decimal places => set total to bill times rate rounded to 2 places
+set total to bill times rate rounded to 2 places => set total to (bill times rate) rounded to 2 places
+set total to bill times rate rounded to 2 decimal places => set total to (bill times rate) rounded to 2 places
 set total to price plus 8% of price => set total to price plus 8% of price
 set total to 15% of bill => set total to 15% of bill
 set total to 15 percent of bill => set total to 15% of bill
@@ -125,3 +125,62 @@ if scores are not greater than 3 => if scores are at most 3
 ! ask "Your name?" and call the answer name
 ! wait for the enter key
 ! if colors start with "a"
+
+# Stage 2 of the plain-language review: reading.
+names: sales, scores, colors, name, age, done, bill, rate, story, project, pick, todos
+# Only end, end if, end repeat and end try are end lines (change 0).
+! end the game
+! end the program
+! end it
+! end repeating
+! end the repeat
+! end the whole game right now
+# Brackets show what "rounded" and a second "times" cover (change 1).
+show bill plus rate rounded => show (bill plus rate) rounded
+show 15% of bill rounded to 2 places => show (15% of bill) rounded to 2 places
+show bill rounded => show bill rounded
+repeat 2 times 3 times => repeat (2 times 3) times
+show (the total of scores where it is more than 1) rounded => show (the total of scores where it is more than 1) rounded
+show the total of scores where it is more than (1 rounded) => show the total of scores where it is more than (1 rounded)
+! show the total of scores where it is more than 1 rounded
+! show scores where it is more than 1 rounded to 2 places
+# The F of X, when F is one of Plain's own phrase words, is a problem (change 4).
+show the amounts of sales => show the amounts of sales
+show the first name of project => show the first name of project
+show sales's totals => show sales's totals
+! show the totals of sales
+! show the numbers of sales
+! show the items of sales
+! show the first of colors
+! show the letters of name
+! show the max of scores
+! show the count of scores
+! show the unique items of colors
+! show a random item of colors
+# Counting from a bigger written number to a smaller one (change 12).
+repeat for each n from 1 to 5 => repeat for each n from 1 to 5
+repeat for each n from 5 to the number of todos => repeat for each n from 5 to the number of todos
+! repeat for each n from 5 to 1
+! for each n from 10 to -2
+# A "not" in front of a check folds into it, and two "not"s are a problem (change 13).
+if not age is 3 => if age is not 3
+if not (age is at most 3) => if age is more than 3
+if not name contains "a" => if name does not contain "a"
+if not done is empty => if done is not empty
+if not age is between 1 and 3 => if age is not between 1 and 3
+if not (done is empty or age is 3) => if not (done is empty or age is 3)
+! if not done is not empty
+! if not (age is not more than 3)
+! if not name does not contain "a"
+! if not age isn't 3
+# "it" in a where check never meets "and call it" (change 14).
+ask "Pick one" with choices scores and call it pick => ask "Pick one" with choices scores and call it pick
+! ask "Pick one" with choices scores where it is more than 60 and call it pick
+# "where" after the words of a text, and the lines of a file name (changes 16 and 17).
+show (the words of story) where it starts with "b" => show (the words of story) where it starts with "b"
+show the lines of story => show the lines of story
+show the lines of "a and b" => show the lines of "a and b"
+! show the words of story where it starts with "b"
+! show the lines of "todos.txt"
+! set todos to the characters of "data.csv"
+! show the words of "https://example.com/story"

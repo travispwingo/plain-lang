@@ -1,0 +1,4 @@
+set amounts to a list of 120.555, 80 and 300.111
+show the total of amounts where it is more than 100 rounded to 2 places
+set names to a list of "Ann", "Bo" and "Al"
+show names where it starts with "a" joined with ", "

@@ -49,6 +49,7 @@ class Line:
     body: list = field(default_factory=list)
     problem: Problem | None = None
     is_header: bool = False
+    lines_up_with: object = None   # for an "end" line Plain doesn't know: the line it lines up with
 
     def __repr__(self):
         return f"<line {self.number}: {self.raw.strip()!r}>"
@@ -319,32 +320,52 @@ def step_words():
     return words | {s for s, main in SYNONYMS.items() if main in words} | (CORE_STARTS - {"end"})
 
 
+# The only "end" lines Plain knows. It doesn't need them, so it leaves them out, and plain tidy
+# deletes them. Every other line that starts with "end" has a problem, so "end the game" never
+# quietly does nothing.
+END_LINES = frozenset({("end",), ("end", "if"), ("end", "repeat"), ("end", "try")})
+
+
+def end_words(line):
+    return tuple(t.norm for t in line.tokens if t.norm not in ".:!;")
+
+
 def is_end_line(line):
-    words = [t.norm for t in line.tokens if t.norm not in ".:!;"]
-    return bool(words) and words[0] == "end" and len(words) <= 3
+    return end_words(line) in END_LINES
 
 
-def build_blocks(lines):
-    """Group lines into a tree by indentation. Returns (top lines, problems)."""
+def starts_with_end(line):
+    return end_words(line)[:1] == ("end",)
+
+
+def build_blocks(lines, left_out=None):
+    """Group lines into a tree by indentation. Returns (top lines, problems). The numbers of the
+    "end" lines Plain leaves out go in left_out."""
     problems, top = [], []
     stack = [(0, top, None)]   # frames of (indent, body list, header line)
     previous = None
     for line in lines:
         line.is_header = looks_like_header(line) if line.problem is None else False
-        if is_end_line(line):
+        if starts_with_end(line):
             headers = [frame for frame in stack if frame[2] is not None]
             match = next((f for f in reversed(headers) if f[2].indent == line.indent), None)
-            if match is not None:
+            if not is_end_line(line):
+                # The reader gives it a problem, as an ordinary line in its place.
+                line.lines_up_with = match[2] if match is not None else None
+            elif match is not None:
                 while stack[-1] is not match:
                     stack.pop()
                 stack.pop()
                 previous = None
+                if left_out is not None:
+                    left_out.append(line.number)
                 continue
-            problems.append(Problem(
-                'Line up this "end" with the line that starts its steps, or delete it.',
-                'Plain doesn\'t need "end" lines. It goes by how far each line is moved to the right.',
-                line=line.number, col=line.indent, end=len(line.raw.rstrip())))
-            continue
+            else:
+                problems.append(Problem(
+                    'Line up this "end" with the line that starts its steps, or delete it.',
+                    'Plain doesn\'t need "end" lines. It goes by how far each line is moved to the right.',
+                    line=line.number, col=line.indent, end=len(line.raw.rstrip())))
+                continue
         if line.indent > stack[-1][0]:
             if previous is not None and not previous.is_header and previous.problem is None \
                     and first_word(previous) in ("if", "otherwise", "else") and line.indent > previous.indent:

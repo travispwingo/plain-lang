@@ -1,0 +1,24 @@
+lines_of_file.plain, line 1: Use "read" to get the lines in the file "todos.txt", or keep the text under a name first.
+
+    set todos to the lines of "todos.txt"
+                 ^^^^^^^^^^^^^^^^^^^^^^^^
+Try one of these:
+    read the lines of "todos.txt" and call it todos
+  or
+    set my text to "todos.txt"
+    set todos to the lines of my text
+Why: "the lines of" splits the text "todos.txt" itself. To get what's in the file, Plain says "read".
+
+lines_of_file.plain, line 2: Use "read" to get the words in the file "notes.txt", or keep the text under a name first.
+
+    show the number of the words of "notes.txt"
+                       ^^^^^^^^^^^^^^^^^^^^^^^^
+Try one of these:
+    read "notes.txt" and call it notes
+    show the number of the words of notes
+  or
+    set my text to "notes.txt"
+    show the number of the words of my text
+Why: "the words of" splits the text "notes.txt" itself. To get what's in the file, Plain says "read".
+
+Plain found 2 things to fix, so it hasn't run your program yet.

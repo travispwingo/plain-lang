@@ -30,6 +30,29 @@ COMPARISON_FIRST = {words[0] for words, _ in COMPARISONS}
 
 TYPE_WORDS = {words[0] for words in TYPE_CHECKS} | {"divisible"}
 
+# Everyday words for one of Plain's own phrases after "the" (change 4): the word, Plain's words
+# for it, and why. "the letters of" passes no check otherwise, and fails only while running.
+MISNAMED_PHRASES = {
+    "letters": ("the characters of", 'Plain says "the characters of" for the letters, digits and spaces of a text.'),
+    "max": ("the largest of", 'Plain says "the largest of" for the biggest item of a list.'),
+    "maximum": ("the largest of", 'Plain says "the largest of" for the biggest item of a list.'),
+    "min": ("the smallest of", 'Plain says "the smallest of" for the smallest item of a list.'),
+    "minimum": ("the smallest of", 'Plain says "the smallest of" for the smallest item of a list.'),
+    "count": ("the number of", 'Plain says "the number of" for how many items a list has.'),
+    "size": ("the number of", 'Plain says "the number of" for how many items a list has.'),
+}
+
+# Words of Plain's own value phrases that would otherwise read as a field after "the": "the totals
+# of" is one letter away from "the total of" (change 4). The word, and the phrase to offer.
+PHRASE_WORDS = {
+    "numbers": "the number of", "totals": "the total of", "sums": "the total of",
+    "averages": "the average of", "lengths": "the length of", "first": "the first item of",
+    "last": "the last item of", "texts": "the text of", "copies": "a copy of",
+    "different": "the different items of",
+}
+# The same, for words no phrase fits in their place: only 's is offered. The word, and a phrase it's in.
+PHRASE_WORD_EXAMPLES = {"item": "item 2 of", "items": "the first 2 items of", "lists": "a list of"}
+
 # Everyday verbs people start lines with, and the Plain step that does that job.
 VERB_HINTS = {
     "count": ["set count to the number of sales"],

@@ -11,5 +11,5 @@ show 15% of 40
 show 100
 set balance to 1000
 repeat for each year from 1 to 3
-    set balance to balance times 1.05 rounded to 2 decimal places
+    set balance to (balance times 1.05) rounded to 2 decimal places
     show "Year {year}: ${balance}"

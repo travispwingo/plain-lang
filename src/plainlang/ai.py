@@ -90,7 +90,7 @@ save big sales to "big_sales.csv"
 find the tip on 42.50 at 15% and call it lunch tip
 show lunch tip
 how to find the tip on (bill) at (rate)
-    give back bill times rate rounded to 2 decimal places"""
+    give back (bill times rate) rounded to 2 decimal places"""
 
 
 class Unavailable(Exception):

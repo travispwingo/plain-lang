@@ -21,4 +21,13 @@ Try one of these:
     show the number of the words of my text
 Why: "the words of" splits the text "notes.txt" itself. To get what's in the file, Plain says "read".
 
-Plain found 2 things to fix, so it hasn't run your program yet.
+lines_of_file.plain, line 3: Keep the text under a name first, or use "read" to get what's in the file "notes.csv".
+
+    show the words of "notes.csv"
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+Try this:
+    set my text to "notes.csv"
+    show the words of my text
+Why: "the words of" splits the text "notes.csv" itself. To get what's in the file, Plain says "read", which gives a .csv file as a table.
+
+Plain found 3 things to fix, so it hasn't run your program yet.

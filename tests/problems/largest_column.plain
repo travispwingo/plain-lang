@@ -1,0 +1,2 @@
+read "sales.csv" and call it sales
+show the largest of the customers of sales

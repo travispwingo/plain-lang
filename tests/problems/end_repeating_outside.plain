@@ -1,0 +1,12 @@
+show "start"
+end repeating
+repeat 2 times
+    show "a"
+end the repeat
+repeat forever
+    repeat 3 times
+        show "b"
+    end the loop
+    stop repeating
+repeat 2 times
+    end repeating now

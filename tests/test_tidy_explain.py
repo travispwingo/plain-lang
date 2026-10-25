@@ -174,8 +174,6 @@ class OtherWays(unittest.TestCase):   # change 2
                 continue
             with self.subTest(source=name):
                 changes = [c for c in tidy(source, program)[1] if not c.startswith("moved")]
-                # Brackets around what "rounded" covers (change 1) aren't written into the lessons yet.
-                changes = [c for c in changes if not c.split("→")[-1].strip().startswith("(")]
                 self.assertEqual([], changes)
 
 
@@ -226,6 +224,34 @@ class PhrasesReference(unittest.TestCase):   # changes 18 and 2
                 self.assertIn(f"  {wording}\n", out)
         code, out = phrases_output(["where"])
         self.assertNotIn("sort", out)   # "where" in an explanation doesn't count when a phrase says it
+
+    def test_each_topic_once(self):   # review of change 18: "the problem" joins the core steps
+        code, out = phrases_output([])
+        topics = [line for line in out.split("\n") if line and not line.startswith(" ")]
+        self.assertEqual(len(topics), len(set(topics)), topics)
+        self.assertEqual(1, topics.count("Core steps"))
+
+    def test_offered_fixes_point_to_the_main_wording(self):   # review of changes 8, 10, 18 and 25
+        from plainlang.parser import Reader
+        from plainlang.registry import OFFERED_FIXES
+        for word, (main, line) in OFFERED_FIXES.items():
+            with self.subTest(word=word):
+                code, out = phrases_output([word])
+                self.assertEqual(0, code)
+                self.assertTrue(out.startswith(f'Plain doesn\'t read "{word}". Write "{main}" instead.\n'), out)
+                source = "set score to 1\nset scores to a list of 1\n" + line + "\n"
+                problem = Reader().read(source).problems[0]
+                self.assertTrue(any(re.search(rf"(^|\W){re.escape(main)}(\W|$)", t)
+                                    for t in problem.try_lines + problem.ideas), (word, problem.try_lines))
+        self.assertIn("  the stopwatch\n", phrases_output(["timer"])[1])
+        self.assertIn("  otherwise if CHECK\n", phrases_output(["else", "if"])[1])
+        code, out = phrases_output(["else"])
+        self.assertNotIn("read FILE", out)
+
+    def test_a_word_in_a_note_counts_only_whole(self):   # review of change 18
+        code, out = phrases_output(["end"])
+        self.assertIn("end if", out)
+        self.assertNotIn("apostrophe", out)
 
     def test_other_ways_only_on_their_own_list(self):
         code, out = phrases_output([])

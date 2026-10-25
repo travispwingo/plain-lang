@@ -1,0 +1,19 @@
+rounded_ties.plain, line 2: Add brackets, or reword this, so it has only one meaning.
+
+    show the total of a list of 1.25 and 2.5 rounded
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Try one of these:
+    show the total of a list of 1.25 and (2.5 rounded)
+  or
+    show (the total of a list of 1.25 and 2.5) rounded
+Why: This line can mean two things. Plain never guesses, so you choose.
+
+rounded_ties.plain, line 3: Add brackets to show that "rounded" goes with everything before it.
+
+    show the total of amounts where (it is more than 100) rounded
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Try this:
+    show (the total of amounts where it is more than 100) rounded
+Why: "rounded" goes after a value, and here it would go with the check in brackets, which is yes or no.
+
+Plain found 2 things to fix, so it hasn't run your program yet.

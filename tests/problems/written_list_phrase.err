@@ -1,0 +1,25 @@
+written_list_phrase.plain, line 1: Write "the largest of" instead of "the max of".
+
+    show the max of a list of 1 and 2
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Try this:
+    show the largest of a list of 1 and 2
+Why: Plain says "the largest of" for the largest number in a list.
+
+written_list_phrase.plain, line 2: Write "the different items of" instead of "the unique items of".
+
+    show the unique items of a list of 1 and 1
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Try this:
+    show the different items of a list of 1 and 1
+Why: Plain says "different" for each value once, as in: the different categories of budget
+
+written_list_phrase.plain, line 3: Write "the number of" instead of "the count of".
+
+    show the count of a list of 1 and 2
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Try this:
+    show the number of a list of 1 and 2
+Why: Plain says "the number of" for how many items a list has.
+
+Plain found 3 things to fix, so it hasn't run your program yet.

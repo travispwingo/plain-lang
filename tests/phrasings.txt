@@ -251,3 +251,20 @@ remove 3 from scores => remove 3 from scores
 remove item 3 from scores => remove item 3 from scores
 remove "milk" from todos => remove "milk" from todos
 delete item 2 from todos => remove item 2 from todos
+
+# Review fixes: "where" after written text (change 16), a value that ends in a list of items before
+# "rounded" (change 1), and "end repeating" outside a repeat (change 0).
+names: story, amounts
+! show the words of "a bb c" where it starts with "b"
+! show story split by "," where it is "b"
+! show "a b c" where it is "b"
+show (the words of "a bb c") where it starts with "b" => show (the words of "a bb c") where it starts with "b"
+show (story split by ",") where it is "b" => show (story split by ",") where it is "b"
+! show the total of a list of 1.25 and 2.5 rounded
+show (the total of a list of 1.25 and 2.5) rounded => show (the total of a list of 1.25 and 2.5) rounded
+show the total of a list of 1.25 and (2.5 rounded) => show the total of a list of 1.25 and (2.5 rounded)
+show (a list of 1 and 2) joined with "-" => show (a list of 1 and 2) joined with "-"
+! show the total of amounts where (it is more than 100) rounded
+show (the total of amounts where it is more than 100) rounded => show (the total of amounts where it is more than 100) rounded
+! end repeating
+! end repeating now

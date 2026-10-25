@@ -165,8 +165,13 @@ def text_extreme_problem(run, word):
         choices = [[f"sort {name}", run.line_with(node, f"the {end} item of {name}", article=True)],
                    [f"sort {name} from Z to A", run.line_with(node, f"the {other} item of {name}", article=True)]]
     elif isinstance(items, N.Field) and isinstance(items.target, N.Name) and is_table(run.eval(items.target)):
-        # the largest of sales's customer: sort the table by that field.
+        # the largest of sales's customer: sort the table by that column, by the name the table
+        # gives it ("the customers of sales" sorts by customer).
+        rows = run.eval(items.target)
         table, field = items.target.canonical(), N.field_text(items.words, items.quoted)
+        key = None if items.quoted else rows[0].find(" ".join(items.words), table=True)
+        if key is not None and re.fullmatch(r"[A-Za-z]+(?: [A-Za-z]+)*", key):
+            field = key
         column = N.arg_text(items)
         choices = [[f"sort {table} by {field}", run.line_with(node, f"the {end} item of {column}", article=True)],
                    [f"sort {table} by {field} from Z to A",

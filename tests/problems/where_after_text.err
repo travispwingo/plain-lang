@@ -1,0 +1,29 @@
+where_after_text.plain, line 2: Add brackets around the words of "a bb c", or keep the words under a name first.
+
+    show the words of "a bb c" where it starts with "b"
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Try one of these:
+    show (the words of "a bb c") where it starts with "b"
+  or
+    set words to the words of "a bb c"
+    show words where it starts with "b"
+Why: "where" goes with the value right before it, so here it would pick from "a bb c" itself, which is text, not a list.
+
+where_after_text.plain, line 3: Add brackets around story split by ",", or keep the parts under a name first.
+
+    set parts to story split by "," where it is "b"
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Try one of these:
+    set parts to (story split by ",") where it is "b"
+  or
+    set story parts to story split by ","
+    set parts to story parts where it is "b"
+Why: "where" goes with the value right before it, so here it would pick from "," itself, which is text, not a list.
+
+where_after_text.plain, line 4: Use "where" after a list or a table.
+
+    show "abc" where it is "b"
+         ^^^^^^^^^^^^^^^^^^^^^
+Why: "abc" is text, not a list.
+
+Plain found 3 things to fix, so it hasn't run your program yet.

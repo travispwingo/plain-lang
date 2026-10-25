@@ -68,7 +68,7 @@ class Has(unittest.TestCase):   # change 3
                          reading('set rows to nothing\nif rows don\'t have "x"\n    show 1', 2))
 
     def test_has_and_have_are_special_words(self):
-        self.assertEqual(['Rename "has ticket", for example to "ticket".'], fixes("set has ticket to 1"))
+        self.assertEqual(['Rename "has ticket", for example to "got ticket".'], fixes("set has ticket to 1"))
         self.assertTrue(fixes("set have to 1"))
 
     def test_contains_still_looks_inside_text_and_lists(self):

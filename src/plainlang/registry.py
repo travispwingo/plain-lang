@@ -213,8 +213,12 @@ def catalog():
 def reference():
     """The core steps, checks and words, then every phrase: what `plain phrases` and the website list."""
     import plainlang.phrases  # noqa: F401  (registers everything)
-    entries = [dict(core, effects=[]) for core in CORE_FORMS]
-    return entries + catalog()
+    entries = [dict(core, effects=[]) for core in CORE_FORMS] + catalog()
+    # Each topic once, in the order it first comes ("the problem" joins the core steps).
+    order = {}
+    for entry in entries:
+        order.setdefault(entry["topic"], len(order))
+    return sorted(entries, key=lambda entry: order[entry["topic"]])
 
 
 def fixed_words(text):
@@ -264,6 +268,21 @@ CONTRACTION_EXAMPLES = {
 # The words that agree with a plural name, in INFLECTIONS, each in a line.
 PLURAL_EXAMPLES = {"are": "if scores are empty", "do": 'if names do not contain "Ann"',
                    "contain": 'if names contain "Ann"', "have": 'if people have "email"'}
+
+# Words Plain doesn't read but offers a fix for (changes 8, 10 and 25), so `plain phrases timer`
+# points to the main wording. Each with a line that uses it, for the tests.
+OFFERED_FIXES = {
+    "else": ("otherwise", "if score is 1\n    show 1\nelse\n    show 2"),
+    "elif": ("otherwise if", "if score is 1\n    show 1\nelif score is 2\n    show 2"),
+    "return": ("give back", "how to double (n)\n    return n times 2"),
+    "true": ("yes", "set done to true"),
+    "false": ("no", "set done to false"),
+    "mean": ("the average of", "show the mean of scores"),
+    "timer": ("the stopwatch", "show the timer"),
+    "fetch": ("read", 'fetch "notes.txt" and call it notes'),
+    "==": ("is", "if score == 1\n    show 1"),
+    "!=": ("is not", "if score != 1\n    show 1"),
+}
 
 
 def other_ways():

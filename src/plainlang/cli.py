@@ -195,13 +195,20 @@ def run_program(program, path, options):
 
 def phrases(words, again="plain phrases"):
     """List Plain's phrases, or the ones about WORDS. `again` is how to list them all."""
-    from .registry import fixed_words, other_ways, reference
+    from .registry import OFFERED_FIXES, fixed_words, other_ways, reference
     entries, ways = reference(), other_ways()
-    wanted = [w.lower() for w in words]
-    if wanted:
-        # A placeholder like COLUMN or LIST isn't a word you write, so it doesn't make an other way match.
-        ways = [w for w in ways if all(x in re.sub(r"\b[A-Z]{2,}s?\b", " ", " ".join(w.said + w.main + [w.note])).lower()
-                                      for x in wanted)]
+    wanted = [x for w in words for x in w.lower().split()]
+    offered = [w for w in wanted if w in OFFERED_FIXES]
+    for word in offered:   # plain phrases timer: Plain writes "the stopwatch"
+        say(f'Plain doesn\'t read "{word}". Write "{OFFERED_FIXES[word][0]}" instead.')
+    if offered:
+        # Then the phrase with those words: "else if" shows "otherwise if CHECK".
+        wanted = [x for w in wanted for x in (fixed_words(OFFERED_FIXES[w][0]) if w in OFFERED_FIXES else [w])]
+        ways = []
+        entries = [e for e in entries if fixed_words(e["wording"]) == wanted] or \
+            [e for e in entries if has_words(fixed_words(e["wording"]), wanted)]
+    elif wanted:
+        ways = [w for w in ways if all(way_has(w, x) for x in wanted)]
         # The phrase's own words first ("plain phrases at least"), then what other ways mean, then the
         # explanations.
         mains = [fixed_words(m) for way in ways for m in way.main]
@@ -211,8 +218,12 @@ def phrases(words, again="plain phrases"):
             found = [e for e in entries if all(w in " ".join([e["wording"], e["doc"]]).lower() for w in wanted)]
         entries = found
     if not entries and not ways:
+        if offered:
+            return 0
         say(f"Plain has no phrases about \"{' '.join(words)}\". Type {again} to see them all.")
         return 1
+    if offered:
+        say("")
     topic = None
     for entry in entries:
         if entry["topic"] != topic:
@@ -241,6 +252,16 @@ def phrases(words, again="plain phrases"):
         say("Plain's special words (they can't be part of a name):")
         say("  " + " ".join(sorted(w for w in SPECIAL_WORDS)))
     return 0
+
+
+def way_has(way, word):
+    """An other way matches a word you typed when the word starts one of its wordings' words, or is
+    a whole word of its note: "plain phrases end" finds the end lines, not "ends in s"."""
+    def written(text):   # a placeholder like COLUMN or LIST isn't a word you write
+        return re.sub(r"\b[A-Z]{2,}s?\b", " ", text).lower()
+    words = re.findall(r"[^\s`,.:;()\"]+", written(" ".join(way.said + way.main)))
+    return any(w.startswith(word) for w in words) or \
+        re.search(rf"(?<![\w']){re.escape(word)}(?![\w'])", written(way.note)) is not None
 
 
 def has_words(have, wanted):

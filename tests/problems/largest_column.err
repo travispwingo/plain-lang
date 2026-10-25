@@ -1,0 +1,11 @@
+largest_column.plain, line 2, while running: Sort the text first, then take its last item.
+
+    show the largest of the customers of sales
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Try one of these:
+    sort sales by customer
+    show the last item of the customers of sales
+  or
+    sort sales by customer from Z to A
+    show the first item of the customers of sales
+Why: "the largest of" finds the largest number. For text, "largest" could mean the longest text or the last one from A to Z, so Plain sorts text "from A to Z" or "from Z to A" instead.

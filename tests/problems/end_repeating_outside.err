@@ -1,0 +1,33 @@
+end_repeating_outside.plain, line 2: Delete this line.
+
+    end repeating
+    ^^^^^^^^^^^^^
+Why: To Plain, a line that starts with "end" only marks where steps end, like "end repeat". Plain says "stop repeating" to leave a repeat, and this line isn't among the steps of one.
+
+end_repeating_outside.plain, line 5: Delete this line, or write "end repeat" instead.
+
+    end the repeat
+    ^^^^^^^^^^^^^^
+Try this:
+    end repeat
+Why: Plain knows only "end", "end if", "end repeat" and "end try", and it doesn't need them. It goes by how far each line is moved to the right.
+
+end_repeating_outside.plain, line 9: Write "end repeat" or "stop repeating" instead.
+
+        end the loop
+        ^^^^^^^^^^^^
+Try one of these:
+        end repeat
+  or
+        stop repeating
+Why: To Plain, a line that starts with "end" only marks where steps end, like "end repeat". To leave the repeat this line is in, Plain says "stop repeating".
+
+end_repeating_outside.plain, line 12: Write "stop repeating" instead.
+
+        end repeating now
+        ^^^^^^^^^^^^^^^^^
+Try this:
+        stop repeating
+Why: To Plain, a line that starts with "end" only marks where steps end, like "end repeat". To leave the repeat, Plain says "stop repeating".
+
+Plain found 4 things to fix, so it hasn't run your program yet.

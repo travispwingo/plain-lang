@@ -417,8 +417,10 @@ def field_text(words, quoted):
 def wrap(node, level):
     """Brackets around arithmetic that binds less tightly than its place needs."""
     last = node.phrase.elements[-1] if isinstance(node, Value) else None
-    if isinstance(last, Slot) and (level >= 1 or level > 0 and last.kind == "items"):
-        return "(" + node.canonical() + ")"   # (the number of guests) plus 1, (a list of 1 and 2) joined with "-"
+    if isinstance(last, Slot) and (level >= 1 or level > 0 and ends_in_items(node)):
+        # (the number of guests) plus 1, (a list of 1 and 2) joined with "-",
+        # (the total of a list of 1.25 and 2.5) rounded
+        return "(" + node.canonical() + ")"
     if isinstance(node, Math) and PRECEDENCE[node.op] < level:
         return "(" + node.canonical() + ")"
     if isinstance(node, Postfix) and level > 0.5:
@@ -426,6 +428,19 @@ def wrap(node, level):
     if isinstance(node, (Compare, Logic, Between, TypeCheck, Not, Where)) and level > 0:
         return "(" + node.canonical() + ")"
     return node.canonical()
+
+
+def ends_in_items(node):
+    """A value whose words end with a list of items, like "the total of a list of 1 and 2", where a
+    word after it, like "rounded", could also go with the last item."""
+    while isinstance(node, Value):
+        last = node.phrase.elements[-1]
+        if not isinstance(last, Slot):
+            return False
+        if last.kind == "items":
+            return True
+        node = node.args.get(last.name)
+    return False
 
 
 def covers_arithmetic(node):

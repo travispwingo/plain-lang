@@ -1,0 +1,4 @@
+set story to "a,b"
+show the words of "a bb c" where it starts with "b"
+set parts to story split by "," where it is "b"
+show "abc" where it is "b"

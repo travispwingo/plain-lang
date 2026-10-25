@@ -447,7 +447,8 @@ class RenameSuggestions(unittest.TestCase):   # change 21: a suggested name keep
                           ("number of players", "player count"), ("number of boxes", "box count"),
                           ("number of tries", "how many tries"), ("price rounded", "price"),
                           ("date joined", "join date"), ("tip percent", "tip rate"),
-                          ("total minus tax", "total without tax")):
+                          ("total minus tax", "total without tax"), ("count of apples", "apple count"),
+                          ("my list of things", "my things list"), ("has ticket", "got ticket")):
             with self.subTest(name=name):
                 self.assertEqual([f'Rename "{name}", for example to "{new}".'], fixes(f"set {name} to 1"))
 
@@ -695,6 +696,60 @@ class TextSplits(unittest.TestCase):   # changes 16 and 17
         for choice in p.choices:
             self.assertEqual([], fixes("\n".join(choice + source.split("\n")[1:])))
         self.assertEqual([], fixes('set x to "a.txt"\nshow the lines of x\nshow the words of "hi there.txt now"'))
+
+
+class ReviewFixes(unittest.TestCase):   # the review of changes 0-33
+    def test_where_after_written_text(self):   # change 16
+        source = 'show the words of "a bb c" where it starts with "b"'
+        p = problems(source)[0]
+        self.assertEqual([['show (the words of "a bb c") where it starts with "b"'],
+                          ['set words to the words of "a bb c"', 'show words where it starts with "b"']], p.choices)
+        for choice in p.choices:
+            self.assertEqual("bb\n", output("\n".join(choice)))
+        source = 'set story to "a,b"\nset parts to story split by "," where it is "b"\nshow parts'
+        p = problems(source)[0]
+        self.assertEqual(['set parts to (story split by ",") where it is "b"'], p.choices[0])
+        self.assertEqual("b\n", output(source.replace('story split by ","', '(story split by ",")')))
+        self.assertEqual(['Use "where" after a list or a table.'], fixes('show "abc" where it is "b"'))
+
+    def test_a_tie_offers_both_bracketings_as_choices(self):   # change 1
+        p = problems("show the total of a list of 1.25 and 2.5 rounded")[0]
+        self.assertEqual([["show the total of a list of 1.25 and (2.5 rounded)"],
+                          ["show (the total of a list of 1.25 and 2.5) rounded"]], p.choices)
+        self.assertEqual("4\n", output("show (the total of a list of 1.25 and 2.5) rounded"))
+        self.assertEqual("show (the total of a list of 1.25 and 2.5) rounded",
+                         reading("show (the total of a list of 1.25 and 2.5) rounded", 1)[1])
+
+    def test_rounded_after_a_check_in_brackets(self):   # change 1
+        source = "set amounts to a list of 120.5, 80 and 300.25\nshow the total of amounts where (it is more than 100) rounded"
+        fix, lines = offered(source)
+        self.assertEqual(["show (the total of amounts where it is more than 100) rounded"], lines)
+        self.assertEqual("421\n", output(source.split("\n")[0] + "\n" + lines[0]))
+
+    def test_stop_repeating_only_where_it_works(self):   # change 0
+        self.assertEqual(["Delete this line."], fixes('show "a"\nend the repeat'))
+        self.assertEqual(["Delete this line."], fixes('show "a"\nend repeating now'))
+        self.assertEqual([("Delete this line, or write \"end repeat\" instead.", ["end repeat"])],
+                         [(p.fix, p.try_lines) for p in problems('repeat 2 times\n    show "a"\nend the repeat')])
+        self.assertEqual(["    stop repeating"], problems('repeat 2 times\n    end repeating now')[0].try_lines)
+        nested = 'repeat 2 times\n    repeat 2 times\n        show "a"\n    end the loop\n    show "b"'
+        p = problems(nested)[0]
+        self.assertEqual([["    end repeat"], ["    stop repeating"]], p.choices)
+        for choice in p.choices:
+            lines = nested.split("\n")
+            self.assertEqual([], fixes("\n".join(lines[:3] + choice + lines[4:])))
+
+    def test_no_apostrophe_s_on_a_written_list(self):   # change 4
+        self.assertEqual(["show the largest of a list of 1 and 2"], offered("show the max of a list of 1 and 2")[1])
+        self.assertEqual(["show the number of a list of 1 and 2"], offered("show the count of a list of 1 and 2")[1])
+        self.assertEqual(["show the different items of a list of 1 and 1"],
+                         offered("show the unique items of a list of 1 and 1")[1])
+
+    def test_a_csv_file_name_offers_only_the_text(self):   # change 17
+        p = problems('show the words of "notes.csv"')[0]
+        self.assertEqual(['set my text to "notes.csv"', "show the words of my text"], p.try_lines)
+        self.assertIn("gives a .csv file as a table", p.why)
+        self.assertIn("records and lists", problems('show the characters of "data.json"')[0].why)
 
 
 class PoliteHowTo(unittest.TestCase):   # change 24

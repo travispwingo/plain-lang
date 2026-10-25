@@ -50,6 +50,7 @@ class Line:
     problem: Problem | None = None
     is_header: bool = False
     lines_up_with: object = None   # for an "end" line Plain doesn't know: the line it lines up with
+    in_repeat: bool = False        # the line is among the steps of a "repeat"
 
     def __repr__(self):
         return f"<line {self.number}: {self.raw.strip()!r}>"
@@ -385,7 +386,16 @@ def build_blocks(lines, left_out=None):
         stack[-1][1].append(line)
         previous = line
     check_empty_headers(top, problems)
+    mark_repeats(top)
     return top, problems
+
+
+def mark_repeats(lines, inside=False):
+    """Note which lines are among the steps of a "repeat", so "end repeating" is offered
+    "stop repeating" only where that works (change 0)."""
+    for line in lines:
+        line.in_repeat = inside
+        mark_repeats(line.body, inside or (line.is_header and header_words(line) == "repeat"))
 
 
 def indent_problem(line, previous):

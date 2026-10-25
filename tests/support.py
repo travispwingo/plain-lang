@@ -56,7 +56,7 @@ def run_golden(path):
         words = sidecar(path, ".args").read_text().split()
         if "--seed" in words:
             seed = int(words[words.index("--seed") + 1])
-        if "--answer-time" in words:      # seconds each typed answer takes, for timer programs
+        if "--answer-time" in words:      # seconds each typed answer takes, for stopwatch programs
             answer_time = float(words[words.index("--answer-time") + 1])
     web = json.loads(sidecar(path, ".web.json").read_text()) if path.with_name(path.stem + ".web.json").exists() else None
     data = [p for p in path.parent.iterdir()

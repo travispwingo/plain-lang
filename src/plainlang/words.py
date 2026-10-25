@@ -4,7 +4,7 @@
 SPECIAL_WORDS = frozenset("""
     and or not is are to from by in of with as than then where it its plus minus times
     divided multiplied rounded percent split joined contains contain starts ends exists
-    does equals yes no nothing
+    does equals has have yes no nothing
     zero one two three four five six seven eight nine ten eleven twelve
 """.split())
 
@@ -94,6 +94,8 @@ COMPARISONS = [
     (("does", "not", "equal"), "is not"),
     (("contains",), "contains"),
     (("does", "not", "contain"), "not contains"),
+    (("has",), "has"),
+    (("does", "not", "have"), "not has"),
     (("starts", "with"), "starts"),
     (("does", "not", "start", "with"), "not starts"),
     (("ends", "with"), "ends"),
@@ -104,8 +106,9 @@ COMPARISONS = [
 ]
 
 # The same fixed words after a plural name, as English agrees them: "if results are empty",
-# "if letters contain "e"", "if todos do not contain "jam"". Plain doesn't check agreement.
-INFLECTIONS = {"are": "is", "do": "does", "contain": "contains"}
+# "if letters contain "e"", "if todos do not contain "jam"", "if rows have "email"". Plain
+# doesn't check agreement.
+INFLECTIONS = {"are": "is", "do": "does", "contain": "contains", "have": "has"}
 COMPARISONS += [((verb,) + words[1:], op) for verb, main in INFLECTIONS.items()
                 for words, op in list(COMPARISONS) if words[0] == main]
 
@@ -115,6 +118,7 @@ COMPARISON_WORDS = {
     "more": "is more than", "less": "is less than", "at least": "is at least",
     "at most": "is at most", "in": "is in", "not in": "is not in",
     "contains": "contains", "not contains": "does not contain",
+    "has": "has", "not has": "does not have",
     "starts": "starts with", "not starts": "does not start with",
     "ends": "ends with", "not ends": "does not end with",
 }
@@ -125,11 +129,12 @@ PLURAL_COMPARISON_WORDS = {
     "more": "are more than", "less": "are less than", "at least": "are at least",
     "at most": "are at most", "in": "are in", "not in": "are not in",
     "contains": "contain", "not contains": "do not contain",
+    "has": "have", "not has": "do not have",
     "not starts": "do not start with", "not ends": "do not end with",
 }
 
 NEGATIVE_COMPARISONS = frozenset({
-    "is not", "not exact", "not in", "not contains", "not starts", "not ends",
+    "is not", "not exact", "not in", "not contains", "not has", "not starts", "not ends",
 })
 
 # Bare comparison wordings allowed after "and"/"or" when the subject is left out.

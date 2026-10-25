@@ -1,0 +1,4 @@
+set reply to an empty record
+set reply's count to 0
+if "results" is not in reply
+    show "Nothing found."

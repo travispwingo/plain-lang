@@ -1,7 +1,7 @@
 ask "Which city?" and call it city
-read "https://geocoding-api.open-meteo.com/v1/search?name={city}&count=1" and call it places
-if places contains "results"
-    set place to the first item of places's results
+read "https://geocoding-api.open-meteo.com/v1/search?name={city}&count=1" and call it reply
+if reply has "results"
+    set place to the first item of reply's results
     show "{place's name} is at {place's latitude}, {place's longitude}."
 otherwise
     show "Plain couldn't find {city}."

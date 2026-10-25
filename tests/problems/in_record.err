@@ -1,0 +1,7 @@
+in_record.plain, line 3, while running: Write "does not have" to check whether a record has a field.
+
+    if "results" is not in reply
+       ^^^^^^^^^^^^^^^^^^^^^^^^^
+Try this:
+    if reply does not have "results"
+Why: "is not in" looks inside text or a list. A record has fields, and "has" checks for a field by its name.

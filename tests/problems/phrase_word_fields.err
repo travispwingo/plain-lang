@@ -32,7 +32,7 @@ Try one of these:
     show the largest of the amounts of sales
   or
     show (the amounts of sales)'s max
-Why: Plain says "the largest of" for the biggest item of a list.
+Why: Plain says "the largest of" for the largest number in a list.
 
 phrase_word_fields.plain, line 6: Write "a random item from" instead of "a random item of".
 

@@ -1,0 +1,3 @@
+set todos to a list of "milk" and "bread"
+if todos has "milk"
+    show "Milk is on the list."

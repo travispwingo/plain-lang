@@ -1,0 +1,3 @@
+set names to a list of "Cy", "Ann" and "Bo"
+sort names largest first
+show names

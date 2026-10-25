@@ -79,7 +79,8 @@ You can write these checks:
 - `is more than` and `is less than`.
 - `is at least` and `is at most`: these count the number itself, so 18 is at least 18.
 - `is between 1 and 10`: both 1 and 10 count.
-- `contains`, `starts with` and `ends with`: for text.
+- `contains`, `starts with` and `ends with`: for text. `contains` also looks for an item in a list.
+- `has`: whether a record has a value under a name, as in `if reply has "results"`. You'll meet records in [the lesson on spreadsheets](/learn/08-spreadsheets/).
 - `is empty`, `is a number`, `is a whole number`, `is even` and `is odd`.
 
 If you're used to `=`, `>` and `<`, those work too. For a name that holds several things, write the words the way you'd say them: `if scores are empty`, `if names contain "Ann"` or `if todos do not contain "jam"`.

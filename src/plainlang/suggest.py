@@ -34,10 +34,10 @@ TYPE_WORDS = {words[0] for words in TYPE_CHECKS} | {"divisible"}
 # for it, and why. "the letters of" passes no check otherwise, and fails only while running.
 MISNAMED_PHRASES = {
     "letters": ("the characters of", 'Plain says "the characters of" for the letters, digits and spaces of a text.'),
-    "max": ("the largest of", 'Plain says "the largest of" for the biggest item of a list.'),
-    "maximum": ("the largest of", 'Plain says "the largest of" for the biggest item of a list.'),
-    "min": ("the smallest of", 'Plain says "the smallest of" for the smallest item of a list.'),
-    "minimum": ("the smallest of", 'Plain says "the smallest of" for the smallest item of a list.'),
+    "max": ("the largest of", 'Plain says "the largest of" for the largest number in a list.'),
+    "maximum": ("the largest of", 'Plain says "the largest of" for the largest number in a list.'),
+    "min": ("the smallest of", 'Plain says "the smallest of" for the smallest number in a list.'),
+    "minimum": ("the smallest of", 'Plain says "the smallest of" for the smallest number in a list.'),
     "count": ("the number of", 'Plain says "the number of" for how many items a list has.'),
     "size": ("the number of", 'Plain says "the number of" for how many items a list has.'),
 }
@@ -59,7 +59,7 @@ VERB_HINTS = {
     "print": ['show "Hello"'], "say": ['show "Hello"'], "write": ['show "Hello"', 'save notes to "notes.txt"'],
     "display": ['show "Hello"'], "output": ['show "Hello"'], "tell": ['show "Hello"'],
     "make": ['set colors to a list of "red" and "blue"', "set total to 0"],
-    "create": ['set colors to a list of "red" and "blue"', "set person to a new record"],
+    "create": ['set colors to a list of "red" and "blue"', "set person to an empty record"],
     "let": ["set total to 0"], "store": ['save todos to "todos.txt"', "set total to 0"],
     "remember": ["set total to 0"], "put": ["set total to 0", "add task to todos"],
     "get": ['read "https://example.com" and call it page', 'ask "Your name?" and call it name'],
@@ -101,6 +101,26 @@ def habit_problem(reader, line):
                 return Problem(f'Write "{fixed}" instead.', why, line=line.number, col=col, end=end,
                                try_lines=[indent + fixed], ideas=[indent + fixed])
     return None
+
+
+def timer_problem(reader, line, tokens):
+    """the timer: Plain's stopwatch counts up, so it's called the stopwatch (change 10)."""
+    raw = line.raw
+    found = [t for t in tokens if t.kind == "word" and t.norm == "timer"]
+    if not found or line.number is None:
+        return None
+    text, spans = raw, []
+    for tok in reversed(found):
+        m = re.search(r"\b(?:the|a)\s+$", text[:tok.col], flags=re.IGNORECASE)
+        start = m.start() if m else tok.col
+        text = text[:start] + "the stopwatch" + text[tok.end:]
+        spans.insert(0, (start, tok.end))
+    if not reads_cleanly(reader, line, text):
+        return None
+    col, end = spans[0]
+    return Problem(f'Write "the stopwatch" instead of "{raw[col:end]}".',
+                   "A timer counts down, but Plain's stopwatch counts up from 0, like the stopwatch on a phone.",
+                   line=line.number, col=col, end=end, try_lines=[text.rstrip()], ideas=[text])
 
 
 def everyday(text):
@@ -250,7 +270,7 @@ def explain_unreadable(reader, i, j, line, check=False):
         slip = core_slip(reader, line)
         if slip:
             return repair_problem(slip, line, number)
-        problem = habit_problem(reader, line)
+        problem = habit_problem(reader, line) or timer_problem(reader, line, line.tokens)
         if problem is not None:
             return problem
         problem = inline_habit(reader, line) or quoted_field(reader, line)
@@ -268,7 +288,7 @@ def explain_unreadable(reader, i, j, line, check=False):
 
     # One of your steps used inside { } in a text.
     if piece is not None and number is not None:
-        problem = step_in_piece(reader, line, piece)
+        problem = step_in_piece(reader, line, piece) or timer_problem(reader, line, piece.tokens)
         if problem:
             return problem
 
@@ -319,7 +339,7 @@ def explain_unreadable(reader, i, j, line, check=False):
 
     if whole:
         problem = (step_inside(reader, line) or (check and where_problem(reader, line))
-                   or it_problem(reader, line) or file_name_problem(reader, line))
+                   or it_problem(reader, line) or file_name_problem(reader, line) or add_to_file(reader, line))
         if problem:
             return problem
 
@@ -454,7 +474,7 @@ def phrase_words():
     for phrase in REGISTRY:
         for e in phrase.elements:
             if isinstance(e, Word):
-                out.update(e.alts)
+                out.update(a for a in e.alts if len(a) > 1)   # not the letters of "from Z to A"
     for words, _ in COMPARISONS + ELIDED_COMPARISONS:
         out.update(words)
     for words in TYPE_CHECKS:
@@ -867,6 +887,29 @@ def file_name_problem(reader, line):
     return None
 
 
+def add_to_file(reader, line):
+    """add "milk" to "shopping.txt": a file name after "to" needs "the file" before it (change 30)."""
+    view, raw = reader.t, line.raw
+    norms = [t.norm if t.kind == "word" else None for t in view]
+    if len(view) < 4 or norms[0] != "add" or "to" not in norms:
+        return None
+    to = len(norms) - 1 - norms[::-1].index("to")
+    after = view[to + 1:]
+    if after and after[0].kind == "word" and after[0].norm in ("the", "a"):
+        after = after[1:]
+    if len(after) != 1 or after[0].kind != "text" or not all(isinstance(p, str) for p in after[0].value) \
+            or not re.search(r"\.[A-Za-z][A-Za-z0-9]{0,4}$", "".join(after[0].value)):
+        return None
+    start = view[to + 1].col
+    fixed = raw[:start] + "the file " + raw[after[0].col:]
+    if not reads_cleanly(reader, line, fixed):
+        return None
+    return Problem(f'Write "the file" before {after[0].raw} to add to that file.',
+                   '"add" puts an item at the end of a list, or adds to a number. With "the file", it adds a line '
+                   "at the end of a file.", line=line.number, col=view[to + 1].col, end=after[0].end,
+                   try_lines=[fixed.rstrip()], ideas=[fixed])
+
+
 def its_problem(reader, line, unknown):
     """A field inside "where" after "of", as in "the length of name": write "its"."""
     wheres = [t.col for t in reader.t if t.kind == "word" and t.norm == "where"]
@@ -1197,7 +1240,7 @@ def repair_options(reader, line, toks, confusables_only):
     ordered = sorted(vocabulary)
     for tok in words:
         if tok.norm in vocabulary or tok.norm in SPECIAL_WORDS:
-            continue   # never swap a word Plain knows ("times" is not a typo of "timer")
+            continue   # never swap a word Plain knows ("times" is not a typo of "time")
         for option in difflib.get_close_matches(tok.norm, ordered, n=3, cutoff=0.75):
             if option == tok.norm:
                 continue

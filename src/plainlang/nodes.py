@@ -141,9 +141,8 @@ class Value(Node):
     open_end: bool = False    # its last slot takes one value and isn't after "of"
 
     def canonical(self):
-        return self.phrase.main.render({k: arg_text(v) for k, v in self.args.items()}) \
-            if self.phrase.main is self.phrase else self.phrase.render(
-                {k: arg_text(v) for k, v in self.args.items()})
+        # An accepted older wording ("a new record") shows in main words ("an empty record").
+        return self.phrase.main.render({k: arg_text(v) for k, v in self.args.items()})
 
 
 @dataclass(eq=False)
@@ -157,7 +156,7 @@ class Postfix(Node):
         first = self.phrase.slots[0].name
         # (bill plus rate) rounded: brackets show that it covers all the arithmetic on its left (change 1).
         args[first] = "(" + self.value.canonical() + ")" if covers_arithmetic(self.value) else wrap(self.value, 0.5)
-        return self.phrase.render(args)
+        return self.phrase.main.render(args)
 
 
 @dataclass(eq=False)
@@ -424,7 +423,7 @@ def covers_arithmetic(node):
 
 # Each check and the check that means its opposite.
 OPPOSITES = {"is": "is not", "exact": "not exact", "more": "at most", "less": "at least", "in": "not in",
-             "contains": "not contains", "starts": "not starts", "ends": "not ends"}
+             "contains": "not contains", "has": "not has", "starts": "not starts", "ends": "not ends"}
 OPPOSITES.update({b: a for a, b in list(OPPOSITES.items())})
 
 

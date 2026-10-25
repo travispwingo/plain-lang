@@ -141,9 +141,9 @@ class Numbers(unittest.TestCase):
                            {"big.json": '{"v": 12345678901234567890.123456789012}'})
         self.assertEqual("12345678901234567890.1234567890\nv is 12345678901234567890.1234567890\n", out)
 
-    def test_the_timer_rounds_halves_up_without_float_noise(self):      # running-20
-        out, _, _ = run_source('wait 0.25 seconds\nshow the timer\nwait 0.1 seconds\nwait 0.3 seconds\n'
-                               'show the timer\n')
+    def test_the_stopwatch_rounds_halves_up_without_float_noise(self):  # running-20
+        out, _, _ = run_source('wait 0.25 seconds\nshow the stopwatch\nwait 0.1 seconds\nwait 0.3 seconds\n'
+                               'show the stopwatch\n')
         self.assertEqual("0.3\n0.7\n", out)
 
     def test_waiting_too_long_is_a_message(self):                        # running-25

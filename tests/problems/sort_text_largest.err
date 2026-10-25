@@ -1,0 +1,7 @@
+sort_text_largest.plain, line 2, while running: Write "from Z to A" instead of "largest first".
+
+    sort names largest first
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+Try this:
+    sort names from Z to A
+Why: "largest first" is for numbers. Text goes in the order of the alphabet, so Plain sorts it from A to Z, or "from Z to A" for the other way.

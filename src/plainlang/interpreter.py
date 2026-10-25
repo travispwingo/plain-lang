@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 from . import nodes as N
-from .parser import HowToDef, Reader
+from .parser import HowToDef, Reader, start_of
 from .problems import Problem, things
 from .registry import Phrase
 from .suggest import MISNAMED_PHRASES
@@ -85,11 +85,13 @@ class Run:
         self.frames = []
         self.items = []          # the current item inside "where"
         self.problem_text = None
-        self.timer_start = host.clock()
+        self.stopwatch_start = host.clock()
         self.depth = 0
         self.came_from = {}      # name -> (line, how)
         self.current = None      # the step being run
+        self.check_line = None   # the line of the "otherwise if" check being worked out
         self.phrase_args = {}    # the written parts of the phrase being run, for messages
+        self.phrase_node = None  # the phrase being run, as a part of the line
 
     # Running ---------------------------------------------------------------------
 
@@ -115,7 +117,7 @@ class Run:
             self._exec(stmt)
         except Problem as problem:
             if problem.line is None:
-                problem.line = stmt.line
+                problem.line = self.line_now()
                 self.place_problem(problem, stmt)
             problem.running = True
             raise
@@ -124,6 +126,8 @@ class Run:
                 f"Make your step stop using itself before it goes {MAX_DEPTH} steps deep.",
                 f"A how-to can use itself, but only up to {MAX_DEPTH} times inside itself.",
                 line=stmt.line, running=True)
+        finally:
+            self.check_line = None
 
     def _exec(self, stmt):
         match stmt:
@@ -142,8 +146,12 @@ class Run:
                         GIVES.get(stmt.phrase.main.template.split()[0], "set")
                     self.note_source(target, stmt.line, how)
             case N.If():
-                for check, body in stmt.branches:
-                    if check is None or self.truth(check):
+                for index, (check, body) in enumerate(stmt.branches):
+                    if check is not None:
+                        self.check_line = stmt.branch_lines[index] if index < len(stmt.branch_lines) else None
+                        yes = self.truth(check)
+                        self.check_line = None
+                    if check is None or yes:
                         self.exec_body(body)
                         break
             case N.Repeat():
@@ -171,9 +179,13 @@ class Run:
             case N.ErrorBlock():
                 raise Problem("Fix this line before running.", line=stmt.line)
 
+    def line_now(self):
+        """The number of the line being run: an "otherwise if" line while its check is worked out."""
+        return self.check_line or (self.current.line if self.current is not None else None)
+
     def place_problem(self, problem, stmt):
         lines = self.program.source_lines
-        raw = lines[stmt.line - 1] if 0 < stmt.line <= len(lines) else ""
+        raw = lines[problem.line - 1] if 0 < problem.line <= len(lines) else ""
         if problem.col is None:
             spot = raw.find(problem.focus) if problem.focus else -1
             if spot >= 0:
@@ -186,19 +198,21 @@ class Run:
             if raw[start - 1:start] == "{" and raw[stop:stop + 1] == "}":   # a whole {…} piece
                 start, stop, joined = start - 1, stop + 1, joined[1:-1]
             line = (raw[:start] + joined + raw[stop:]).strip()
-            if self.line_works(stmt.line, line):
+            if self.line_works(problem.line, line):
                 problem.try_lines, problem.ideas = [line], [line]
         if problem.guard and not problem.try_lines and raw.strip() and not isinstance(stmt, (N.If, N.Repeat)):
             problem.try_lines = [f"if {problem.guard} is a number", "    " + raw.strip(), "otherwise",
                                  '    show "Please type a number."']
 
     def line_works(self, number, new_line):
-        """Whether the program still reads cleanly with new_line in place of line `number`."""
+        """Whether the program still reads cleanly with new_line in place of line `number`. A new
+        line can hold several lines, each lined up with the line it replaces."""
         lines = list(self.program.source_lines)
         if not 0 < number <= len(lines):
             return False
         old = lines[number - 1]
-        lines[number - 1] = old[:len(old) - len(old.lstrip())] + new_line
+        indent = old[:len(old) - len(old.lstrip())]
+        lines[number - 1:number] = [indent + part for part in new_line.split("\n")]
         return not Reader().read("\n".join(lines)).problems
 
     def exec_repeat(self, stmt):
@@ -267,7 +281,7 @@ class Run:
         phrase = stmt.phrase
         if isinstance(phrase.run, HowToDef):
             return self.call_howto(phrase.run, stmt.args)
-        return self.call_phrase(phrase, stmt.args)
+        return self.call_phrase(phrase, stmt.args, whole=stmt)
 
     def call_howto(self, howto, args):
         if self.depth >= MAX_DEPTH:
@@ -288,7 +302,7 @@ class Run:
             self.frames.pop()
         return None
 
-    def call_phrase(self, phrase, args, operand=MISSING, operand_node=None):
+    def call_phrase(self, phrase, args, operand=MISSING, operand_node=None, whole=None):
         values = {}
         written = dict(args)
         for slot in phrase.slots:
@@ -301,6 +315,7 @@ class Run:
                 continue
             values[slot.name] = self.slot_value(phrase, slot, node, written)
         self.phrase_args = written
+        self.phrase_node = whole     # the phrase as you wrote it, for messages that offer it another way
         try:
             return phrase.run(self, **values)
         except Problem:
@@ -526,10 +541,10 @@ class Run:
             case N.Field():
                 return self.field(node)
             case N.Value():
-                return self.call_phrase(node.phrase, node.args)
+                return self.call_phrase(node.phrase, node.args, whole=node)
             case N.Postfix():
                 return self.call_phrase(node.phrase, node.args, operand=self.eval(node.value),
-                                        operand_node=node.value)
+                                        operand_node=node.value, whole=node)
             case N.Where():
                 return self.where(node)
             case N.Compare():
@@ -650,12 +665,15 @@ class Run:
             "Adding only works with numbers. To put text together, write it all inside one pair of "
             "quotes, with each value in { }.", col=node.col, end=node.end, joined=joined)
 
-    def line_with(self, node, text):
-        """The line being run, with this part of it written another way."""
-        raw = self.program.source_lines[self.current.line - 1] if self.current is not None else ""
+    def line_with(self, node, text, article=False):
+        """The line being run, with this part of it written another way. With article, a "the"
+        or "a" left out in front of the part goes too."""
+        number = self.line_now()
+        raw = self.program.source_lines[number - 1] if number else ""
         if not raw or node.col is None:
             return text
-        return (raw[:node.col] + text + raw[node.end:]).rstrip()
+        col = start_of(raw, node.col) if article else node.col
+        return (raw[:col] + text + raw[node.end:]).rstrip()
 
     def typed(self, node):
         """Was this value typed as an answer (so it might be meant as a number)?"""
@@ -751,14 +769,13 @@ class Run:
                 return self.ordered(node, left, right) >= 0
             case "at most":
                 return self.ordered(node, left, right) <= 0
-            case "in":
-                return contains(right, left)
-            case "not in":
-                return not contains(right, left)
-            case "contains":
-                return contains(left, right)
-            case "not contains":
-                return not contains(left, right)
+            case "in" | "not in" | "contains" | "not contains":
+                whole, part = (right, left) if op.endswith("in") else (left, right)
+                if isinstance(whole, Record):
+                    raise self.contains_record_problem(node, whole, part)
+                return contains(whole, part) != op.startswith("not")
+            case "has" | "not has":
+                return self.has_field(node, left, right) != (op == "not has")
             case "starts" | "not starts" | "ends" | "not ends":
                 if not isinstance(left, str):
                     left = show_value(left)
@@ -767,6 +784,73 @@ class Run:
                 result = l.startswith(r) if op.endswith("starts") else l.endswith(r)
                 return result != op.startswith("not")
         raise Problem("Plain itself went wrong while comparing.")
+
+    def has_field(self, node, record, name):
+        """RECORD has TEXT: whether the record has a field with that name (change 3)."""
+        if isinstance(record, Record):
+            if isinstance(name, Decimal):
+                name = show_value(name)
+            if not isinstance(name, str):
+                raise Problem('Write the field name as text after "has", like "results".',
+                              f"{described(node.right, name)} is {kind_name(name)}, not the name of a field.",
+                              col=node.right.col, end=node.right.end)
+            return record.find(name) is not None
+        said = f'"{node.left.canonical()}"' if isinstance(node.left, N.Name) else quoted(record)
+        if is_table(record):
+            # if sales has "amount": a table is a list of rows, and each row has the fields.
+            rows = node.left.canonical()
+            line = self.line_with(node, f"the first item of {self.written(node.left)} "
+                                        f"{N.comparison_words(node.op)} {self.written(node.right)}", article=True)
+            raise Problem(f'Check one row of the table, like the first item of {rows}.',
+                          f'"has" checks whether a record has a field, and {said} is a table, a list of records.',
+                          col=node.left.col, end=node.left.end, try_lines=self.working([line]))
+        if isinstance(record, (str, list)):
+            words = N.comparison_words("not contains" if node.op == "not has" else "contains", node.plural)
+            line = self.line_with(node, f"{self.written(node.left)} {words} {self.written(node.right)}", article=True)
+            raise Problem(f'Write "{words}" to look inside {"text" if isinstance(record, str) else "a list"}.',
+                          f'"{N.comparison_words(node.op, node.plural)}" checks whether a record has a field '
+                          f'with that name, and {said} is {kind_name(record)}.',
+                          col=node.col, end=node.end, try_lines=self.working([line]))
+        raise Problem('Use "has" with a record, to check whether it has a field.',
+                      f"{said} is {kind_name(record)}, so it has no fields.", col=node.left.col, end=node.left.end)
+
+    def contains_record_problem(self, node, record, part):
+        """person contains "name": on a record, "has" checks for a field (change 3). When the text is
+        one of the record's values, checking that field is offered too."""
+        whole_node, part_node = (node.right, node.left) if node.op.endswith("in") else (node.left, node.right)
+        negative = node.op.startswith("not")
+        plural = node.plural and not node.op.endswith("in")
+        has = N.comparison_words("not has" if negative else "has", plural)
+        said = N.comparison_words(node.op, node.plural)
+        lines = [self.line_with(node, f"{self.written(whole_node)} {has} {self.written(part_node)}", article=True)]
+        field = next((key for key, value in record.data.items()
+                      if isinstance(part, (str, Decimal)) and not isinstance(value, (list, Record))
+                      and same(value, part)), None)
+        why = f'"{said}" looks inside text or a list. A record has fields, and "has" checks for a field by its name.'
+        fix = f'Write "{has}" to check whether a record has a field.'
+        if field is not None and not (isinstance(part, str) and record.find(part) is not None):
+            # person contains "Ann": Ann is the value of person's name, so that check comes first.
+            check = "is not" if negative else "is"
+            lines.insert(0, self.line_with(
+                node, f"{N.Field(whole_node, (field,), quoted=not plain_field(field)).canonical()} {check} "
+                      f"{self.written(part_node)}", article=True))
+            why += f' {quoted(part)} isn\'t a field of {described(whole_node, record)}. It\'s the value of its field "{field}".'
+            fix = f'Check the value of the field "{field}", or write "{has}" to check for a field.'
+        lines = self.working(lines)
+        return Problem(fix, why, col=node.col, end=node.end, try_lines=lines, choices=[[l] for l in lines])
+
+    def written(self, node):
+        """A part of the line being run, as you wrote it."""
+        number = self.line_now()
+        raw = self.program.source_lines[number - 1] if number else ""
+        if node.col is None or not raw:
+            return node.canonical()
+        return raw[start_of(raw, node.col):node.end]
+
+    def working(self, lines):
+        """The lines that would read cleanly in place of the line being run."""
+        number = self.line_now()
+        return [line.strip() for line in lines if number and self.line_works(number, line.strip())]
 
     def ordered(self, node, left, right):
         """order(left, right), with a message that uses your names."""
@@ -821,15 +905,27 @@ class Run:
 
 
 def phrase_label(phrase):
-    """The words that name a phrase in messages: "the words of", "in uppercase", "rounded to"."""
+    """The words that name a phrase in messages, as you wrote them: "the words of", "in capital
+    letters", "in uppercase", "rounded to"."""
     words = []
-    for part in phrase.main.template.split():
+    for part in phrase.template.split():
         if part.startswith("{"):
             if words:
                 break
         elif not part.startswith("["):
             words.append(part.split("|")[-1])
     return " ".join(words)
+
+
+def is_table(value):
+    return isinstance(value, list) and bool(value) and all(isinstance(v, Record) for v in value)
+
+
+def plain_field(key):
+    """Can this field be written after 's without quotes?"""
+    from .words import SPECIAL_WORDS
+    words = str(key).split()
+    return bool(words) and all(w.isalpha() and w.lower() not in SPECIAL_WORDS for w in words)
 
 
 def described(node, value):

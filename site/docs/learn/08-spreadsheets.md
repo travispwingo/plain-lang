@@ -119,7 +119,7 @@ date        customer  amount
 
 ## Sort the rows
 
-`sort sales by amount` puts the rows in order, smallest first. Add `largest first` to start with the biggest. Text columns sort from A to Z.
+`sort sales by amount` puts the rows in order, smallest first. Add `largest first` to start with the biggest. A column of text sorts from A to Z, and `from Z to A` goes the other way, as in `sort sales by customer from Z to A`.
 
 ```plain files=sales.csv
 read "sales.csv" and call it sales

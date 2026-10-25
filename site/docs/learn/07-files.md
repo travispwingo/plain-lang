@@ -72,7 +72,7 @@ Saw a fox.
 Planted beans.
 ```
 
-If the file isn't there yet, Plain makes it.
+If the file isn't there yet, Plain makes it. Add a list, and each item goes on a line of its own, just as `add` puts each item of a list on another list.
 
 ## Check that a file is there
 

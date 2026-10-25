@@ -242,12 +242,15 @@ def save(run, value: Value, file: Text) -> None:
 @step("add {value} to the file {file}", example='add "Saw a fox" to the file "diary.txt"',
       effects={"changes"}, topic=TOPIC)
 def add_to_file(run, value: Value, file: Text) -> None:
-    """Adds one line at the end of the file, and makes the file if needed."""
+    """Adds a line at the end of the file, or one line for each item of a list, and makes the file if needed."""
     path = path_for(run, file)
-    line = file_text(value)
+    if isinstance(value, list) and not is_table(value):
+        text = "".join(show_inline(item) + "\n" for item in value)    # like "add LIST to LIST": each item
+    else:
+        text = file_text(value) + "\n"
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "a", encoding="utf-8", newline="") as handle:
-        handle.write(line + "\n")
+        handle.write(text)
 
 
 @value("the file {file} exists", example='if the file "todos.txt" exists', topic=TOPIC)

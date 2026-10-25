@@ -64,15 +64,16 @@ def length(run, text: Value) -> Number:
     return Decimal(len(show_value(text)))
 
 
-@value("{text} in uppercase", "{text} in capitals", example='show "hello" in uppercase', topic=TOPIC)
-def uppercase(run, text: Text) -> Text:
-    """The same text in capital letters."""
+@value("{text} in capital letters", "{text} in capitals", "{text} in uppercase",
+       example='show "hello" in capital letters', topic=TOPIC)
+def capital_letters(run, text: Text) -> Text:
+    """The same text in capital letters: "hello" becomes "HELLO"."""
     return text.upper()
 
 
-@value("{text} in lowercase", example='show "HELLO" in lowercase', topic=TOPIC)
-def lowercase(run, text: Text) -> Text:
-    """The same text in small letters."""
+@value("{text} in small letters", "{text} in lowercase", example='show "HELLO" in small letters', topic=TOPIC)
+def small_letters(run, text: Text) -> Text:
+    """The same text in small letters: "HELLO" becomes "hello"."""
     return text.lower()
 
 

@@ -10,7 +10,7 @@ repeat for each kind in the different categories of budget
     set rows to budget where category is kind
     set category total to the total of the amounts of rows rounded to 2 places
     show "  {kind}: ${category total}"
-    set entry to a new record
+    set entry to an empty record
     set entry's category to kind
     set entry's total to category total
     add entry to summary

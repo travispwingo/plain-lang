@@ -2,11 +2,12 @@
 
 import copy
 import functools
+import re
 from decimal import Decimal
 
 from .. import nodes as N
 from ..problems import Problem, things
-from ..registry import Field, Items, List, Number, Place, Value, step, value
+from ..registry import REGISTRY, Field, Items, List, Number, Place, Value, step, value
 from ..values import (Quoted, Record, as_number, fit, kind_name, order, places, quoted, same,
                       show_value)
 
@@ -27,8 +28,8 @@ def empty_list(run) -> List:
     return []
 
 
-@value("a new record", example="set person to a new record", topic=TOPIC)
-def new_record(run) -> Value:
+@value("an empty record", "a new record", example="set person to an empty record", topic=TOPIC)
+def empty_record(run) -> Value:
     """A record with no fields yet. Add fields with: set person's name to "Ann"."""
     return Record()
 
@@ -129,10 +130,66 @@ def average(run, items: List) -> Number:
     return fit(result, max(places(n) for n in numbers))
 
 
+def is_table(value):
+    return isinstance(value, list) and bool(value) and all(isinstance(v, Record) for v in value)
+
+
+def kind_of(values):
+    """"numbers" when every value that's there is a number, "text" when every one is text that isn't
+    all numbers, and None for an empty or mixed list (comparing a mix already gets its own message)."""
+    present = [v for v in values if v is not None]
+    if not present:
+        return None
+    if all(as_number(v) is not None for v in present):
+        return "numbers"
+    if all(isinstance(v, str) for v in present):
+        return "text"
+    return None
+
+
+def text_extreme_problem(run, word):
+    """the largest of words: for text, "largest" could mean the longest or the last from A to Z (change 7).
+    Plain offers to sort the text, then take its first or last item."""
+    last = word == "largest"
+    items, node = run.phrase_args.get("items"), run.phrase_node
+    end, other = ("last", "first") if last else ("first", "last")
+    number = run.line_now()
+    raw = run.program.source_lines[number - 1] if number and node is not None and node.col is not None else ""
+    said = raw[node.col:].split()[0] if raw[node.col:].split() else word
+    word = said.lower() if said.isalpha() else word     # your word: "the biggest of"
+    choices = []
+    if node is None:
+        pass
+    elif isinstance(items, N.Name):
+        name = items.canonical()
+        choices = [[f"sort {name}", run.line_with(node, f"the {end} item of {name}", article=True)],
+                   [f"sort {name} from Z to A", run.line_with(node, f"the {other} item of {name}", article=True)]]
+    elif isinstance(items, N.Field) and isinstance(items.target, N.Name) and is_table(run.eval(items.target)):
+        # the largest of sales's customer: sort the table by that field.
+        table, field = items.target.canonical(), N.field_text(items.words, items.quoted)
+        column = N.arg_text(items)
+        choices = [[f"sort {table} by {field}", run.line_with(node, f"the {end} item of {column}", article=True)],
+                   [f"sort {table} by {field} from Z to A",
+                    run.line_with(node, f"the {other} item of {column}", article=True)]]
+    elif items is not None:
+        name = next(n for n in ("my list", "sorted list", "my sorted list") if tuple(n.split()) not in run.globals)
+        choices = [[f"set {name} to {N.arg_text(items, wrap_math=False)}", f"sort {name}",
+                    run.line_with(node, f"the {end} item of {name}", article=True)]]
+    choices = [[line.strip() for line in choice] for choice in choices]
+    choices = [c for c in choices if run.line_works(run.line_now(), "\n".join(c))]
+    return Problem(f"Sort the text first, then take its {'last' if last else 'first'} item.",
+                   f'"the {word} of" finds the {word} number. For text, "{word}" could mean the '
+                   f'{"longest" if last else "shortest"} text or the {"last" if last else "first"} one from A to Z, '
+                   'so Plain sorts text "from A to Z" or "from Z to A" instead.',
+                   try_lines=[line for c in choices for line in c], choices=choices)
+
+
 def extreme(run, items, sign, word):
     present = [item for item in items if item is not None]
     if not present:
         raise empty_problem(run, f"The list is empty, so there's no {word}.")
+    if kind_of(present) == "text":
+        raise text_extreme_problem(run, word)
     best = present[0]
     for item in present[1:]:
         if order(item, best) * sign > 0:
@@ -142,13 +199,13 @@ def extreme(run, items, sign, word):
 
 @value("the largest of {items}", example="show the largest of a list of 3, 9 and 4", topic=TOPIC)
 def largest(run, items: List) -> Value:
-    """The largest number, or the last text in A to Z order."""
+    """The largest number. For text, sort it and take the last item."""
     return extreme(run, items, 1, "largest")
 
 
 @value("the smallest of {items}", example="show the smallest of a list of 3, 9 and 4", topic=TOPIC)
 def smallest(run, items: List) -> Value:
-    """The smallest number, or the first text in A to Z order."""
+    """The smallest number. For text, sort it and take the first item."""
     return extreme(run, items, -1, "smallest")
 
 
@@ -268,8 +325,9 @@ def blanks_last(a, b):
     return order(a, b)
 
 
-def sort_key_order(items, key):
+def sort_key_order(run, items, key, reverse=False):
     keys = [key(item) for item in items]     # a missing field is a problem of its own
+    check_sort_words(run, keys)
     pairs = list(zip(keys, items))
     try:
         pairs.sort(key=functools.cmp_to_key(lambda a, b: blanks_last(a[0], b[0])))
@@ -277,6 +335,54 @@ def sort_key_order(items, key):
         problem.fix = "Check that the items are all numbers, or all text, before you sort them."
         raise
     items[:] = [item for _, item in pairs]
+    if reverse:
+        items.reverse()
+
+
+# Words that sort numbers by size, and words that sort text by the alphabet (change 7): the words
+# as a template has them, the kind of values they're for, and the wording to offer for the other kind.
+SORT_WORDS = {
+    "smallest first": ("numbers", ""),
+    "largest first": ("numbers", "from Z to A"),
+    "from A to Z": ("text", ""),
+    "from Z to A": ("text", "largest first"),
+}
+
+
+def check_sort_words(run, keys):
+    """sort names largest first: "largest" and "smallest" are for numbers, and "A to Z" for text."""
+    node = run.phrase_node
+    if not isinstance(node, N.Step):
+        return
+    template = node.phrase.template
+    said = next((words for words in SORT_WORDS if template.endswith(" " + words)), None)
+    kind = kind_of(keys)
+    if said is None or kind is None or kind == SORT_WORDS[said][0]:
+        return
+    offer = SORT_WORDS[said][1]
+    base = template[:-len(said)].strip()
+    # Your own words for it, like "biggest first": the last words of the step, before any note.
+    items = node.args.get("items")
+    raw = run.program.source_lines[node.line - 1]
+    tail = raw[items.end:] if items is not None and items.end is not None else raw
+    yours = re.findall(r"[A-Za-z]+", tail.split("#")[0])[-len(said.split()):]
+    if len(yours) == len(said.split()):
+        said = " ".join(yours)
+    wording = f"{base} {offer}".strip()
+    phrase = next(p for p in REGISTRY if p.template == wording)
+    args = {k: N.field_text(v, isinstance(v[0], Quoted)) if isinstance(v, tuple) else N.arg_text(v, wrap_math=False)
+            for k, v in node.args.items()}
+    line = phrase.render(args)
+    lines = [line] if run.line_works(node.line, line) else []
+    if kind == "text":
+        why = (f'"{said}" is for numbers. Text goes in the order of the alphabet, so Plain sorts it '
+               'from A to Z, or "from Z to A" for the other way.')
+    else:
+        why = (f'"{said}" is for text. Numbers go by size, so Plain sorts them smallest first, or '
+               '"largest first" for the other way.')
+    fix = f'Write "{offer}" instead of "{said}".' if offer else \
+        f'Leave out "{said}" to sort {"text from A to Z" if kind == "text" else "numbers smallest first"}.'
+    raise Problem(fix, why, try_lines=lines)
 
 
 def field_getter(field):
@@ -290,31 +396,41 @@ def field_getter(field):
     return get
 
 
-@step("sort {items}", "sort {items} smallest first", example="sort names", topic=TOPIC)
+@step("sort {items}", "sort {items} smallest first", "sort {items} from A to Z", example="sort names", topic=TOPIC)
 def sort(run, items: List) -> None:
-    """Sorts the list, smallest first. Text sorts A to Z, ignoring capitals."""
-    sort_key_order(items, lambda x: x)
+    """Sorts the list: numbers smallest first, and text from A to Z, ignoring capitals."""
+    sort_key_order(run, items, lambda x: x)
 
 
 @step("sort {items} largest first", example="sort scores largest first", topic=TOPIC)
 def sort_largest(run, items: List) -> None:
-    """Sorts the list, largest first."""
-    sort_key_order(items, lambda x: x)
-    items.reverse()
+    """Sorts a list of numbers, largest first."""
+    sort_key_order(run, items, lambda x: x, reverse=True)
 
 
-@step("sort {items} by {field}", "sort {items} by {field} smallest first", example="sort sales by amount",
-      topic=TOPIC)
+@step("sort {items} from Z to A", example="sort names from Z to A", topic=TOPIC)
+def sort_z_to_a(run, items: List) -> None:
+    """Sorts a list of text from Z to A, ignoring capitals."""
+    sort_key_order(run, items, lambda x: x, reverse=True)
+
+
+@step("sort {items} by {field}", "sort {items} by {field} smallest first", "sort {items} by {field} from A to Z",
+      example="sort sales by amount", topic=TOPIC)
 def sort_by(run, items: List, field: Field) -> None:
-    """Sorts a table by one field, smallest first."""
-    sort_key_order(items, field_getter(field))
+    """Sorts a table by one field: numbers smallest first, and text from A to Z."""
+    sort_key_order(run, items, field_getter(field))
 
 
 @step("sort {items} by {field} largest first", example="sort sales by amount, largest first", topic=TOPIC)
 def sort_by_largest(run, items: List, field: Field) -> None:
-    """Sorts a table by one field, largest first."""
-    sort_key_order(items, field_getter(field))
-    items.reverse()
+    """Sorts a table by a field of numbers, largest first."""
+    sort_key_order(run, items, field_getter(field), reverse=True)
+
+
+@step("sort {items} by {field} from Z to A", example="sort sales by customer from Z to A", topic=TOPIC)
+def sort_by_z_to_a(run, items: List, field: Field) -> None:
+    """Sorts a table by a field of text, from Z to A."""
+    sort_key_order(run, items, field_getter(field), reverse=True)
 
 
 @step("reverse {items}", example="reverse names", topic=TOPIC)

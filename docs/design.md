@@ -36,6 +36,14 @@ Notes from building it (these also win over the spec):
 - **`where` after the words of a text is a problem (change 16).** When the value just before `where` fills the text slot of `the words of`, `the lines of`, `the characters of` or `split by`, Plain offers `(the words of story) where …` and a two-step version. Amendment 4 itself is unchanged.
 - **The lines of a file name is a problem (change 17).** `the lines of`, `the words of` or `the characters of` with written text that ends in .txt, .csv or .json, or starts with https://, offers `read the lines of "todos.txt" and call it todos` (or `read` then the phrase on that name) and the text version with the text under a name first.
 - **A how-to can't start with please, now, then, next, first or finally (change 24).** The header gets "Start your own step with a different word." and offers it without that word; the step is kept without it, so the lines that use it don't pile up problems.
+- **`has` checks for a field, and `contains` only looks inside (change 3).** `if reply has "results"` and `if person does not have "age"` are the field checks (`have` and `do not have` after a plural name, as in change 6). `has` and `have` are special words. `contains`, `is in` and their "not" forms on a record are a problem while running that offers `has`, checked to read in place; when the text is one of the record's values, the message says so and first offers that field's check (`person's name is "Ann"`). `has` on text or a list offers `contains`, and on a table it offers one row (`the first item of sales has "amount"`). examples/weather.plain names the reply `reply`: `if reply has "results"`.
+- **`largest` and `smallest` are for numbers, `A to Z` for text (change 7).** New steps `sort LIST from Z to A` and `sort TABLE by FIELD from Z to A`; `from A to Z` is accepted as `sort LIST`. On text, `the largest of` and `the smallest of` are a problem while running that offers sorting and then `the last item of` or `the first item of` (for a column, `sort sales by customer`; for a worked-out list, `set my list to …` first). `largest first` and `smallest first` on text offer `from Z to A` or plain `sort`, and `from Z to A` / `from A to Z` on numbers offer `largest first` or plain `sort`. A mixed list keeps its own message. A template keeps an article that a line keeps (at the end, or before a special word), so `from Z to A` matches.
+- **`the stopwatch` and `start the stopwatch` (change 10).** `timer` is an offered fix, not accepted: `the timer` (also inside `{ }`) offers `the stopwatch`, checked to read, because a timer counts down. `stopwatch` is the reserved built-in value instead of `timer`, so `timer` can be your own name. examples/reaction.plain is titled "Reaction time".
+- **`an empty record` is the main wording (change 11).** `a new record` is accepted, and explain and tidy show `an empty record`.
+- **Accepted older wordings show in main words everywhere.** explain shows the main wording of every phrase written another way, and tidy rewrites the phrase's own words: `a random number between 1 and 6` becomes `from 1 to 6`, `rounded to 2 decimals` becomes `2 places`, and `sort names smallest first` loses `smallest first` ("deleted smallest first" in tidy's list). Messages still quote the words you wrote (`"in uppercase" needs text`).
+- **`add LIST to the file FILE` adds one line for each item (change 30, Travis's call),** like `add LIST to LIST`; a table still adds its lined-up rows. `add "milk" to "shopping.txt"` (written text ending in a file ending) offers `add "milk" to the file "shopping.txt"`.
+- **`in capital letters` and `in small letters` are the main wordings (change 27, Travis's call).** `in capitals`, `in uppercase` and `in lowercase` are accepted, and explain and tidy show the main wording.
+- **A problem in an `otherwise if` check names that line,** not the `if` line above it, so fixes offered while running fit the line they're for.
 
 ## Part 1: Amendments
 
@@ -62,7 +70,7 @@ Notes from building it (these also win over the spec):
     - `rounded to 2 [decimal] places`;
     - `the characters of TEXT`, which replaces `letters`;
     - negative checks: `does not contain`, `is not in`, `does not start/end with`, `does not exist`;
-    - `contains` on a record checks whether it has a field;
+    - `has` checks whether a record has a field (change 3; `contains` on a record is a problem);
     - `the files in FOLDER` and `rename FILE to FILE`;
     - `a copy of VALUE`.
 16. **Text comparisons** (`is`, `contains`, `is in`, `starts/ends with`, `where`, `remove`, choices, `different`, `sort`) all ignore capitals and spaces at either end. `is exactly` is the strict form, and `replace` matches exactly. `price plus 8%` is a problem that offers `8% of price` or `0.08`.
@@ -376,7 +384,7 @@ A how-to gets the very list you hand it, so removing an item from `tasks` also r
 
     `and or not is to from by in of with as than then where it its plus minus times divided rounded percent split joined contains starts ends exists yes no nothing true false`, plus the number words.
   - Words like `number`, `total`, `item`, `list`, `random`, `file` and `time` are **not** Plain words. They only mean something inside their phrases (`the number of`, `a random number from`). If a run of words fits both one of your names and a Plain phrase, Plain stops and asks you to rename (rule R8). It never picks.
-  - These cannot be names because they are built-in values: `problem`, `timer`, `time now`, `date today`.
+  - These cannot be names because they are built-in values: `problem`, `stopwatch`, `time now`, `date today`.
 - **Keeping a value:**
   - `set NAME to VALUE` keeps a value you work out.
   - `STEP and call it NAME` keeps what a step gives back: `ask`, `read`, `send` and your how-tos. `and call them NAME` also works.
@@ -392,7 +400,7 @@ A how-to gets the very list you hand it, so removing an item from `tasks` also r
 - **Showing a list:** `show colors` shows `red, green and blue`. An empty list shows `(empty list)`.
 
 ### 3.7 Records and tables
-- **Records.** A record has named fields. You get one from a CSV row, from a JSON object, or by writing `a new record`.
+- **Records.** A record has named fields. You get one from a CSV row, from a JSON object, or by writing `an empty record`.
 - **Tables.** A table is a list of records. `show sales` shows lined-up columns: the first 20 rows, then "…and 80 more".
 - **Reading a field:**
   - `sale's amount` is the main form. `the amount of sale` also works.
@@ -441,7 +449,8 @@ Plain follows school order: times and divide come before plus and minus, and bra
 | `A is less than B` | `is under`, `is below`, `is smaller/fewer/lower than`, `<` |
 | `A is at least B` / `A is at most B` | `>=`, `≥`, `is no less than` / `<=`, `≤`, `is no more than` |
 | `A is between B and C` | Both ends count. It uses up exactly one `and`. |
-| `A contains B`, `A is in B`, `A starts with B`, `A ends with B` | |
+| `A contains B`, `A is in B`, `A starts with B`, `A ends with B` | For text and lists. |
+| `A has B` (A is a record, B a field name) | `does not have` |
 | `A is empty`, `A is a number`, `A is a whole number`, `A is text`, `A is a list`, `A is even`, `A is odd`, `A is divisible by B` | Each also works with `is not`. |
 
 - **Logic:** `not` binds tightest, then `and`, then `or`. Brackets group.
@@ -534,8 +543,8 @@ Placeholders: VALUE, TEXT, NUMBER, LIST, TABLE, FIELD, NAME, CHECK (a question w
 **Time and chance** (`phrases/screen.py`)
 | Phrase | What it does | You can also write |
 |---|---|---|
-| `start the timer` | Starts the stopwatch again from 0. | |
-| `the timer` | Seconds since `start the timer`, or since the program began, to 1 decimal place. | |
+| `start the stopwatch` | Starts the stopwatch again from 0. | |
+| `the stopwatch` | Seconds since `start the stopwatch`, or since the program began, to 1 decimal place. | |
 | `the time now` / `the date today` | Text like `"14:05"` / `"2026-10-23"`. | |
 | `a random number from A to B` | A whole number from A to B, both ends included. | between A and B |
 | `a random item from LIST` | One item, picked by chance. | |
@@ -548,7 +557,7 @@ Placeholders: VALUE, TEXT, NUMBER, LIST, TABLE, FIELD, NAME, CHECK (a question w
 | `N% of VALUE` | For example `15% of bill`. | N percent of |
 | `VALUE as a number` / `VALUE as text` | Changes the kind of value. Text that isn't a number is a problem. | |
 | `the length of TEXT` | How many letters, spaces and signs. | |
-| `TEXT in uppercase` / `TEXT in lowercase` | New text in capitals or small letters. | in capitals |
+| `TEXT in capital letters` / `TEXT in small letters` | New text in capital letters or small letters. | in capitals, in uppercase, in lowercase |
 | `the words of TEXT`, `the lines of TEXT`, `the letters of TEXT` | A list. | |
 | `TEXT split by TEXT` / `LIST joined with TEXT` | Splits text into a list, or joins a list into one text. | |
 | `replace TEXT with TEXT in NAME` | Changes every match in the text kept under NAME. | |
@@ -556,15 +565,15 @@ Placeholders: VALUE, TEXT, NUMBER, LIST, TABLE, FIELD, NAME, CHECK (a question w
 **Lists and tables** (`phrases/lists.py`)
 | Phrase | What it does | You can also write |
 |---|---|---|
-| `a list of A, B and C`, `an empty list`, `a new record` | Makes a list or a record. | |
+| `a list of A, B and C`, `an empty list`, `an empty record` | Makes a list or a record. | a new record |
 | `item N of LIST`, `the first item of LIST`, `the last item of LIST`, `the first N items of LIST` | Gets items by position, starting at 1. | |
 | `the number of LIST` | How many items. | |
-| `the total of LIST`, `the average of LIST`, `the largest of LIST`, `the smallest of LIST` | Adds up, averages, or finds the largest or smallest. | sum, mean, biggest, highest, lowest |
+| `the total of LIST`, `the average of LIST`, `the largest of LIST`, `the smallest of LIST` | Adds up, averages, or finds the largest or smallest number. | sum, mean, biggest, highest, lowest |
 | `the FIELDs of TABLE` | One column as a list, as in `the amounts of sales`. | |
 | `LIST where CHECK` | The items or rows for which the check is yes. | |
 | `add VALUE to LIST` | Puts the value at the end. | |
 | `remove VALUE from LIST` / `remove item N from LIST` | Removes the first match / the item at position N. | delete |
-| `sort LIST`, `sort LIST by FIELD`, plus `largest first` | Sorts in place, smallest first by default. Text sorts A to Z, ignoring capitals. | biggest first |
+| `sort LIST`, `sort LIST by FIELD`, plus `largest first` (numbers) or `from Z to A` (text) | Sorts in place: numbers smallest first, text A to Z, ignoring capitals. | biggest first, from A to Z |
 | `reverse LIST` | Reverses in place. | |
 
 **Files** (`phrases/files.py`)
@@ -573,7 +582,7 @@ Placeholders: VALUE, TEXT, NUMBER, LIST, TABLE, FIELD, NAME, CHECK (a question w
 | `read FILE and call it NAME` | `.csv` gives a table, `.json` gives records and lists, and anything else gives text. | load, open, fetch, download | reads a file |
 | `read the lines of FILE and call it NAME` | A list with one item per line. | | reads a file |
 | `save VALUE to FILE` | Replaces the file. A table is saved as `.csv`, `.json` gets JSON, a list gets one item per line, and anything else is saved as text. | write, store | changes a file |
-| `add VALUE to the file FILE` | Adds one line at the end, and makes the file if needed. | | changes a file |
+| `add VALUE to the file FILE` | Adds one line at the end (one line for each item of a list), and makes the file if needed. | | changes a file |
 | `the file FILE exists` | Yes or no. | | |
 
 **The web** (`phrases/web.py`)

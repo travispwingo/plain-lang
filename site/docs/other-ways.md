@@ -8,6 +8,8 @@ Plain understands these too. Each one means exactly the same as the main wording
 - `isn't` is read as `is not`.
 - `bill * rate` is read as `bill times rate`.
 - `display` and `load` are read as `show` and `read`.
+- `a new record` is read as `an empty record`.
+- `in capitals` and `in uppercase` are read as `in capital letters`, and `in lowercase` as `in small letters`.
 - `if answer is "y" or "yes"` is read as `if answer is "y" or answer is "yes"`.
 - `if age is more than 12 and less than 20` is read as `if age is more than 12 and age is less than 20`.
 - `for each sale in sales` is read as `repeat for each sale in sales`.

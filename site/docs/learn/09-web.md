@@ -31,6 +31,23 @@ Use `'s` to get each piece of a reply. The weather service answers in **JSON**, 
 
 Capitals don't matter, and a space works the same as `_`, just as with column names. Not sure what a reply holds? Show it, as the first `show` above does, and you'll see the name of every piece.
 
+To check whether a reply has a piece before you use it, write `has`, or `does not have`:
+
+```plain web=09-weather
+read "https://api.open-meteo.com/v1/forecast?latitude=51.51&longitude=-0.13&current=temperature_2m,wind_speed_10m" and call it weather
+if weather has "current"
+    show "It's {weather's current's temperature 2m}°C."
+if weather does not have "daily"
+    show "This reply has no daily forecast."
+```
+
+```output
+It's 12.4°C.
+This reply has no daily forecast.
+```
+
+`has` checks the names of the pieces. To look inside text or a list, write `contains`.
+
 ## Put your own values into an address
 
 Put a name in `{ }` inside the address, the same way you put a value into any text. This example uses JSONPlaceholder, a free practice website full of made-up people:
@@ -82,10 +99,10 @@ Without `try`, the program would stop at that line and show the message. With `t
 
 ## Send data to a website
 
-`send` hands a value to a website. A record or a list goes as JSON, and anything else goes as text. The website's reply comes back the same way `read` gives it. Here, `a new record` makes an empty record, and `set note's title to "Buy milk"` puts a value in it under the name `title`:
+`send` hands a value to a website. A record or a list goes as JSON, and anything else goes as text. The website's reply comes back the same way `read` gives it. Here, `an empty record` makes a record with nothing in it yet, and `set note's title to "Buy milk"` puts a value in it under the name `title`:
 
 ```plain web=09-send
-set note to a new record
+set note to an empty record
 set note's title to "Buy milk"
 set note's done to no
 send note to "https://jsonplaceholder.typicode.com/posts" and call it reply
@@ -128,4 +145,4 @@ Press **Try it** on any example above, then change it:
 - Show the weather somewhere else. Find your town's latitude and longitude on a map, and put them in the address.
 - Show person 3's email and the name of their company: `person's company's name`.
 - Put the weather example under `try`, and show a friendly message if it fails. Then turn off your internet and run it.
-- Look up a city by name. Ask for the city, then read `https://geocoding-api.open-meteo.com/v1/search?name={city}&count=1`. The reply's `results` is a list, and its first item has the city's `latitude` and `longitude`.
+- Look up a city by name. Ask for the city, then read `https://geocoding-api.open-meteo.com/v1/search?name={city}&count=1`. The reply's `results` is a list, and its first item has the city's `latitude` and `longitude`. When no city matches, the reply has no `results`, so check with `if reply has "results"` first.

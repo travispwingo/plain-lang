@@ -11,7 +11,7 @@ Templates are written the way you'd say them, articles included ("a random numbe
 import inspect
 from dataclasses import dataclass, field
 
-from .words import ARTICLES, INFLECTIONS, SYNONYMS
+from .words import ARTICLES, INFLECTIONS, SPECIAL_WORDS, SYNONYMS
 
 
 class Value:      """Any value."""
@@ -101,17 +101,26 @@ CORE_FORMS: list[dict] = []
 
 def compile_template(template, kinds):
     elements = []
-    for part in template.split():
+    parts = template.split()
+    for k, part in enumerate(parts):
         if part.startswith("{"):
             name = part.strip("{}")
             elements.append(Slot(name, kinds.get(name, "value")))
         elif part.startswith("["):
             elements.append(Word(tuple(part.strip("[]").lower().split("|")), optional=True))
+        elif part.lower() in ARTICLES and kept_article(parts[k + 1] if k + 1 < len(parts) else None):
+            elements.append(Word((part.lower(),)))    # "from Z to A": Plain keeps an "a" before "to"
         elif part.lower() in ARTICLES:
             continue
         else:
             elements.append(Word(tuple(part.lower().split("|"))))
     return tuple(elements)
+
+
+def kept_article(after):
+    """Plain leaves out "a", "an" and "the" only before an ordinary word (amendment 10), so a
+    template keeps one at the end or before one of Plain's special words, as a line does."""
+    return after is None or (not after.startswith("{") and after.lower() in SPECIAL_WORDS | ARTICLES)
 
 
 def register(kind, templates, func, example, effects, topic):

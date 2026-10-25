@@ -25,7 +25,7 @@ MAX_WORDS = 40
 MAX_PARTS = 100     # words, numbers, texts and signs in one line (commas between items don't count)
 MAX_DEPTH = 20      # brackets inside brackets
 MAX_READINGS = 16
-RESERVED_NAMES = {("problem",): "the problem", ("timer",): "the timer",
+RESERVED_NAMES = {("problem",): "the problem", ("stopwatch",): "the stopwatch",
                   ("time", "now"): "the time now", ("date", "today"): "the date today"}
 
 
@@ -1178,6 +1178,29 @@ def trailing_postfix(check):
             return node if isinstance(node, N.Postfix) else None
 
 
+def template_runs(template):
+    """A template's words between its slots: "sort {items} by {field}" gives [sort], [by] and []."""
+    runs = [[]]
+    for part in template.split():
+        if part.startswith("{"):
+            runs.append([])
+        else:
+            runs[-1].append(part)
+    return runs
+
+
+def render_run(parts, before):
+    """Words from a template as a line shows them: no optional words, and "place|places" agreeing
+    with the number before them."""
+    out = []
+    for part in parts:
+        if part.startswith("["):
+            continue
+        alts = part.split("|")
+        out.append(alts[0] if before in ("1", "one") else alts[-1])
+    return " ".join(out)
+
+
 def start_of(raw, col):
     """Where a part of a line starts, counting a "the", "a" or "an" Plain left out in front of it
     (it leaves one out only before a word)."""
@@ -1357,7 +1380,7 @@ def name_problem(words, line=None, col=None, end=None):
 
 def keeps_name(words):
     """Plain keeps a name it reported, so later lines don't pile up problems, unless the name
-    has no ordinary word (one) or is a value Plain already has (timer)."""
+    has no ordinary word (one) or is a value Plain already has (stopwatch)."""
     return words not in RESERVED_NAMES and any(w not in SPECIAL_WORDS for w in words)
 
 
@@ -1665,7 +1688,7 @@ class LineReader:
         else:
             readings = good
         phrase, args, fixed, syn = readings[0]
-        self.synonym_edits += [(self.t[k].col, self.t[k].end, main) for k, main in syn]
+        self.synonym_edits += self.tidy_edits(phrase, fixed, syn)
         return N.Step(phrase, args, line=line.number)
 
     def step_tie(self, a, b, line, why):
@@ -1814,7 +1837,7 @@ class LineReader:
             base = tuple(name_word(t) for t in toks[:poss])
             if None not in base and base not in self.names:
                 record = " ".join(base)
-                raise Problem(f'Set "{record}" to a new record first, like: set {record} to a new record',
+                raise Problem(f'Set "{record}" to an empty record first, like: set {record} to an empty record',
                               f'"{record}" has no value yet, so it has no fields to set.', col=col, end=end)
         raise Problem(
             "Write a name here, like score, or a field, like sale's amount.",
@@ -2184,7 +2207,7 @@ class LineReader:
                             out.append(bad[0])
                             continue
                         node = N.Postfix(phrase, operand, args, col=self.t[i].col, end=self.t[j - 1].end)
-                        node.syn = [(self.t[k].col, self.t[k].end, main) for k, main in syn]
+                        node.syn = self.tidy_edits(phrase, fixed, syn)
                         out.append(node)
         return out
 
@@ -2235,7 +2258,7 @@ class LineReader:
                             out.append(bad[0])
                             continue
                         node = self.value_node(phrase, args, col, end)
-                        node.syn = [(self.t[k].col, self.t[k].end, main) for k, main in syn]
+                        node.syn = self.tidy_edits(phrase, fixed, syn)
                         out.append(node)
         # the amounts of sales (a field of a record, or a column of a table).
         # A phrase covering the same words wins over this reading.
@@ -2269,6 +2292,43 @@ class LineReader:
                     for base in bases:
                         out.append(c if isinstance(c, N.Bad) else N.Where(base, c, col=col, end=end))
         return out
+
+    def tidy_edits(self, phrase, fixed, syn):
+        """The edits plain tidy makes to a phrase: each synonym becomes its main word, and an
+        accepted older wording ("a new record", "in capitals") becomes the main wording."""
+        edits = [(self.t[k].col, self.t[k].end, main) for k, main in syn]
+        if phrase.main is phrase or self.line is None:
+            return edits
+        runs, mains = template_runs(phrase.template), template_runs(phrase.main.template)
+        if len(runs) != len(mains):
+            return edits
+        groups, index = [], sorted(fixed)
+        for k in index:
+            if groups and groups[-1][-1] == k - 1:
+                groups[-1].append(k)
+            else:
+                groups.append([k])
+        if len(groups) != sum(1 for run in runs if run):
+            return edits
+        raw, out, g = self.line.raw, [], 0
+        for run, main in zip(runs, mains):
+            if not run:
+                continue
+            group = groups[g]
+            g += 1
+            last = self.t[group[-1]]
+            start = self.article_col(group[0])
+            said = raw[:start].split()
+            text = render_run(main, said[-1] if said else "")    # "1 place", "2 places"
+            if raw[start:last.end].lower() == text.lower():
+                continue
+            if not text:        # "sort names smallest first": the words go, with the space or comma before them
+                if group[0] == 0:
+                    return edits
+                start = self.t[group[0] - 1].end
+            edits = [e for e in edits if not (start <= e[0] and e[1] <= last.end)]
+            out.append((start, last.end, text))
+        return edits + out
 
     def article_col(self, i):
         """Where the words at token i begin in the line, counting a "the" or "a" left out before them."""
@@ -2393,7 +2453,7 @@ def dedupe(readings):
 
 def elision_problem(comp, op):
     said = 'After "is not" or "between"'
-    if isinstance(comp, N.Compare) and comp.op in ("not contains", "not starts", "not ends"):
+    if isinstance(comp, N.Compare) and comp.op in ("not contains", "not has", "not starts", "not ends"):
         said = 'After "does not"'
     return Problem(f'Write the whole check again after "{op}", so it has only one meaning.',
                    f"{said}, leaving out the first part could mean two different things.")

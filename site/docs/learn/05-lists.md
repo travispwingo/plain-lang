@@ -81,7 +81,7 @@ bread and jam
 
 ## Sort a list
 
-`sort` puts the list in order, smallest first. Add `largest first` to go the other way. Text sorts from A to Z:
+`sort` puts the list in order. Numbers go smallest first, and `largest first` goes the other way. Text goes from A to Z, and `from Z to A` goes the other way:
 
 ```plain
 set scores to a list of 72, 95, 58 and 88
@@ -92,12 +92,15 @@ show scores
 set names to a list of "Cy", "Ann" and "Bo"
 sort names
 show names
+sort names from Z to A
+show names
 ```
 
 ```output
 58, 72, 88 and 95
 95, 88, 72 and 58
 Ann, Bo and Cy
+Cy, Bo and Ann
 ```
 
 `sort` changes the list itself, so it stays sorted afterwards.
@@ -120,6 +123,8 @@ Average: 78.25
 Best: 95
 Worst: 58
 ```
+
+`the largest of` and `the smallest of` are for numbers. For a list of text, sort it, then take its first or last item.
 
 ## Pick out the items you want
 

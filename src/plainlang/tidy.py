@@ -210,11 +210,15 @@ def tidy(text, program):
     for number, level in depth.items():
         raw = lines[number - 1]
         new = raw
+        said = []
         for col, end, word in sorted(resolve(raw, edits.get(number, [])), reverse=True):
             old = new[col:end]
             if old.lower() != word:
-                changes.append(f"line {number}   {old} → {word}")
+                # "sort names smallest first" becomes "sort names": those words go.
+                said.append(f"line {number}   {old} → {word}" if word else
+                            f"line {number}   deleted {old.strip(' ,')}")
                 new = new[:col] + word + new[end:]
+        changes += reversed(said)
         body = new.lstrip(" \t")
         if number in bare_loops:
             first = body.split()[0]

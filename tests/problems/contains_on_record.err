@@ -1,0 +1,9 @@
+contains_on_record.plain, line 3, while running: Check the value of the field "name", or write "has" to check for a field.
+
+    if person contains "Ann"
+       ^^^^^^^^^^^^^^^^^^^^^
+Try one of these:
+    if person's name is "Ann"
+  or
+    if person has "Ann"
+Why: "contains" looks inside text or a list. A record has fields, and "has" checks for a field by its name. "Ann" isn't a field of "person". It's the value of its field "name".

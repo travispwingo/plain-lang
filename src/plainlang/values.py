@@ -285,10 +285,8 @@ def contains(whole, part):
         return part.strip().casefold() in whole.casefold()
     if isinstance(whole, list):
         return any(same(item, part) for item in whole)
-    if isinstance(whole, Record):
-        return isinstance(part, str) and whole.find(part) is not None
     raise Problem(
-        "Use contains with text, a list or a record.",
+        "Use contains with text or a list.",
         f"{quoted(whole)} is {kind_name(whole)}, so it can't contain anything.")
 
 

@@ -1,0 +1,7 @@
+has_on_list.plain, line 2, while running: Write "contains" to look inside a list.
+
+    if todos has "milk"
+       ^^^^^^^^^^^^^^^^
+Try this:
+    if todos contains "milk"
+Why: "has" checks whether a record has a field with that name, and "todos" is a list.

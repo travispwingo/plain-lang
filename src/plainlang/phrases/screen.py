@@ -72,16 +72,16 @@ def clear_screen(run) -> None:
     run.host.clear()
 
 
-@step("start the timer", example="start the timer", topic=TOPIC_TIME)
-def start_timer(run) -> None:
+@step("start the stopwatch", example="start the stopwatch", topic=TOPIC_TIME)
+def start_stopwatch(run) -> None:
     """Starts the stopwatch again from 0."""
-    run.timer_start = run.host.clock()
+    run.stopwatch_start = run.host.clock()
 
 
-@value("the timer", example="show the timer", topic=TOPIC_TIME)
-def timer(run) -> Number:
-    """Seconds since "start the timer", or since the program began, to 1 decimal place."""
-    seconds = Decimal(repr(round(run.host.clock() - run.timer_start, 6)))    # no float noise
+@value("the stopwatch", example="show the stopwatch", topic=TOPIC_TIME)
+def stopwatch(run) -> Number:
+    """Seconds since "start the stopwatch", or since the program began, to 1 decimal place."""
+    seconds = Decimal(repr(round(run.host.clock() - run.stopwatch_start, 6)))    # no float noise
     return seconds.quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
 
 

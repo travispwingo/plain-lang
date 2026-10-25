@@ -8,9 +8,9 @@ repeat forever
     if city is empty
         stop repeating
     try
-        read "https://geocoding-api.open-meteo.com/v1/search?name={city}&count=1" and call it places
-        if places contains "results"
-            set place to the first item of places's results
+        read "https://geocoding-api.open-meteo.com/v1/search?name={city}&count=1" and call it reply
+        if reply has "results"
+            set place to the first item of reply's results
             read "https://api.open-meteo.com/v1/forecast?latitude={place's latitude}&longitude={place's longitude}&current=temperature_2m" and call it forecast
             show "It's {forecast's current's temperature 2m}°C in {place's name}, {place's country}."
         otherwise

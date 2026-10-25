@@ -1,0 +1,4 @@
+set person to an empty record
+set person's name to "Ann"
+if person contains "Ann"
+    show "Found Ann."

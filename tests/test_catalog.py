@@ -19,8 +19,8 @@ set prices to a list of 1.50 and 2.25
 set cards to a list of 1, 2, 3 and 4
 read "sales.csv" and call it sales
 read "expenses.csv" and call it expenses
-set person to a new record
-set message to a new record
+set person to an empty record
+set message to an empty record
 set message's text to "hi"
 set story to "the cat sat"
 set notes to "hello"

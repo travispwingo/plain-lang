@@ -1,0 +1,4 @@
+start the timer
+wait 1 second
+show "That took {the timer} seconds."
+set reaction to the timer

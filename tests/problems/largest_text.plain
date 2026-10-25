@@ -1,0 +1,2 @@
+set words to the words of "zoo elephant ant"
+show "Biggest word: {the largest of words}"

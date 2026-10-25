@@ -1,7 +1,7 @@
 repeat for each n from 3 down to 1
     show n
     wait 1 second
-show "Go! That took {the timer} seconds."
+show "Go! That took {the stopwatch} seconds."
 set todos to an empty list
 repeat for each n from 1 to the number of todos
     show "never shown"

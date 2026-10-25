@@ -1,0 +1,9 @@
+add_to_file_name.plain, line 1: Write "the file" before "shopping.txt" to add to that file.
+
+    add "milk" to "shopping.txt"
+                  ^^^^^^^^^^^^^^
+Try this:
+    add "milk" to the file "shopping.txt"
+Why: "add" puts an item at the end of a list, or adds to a number. With "the file", it adds a line at the end of a file.
+
+Plain found 1 thing to fix, so it hasn't run your program yet.

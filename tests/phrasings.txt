@@ -184,3 +184,48 @@ show the lines of "a and b" => show the lines of "a and b"
 ! show the lines of "todos.txt"
 ! set todos to the characters of "data.csv"
 ! show the words of "https://example.com/story"
+# "has" checks whether a record has a field; "contains" only looks inside (change 3).
+names: person, reply, rows, names, scores, sales, story, todos, timer
+if reply has "results" => if reply has "results"
+if person does not have "age" => if person does not have "age"
+if person doesn't have "age" => if person does not have "age"
+if rows have "email" => if rows have "email"
+if rows don't have "email" => if rows do not have "email"
+if person has "name" or "email" => if person has "name" or person has "email"
+if not person has "age" => if person does not have "age"
+show rows where it has "email" => show rows where it has "email"
+! set has ticket to 1
+! set ticket have to 1
+! if person does not have "name" or "email"
+# Largest and smallest are for numbers, A to Z for text (change 7).
+sort names from Z to A => sort names from Z to A
+sort names from z to a => sort names from Z to A
+sort names from A to Z => sort names
+sort names, from A to Z => sort names
+sort sales by customer from Z to A => sort sales by customer from Z to A
+sort sales by customer, from A to Z => sort sales by customer
+sort scores largest first => sort scores largest first
+! sort names from Z to B
+! sort names from A
+# The stopwatch counts up; "timer" is your own name or an offered fix (change 10).
+start the stopwatch => start the stopwatch
+show the stopwatch => show the stopwatch
+show "Took {the stopwatch} seconds" => show "Took {the stopwatch} seconds"
+show the timer => show timer
+! start the timer
+! set stopwatch to 3
+# An empty record, and capital and small letters (changes 11 and 27): older wordings read as the main ones.
+set person to an empty record => set person to an empty record
+set person to a new record => set person to an empty record
+show story in capital letters => show story in capital letters
+show story in capitals => show story in capital letters
+show story in uppercase => show story in capital letters
+show story in small letters => show story in small letters
+show story in lowercase => show story in small letters
+show a random number between 1 and 6 => show a random number from 1 to 6
+show 2.555 rounded to 2 decimals => show 2.555 rounded to 2 places
+sort scores smallest first => sort scores
+! show story in big letters
+# Adding to a file needs "the file" (change 30).
+add todos to the file "todos.txt" => add todos to the file "todos.txt"
+! add "milk" to "shopping.txt"

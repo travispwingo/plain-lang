@@ -1,0 +1,25 @@
+timer.plain, line 1: Write "the stopwatch" instead of "the timer".
+
+    start the timer
+          ^^^^^^^^^
+Try this:
+    start the stopwatch
+Why: A timer counts down, but Plain's stopwatch counts up from 0, like the stopwatch on a phone.
+
+timer.plain, line 3: Write "the stopwatch" instead of "the timer".
+
+    show "That took {the timer} seconds."
+                     ^^^^^^^^^
+Try this:
+    show "That took {the stopwatch} seconds."
+Why: A timer counts down, but Plain's stopwatch counts up from 0, like the stopwatch on a phone.
+
+timer.plain, line 4: Write "the stopwatch" instead of "the timer".
+
+    set reaction to the timer
+                    ^^^^^^^^^
+Try this:
+    set reaction to the stopwatch
+Why: A timer counts down, but Plain's stopwatch counts up from 0, like the stopwatch on a phone.
+
+Plain found 3 things to fix, so it hasn't run your program yet.

@@ -1,0 +1,11 @@
+largest_text.plain, line 2, while running: Sort the text first, then take its last item.
+
+    show "Biggest word: {the largest of words}"
+                             ^^^^^^^^^^^^^^^^
+Try one of these:
+    sort words
+    show "Biggest word: {the last item of words}"
+  or
+    sort words from Z to A
+    show "Biggest word: {the first item of words}"
+Why: "the largest of" finds the largest number. For text, "largest" could mean the longest text or the last one from A to Z, so Plain sorts text "from A to Z" or "from Z to A" instead.

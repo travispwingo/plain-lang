@@ -1,0 +1,7 @@
+sort_numbers_z_to_a.plain, line 2, while running: Write "largest first" instead of "from Z to A".
+
+    sort sales by amount from Z to A
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Try this:
+    sort sales by amount largest first
+Why: "from Z to A" is for text. Numbers go by size, so Plain sorts them smallest first, or "largest first" for the other way.

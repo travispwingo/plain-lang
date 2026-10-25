@@ -1,6 +1,6 @@
 # Install Plain
 
-You can try Plain in your browser with nothing to install: [open the playground](/). Install it on your computer to keep your programs there, or to have Plain ask Claude for ideas.
+You can try Plain in your browser with nothing to install: [open the playground](/). Install it on your computer to keep your programs there.
 
 Copy each command on this page into Terminal (Mac and Linux) or PowerShell (Windows), then press **Return** or **Enter**.
 
@@ -86,37 +86,6 @@ You've written and run a program. Next, try the [lessons](/learn/).
 - **"Update your computer's web certificates"**: the rest of Plain's message says how. See also [Fix web certificate problems](/help/#certificates).
 
 If you're still stuck, see [Get help](/help/).
-
-## Ask Claude for ideas (optional) {#ai}
-
-Plain can ask Claude, an AI made by Anthropic, for ideas when it can't follow a line. You don't need it: Plain offers its own ideas either way. There's nothing more to install, just an account and a key to set up.
-
-Sign up at [platform.claude.com](https://platform.claude.com) and set up billing: Anthropic charges your account a small amount for each request. Then create a key under **Settings**, **API keys**. A key is a secret code that lets Plain use your account, so keep it secret, like a password. Copy it right away: it starts with `sk-ant-`, and Anthropic shows it only once.
-
-**1. Save your key.** Type the line for your computer, with your key in place of `paste-your-key-here`. Keep the quotes.
-
-- Mac: `echo 'export ANTHROPIC_API_KEY="paste-your-key-here"' >> ~/.zshrc`
-- Linux: `echo 'export ANTHROPIC_API_KEY="paste-your-key-here"' >> ~/.bashrc`
-- Windows: `setx ANTHROPIC_API_KEY "paste-your-key-here"`
-
-**2. Close the window and open it again.** Now, when you use `plain run` or `plain fix` and Plain can't follow a line, it tells you first:
-
-```text
-Asking Claude for ideas. This sends line 1 of hello.plain to Anthropic, which charges your account a small amount for each request.
-```
-
-Claude's ideas come after Plain's own, marked `(from Claude)`. You stay in charge:
-
-- Plain checks every idea from Claude first, and leaves out any that don't work.
-- Plain changes your file only when you choose an idea, and keeps your old file in a copy ending in `.bak`.
-- Plain sends lines of your program, with anything that looks like a password or key hidden. It never sends your data files or the answers you type.
-- Plain asks Claude only when you run it in Terminal or PowerShell, never in `plain check` or the playground.
-
-To turn it off for one run, add `--no-ai`, like `plain run hello.plain --no-ai`. To turn it off every time, type the line for your computer, then close the window and open it again:
-
-- Mac: `echo 'export PLAIN_AI=off' >> ~/.zshrc`
-- Linux: `echo 'export PLAIN_AI=off' >> ~/.bashrc`
-- Windows: `setx PLAIN_AI off`
 
 ## Choose a text editor
 

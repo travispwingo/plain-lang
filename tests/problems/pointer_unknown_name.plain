@@ -1,0 +1,2 @@
+ask "Which city?" and call it city
+show the weather in city

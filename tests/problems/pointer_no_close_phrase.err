@@ -1,0 +1,8 @@
+pointer_no_close_phrase.plain, line 1: Start this line with a step Plain knows.
+
+    draw a circle
+    ^^^^
+Why: Plain doesn't know a step that starts with "draw".
+Find a phrase that fits at plain-lang.dev/phrases/, or type: plain phrases
+
+Plain found 1 thing to fix, so it hasn't run your program yet.

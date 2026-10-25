@@ -30,6 +30,28 @@ Here's what each part tells you:
 3. **`Try this:`** shows your line with the fix made. Not every message has one.
 4. **`Why:`** explains the problem in a sentence or two.
 
+## Find the right words when Plain has no fix
+
+Sometimes Plain can't tell what you meant, so it has no fix to offer. Then the last line of the message says where to look on this site. On your computer, it also gives a `plain phrases` command that lists the phrases to try:
+
+```plain
+set names to a list of "Bea" and "Al"
+sort names by by
+```
+
+```problem
+your program, line 2: Reword this line.
+
+    sort names by by
+    ^^^^^^^^^^^^^^^^
+Why: Plain couldn't follow this line.
+Find a phrase that fits at plain-lang.dev/phrases/#lists-and-tables, or type: plain phrases sort
+
+Plain found 1 thing to fix, so it hasn't run your program yet.
+```
+
+[Lists and tables](/phrases/#lists-and-tables), on the All phrases page, shows every way to sort, with an example of each. `plain phrases sort` lists the same phrases in Terminal or PowerShell. In the playground, the message gives just the link.
+
 ## Fix problems Plain finds before running
 
 Plain checks every line before it runs any of them, so you can fix problems before anything happens. If it finds a line it can't follow, nothing runs, not even the lines above it. That's why `Hi!` didn't appear above.
@@ -150,7 +172,7 @@ You can see that Plain leaves out "Please", "the" and the "!", reads `for each` 
 On your computer, `plain fix` goes through each line Plain can't follow. For each one, it shows the message and numbered ideas. Type a number to use an idea, or press Enter to skip that line:
 
 ```text
-$ plain fix --no-ai game.plain
+$ plain fix game.plain
 game.plain, line 4: Write "tries" instead of "trys".
 
     show "You took {trys} tries."
@@ -164,23 +186,9 @@ Saved line 4. Your old line was: show "You took {trys} tries."
 Your file from before is in game.plain.bak.
 ```
 
-The `--no-ai` part tells Plain not to ask Claude for ideas. There's more about that below.
-
 Plain checks every idea before it offers it, so each numbered idea is a line Plain can follow. Before it changes your file, Plain keeps a copy of the old one, ending in `.bak`. `plain run` offers the same ideas when it finds a problem, then runs your program once you've fixed every line.
 
 In the playground, Plain's ideas appear as **Use this** buttons under the message. Press one to put the fix into your program.
-
-## Get ideas from Claude, if you want them
-
-Plain's own ideas cover common slips, like a misspelled name or a missing quote. To get more ideas, Plain can also ask Claude, an AI made by Anthropic. This is optional, and Plain works fully without it.
-
-- **It works on your computer only,** in `plain run` and `plain fix`. It never runs in the playground or in `plain check`.
-- **You set it up once:** give Plain a key from your Anthropic account. [Ask Claude for ideas](/install/#ai), on the install page, walks you through it.
-- **Each request costs a small amount** on your Anthropic account.
-- **Plain tells you before it sends** your program to Anthropic. It hides anything that looks like a password or a key, and it never sends your data files or your answers.
-- **You stay in charge.** Plain checks each of Claude's ideas, and nothing changes unless you pick it.
-
-To leave Claude out of a run, add `--no-ai` to the command, as in the example above.
 
 ## Try it yourself
 

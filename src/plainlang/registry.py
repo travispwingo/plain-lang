@@ -1,7 +1,7 @@
 """The phrase registry: the single source of truth for every built-in phrase.
 
 Each phrase is one Python function. Its template, type annotations, doc and example feed
-`plain phrases`, the website reference, the AI's knowledge of Plain and the tests.
+`plain phrases`, the website reference, the pointers in messages and the tests.
 
 Templates are written the way you'd say them, articles included ("a random number from
 {low} to {high}"). Articles are dropped for matching. `[word]` is an optional word and
@@ -375,3 +375,44 @@ def other_ways():
     out.append(OtherWay([], [], tidy=False, note='`“curly quotes”` from Word or Google Docs work like '
                         '`"straight quotes"`.', examples=[("show “curly quotes”", 'show "curly quotes"')]))
     return out
+
+
+# Finding phrases by their words: `plain phrases WORDS` and the pointers in messages -------------
+
+def find_phrases(wanted):
+    """What `plain phrases` lists for the words you typed (lowercase), as (offered, entries, ways):
+    the words Plain offers a fix for instead of reading, the phrases, and the other ways of writing."""
+    entries, ways = reference(), other_ways()
+    offered = [w for w in wanted if w in OFFERED_FIXES]
+    if offered:
+        # Then the phrase with those words: "else if" shows "otherwise if CHECK".
+        wanted = [x for w in wanted for x in (fixed_words(OFFERED_FIXES[w][0]) if w in OFFERED_FIXES else [w])]
+        ways = []
+        entries = [e for e in entries if fixed_words(e["wording"]) == wanted] or \
+            [e for e in entries if has_words(fixed_words(e["wording"]), wanted)]
+    elif wanted:
+        ways = [w for w in ways if all(way_has(w, x) for x in wanted)]
+        # The phrase's own words first ("plain phrases at least"), then what other ways mean, then the
+        # explanations.
+        mains = [fixed_words(m) for way in ways for m in way.main]
+        found = [e for e in entries if has_words(fixed_words(e["wording"]), wanted)
+                 or any(m and has_words(fixed_words(e["wording"]), m) for m in mains)]
+        if not found:
+            found = [e for e in entries if all(w in " ".join([e["wording"], e["doc"]]).lower() for w in wanted)]
+        entries = found
+    return offered, entries, ways
+
+
+def way_has(way, word):
+    """An other way matches a word you typed when the word starts one of its wordings' words, or is
+    a whole word of its note: "plain phrases end" finds the end lines, not "ends in s"."""
+    def written(text):   # a placeholder like COLUMN or LIST isn't a word you write
+        return re.sub(r"\b[A-Z]{2,}s?\b", " ", text).lower()
+    words = re.findall(r"[^\s`,.:;()\"]+", written(" ".join(way.said + way.main)))
+    return any(w.startswith(word) for w in words) or \
+        re.search(rf"(?<![\w']){re.escape(word)}(?![\w'])", written(way.note)) is not None
+
+
+def has_words(have, wanted):
+    """Every word you typed starts one of the phrase's own words, in any order: "contain" finds contains."""
+    return all(any(h.startswith(w) for h in have) for w in wanted)

@@ -4,9 +4,10 @@ When Plain stops with a message, you can almost always fix the problem yourself.
 
 1. **Read Plain's message from the top.** The first line says which line to change and how. That's the fix.
 2. **Try the lines under "Try this:".** They show your line with the fix made, ready to put in place of your line.
-3. **See how Plain reads your program.** Type `plain explain` and your file's name, like `plain explain hello.plain`.
-4. **Look up a phrase** on [All phrases](/phrases/), or type `plain phrases` and a word, like `plain phrases sort`.
-5. **Go back to the lessons.** [Handle problems and read Plain's messages](/learn/10-problems/) walks through the common ones, and [each lesson](/learn/) teaches one thing.
+3. **Follow the link at the end.** When Plain has no fix to offer, the last line of its message says where to look on this site, and on your computer, which `plain phrases` command to type.
+4. **See how Plain reads your program.** Type `plain explain` and your file's name, like `plain explain hello.plain`.
+5. **Look up a phrase** on [All phrases](/phrases/), or type `plain phrases` and a word, like `plain phrases sort`.
+6. **Go back to the lessons.** [Handle problems and read Plain's messages](/learn/10-problems/) walks through the common ones, and [each lesson](/learn/) teaches one thing.
 
 If Plain won't start at all, see [If something goes wrong](/install/#if-something-goes-wrong) on the install page.
 
@@ -36,6 +37,7 @@ Plain found 1 thing to fix, so it hasn't run your program yet.
 - **Your line** comes next, with `^` marks under the part to change.
 - **Try this:** shows your line with the fix made. Not every message has one.
 - **Why:** explains the problem in a sentence or two.
+- **Where to look:** when Plain has no fix to offer, a line after Why says which part of this site can help. See [Find the right words when Plain has no fix](/learn/10-problems/#find-the-right-words-when-plain-has-no-fix).
 - **The last line** says how many things Plain found. Plain checks every line before it runs anything, so nothing has happened yet. Fix them from the top.
 
 Some problems only show up while your program runs, like an answer that isn't a number. Then the first line says "while running", and Why also says where the value came from:

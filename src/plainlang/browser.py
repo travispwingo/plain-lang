@@ -171,7 +171,7 @@ def folder_files():
 
 def problem_json(problem, lines):
     return {"line": problem.line, "col": problem.col, "end": problem.end,
-            "text": layout(problem, "your program", lines),
+            "text": layout(problem, "your program", lines, phrases=None),
             "ideas": [idea for idea in problem.ideas][:3]}
 
 
@@ -181,7 +181,7 @@ def run_in_page(source, files, run_id, seed=None):
     program = Reader().read(source)
     if program.problems:
         post("problems", run=run_id,
-             text=layout_all(program.problems, "your program", program.source_lines),
+             text=layout_all(program.problems, "your program", program.source_lines, phrases=None),
              problems=[problem_json(p, program.source_lines) for p in program.problems[:5]])
         post("done", run=run_id, files=folder_files())
         return
@@ -194,7 +194,7 @@ def run_in_page(source, files, run_id, seed=None):
         settle(host.flush)
     except Problem as problem:
         settle(host.flush)
-        post("problems", run=run_id, text=layout(problem, "your program", program.source_lines),
+        post("problems", run=run_id, text=layout(problem, "your program", program.source_lines, phrases=None),
              problems=[problem_json(problem, program.source_lines)])
     settle(lambda: post("done", run=run_id, files=folder_files()))
 

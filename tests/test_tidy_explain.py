@@ -258,10 +258,9 @@ class PhrasesReference(unittest.TestCase):   # changes 18 and 2
         self.assertNotIn("You can also write", out)
         self.assertIn("Other ways you can write things", out)
         self.assertIn("skip this round and skip round are read as skip to the next round.", out)
-        from plainlang.ai import system_prompt
         for phrase in REGISTRY:
-            if phrase.main is not phrase:     # the AI is shown only the main wordings
-                self.assertNotIn(shown(phrase), system_prompt() + out.split("Other ways")[0])
+            if phrase.main is not phrase:     # the phrases show only the main wordings
+                self.assertNotIn(shown(phrase), out.split("Other ways")[0])
         code, out = phrases_output(["percent"])
         self.assertIn("15 percent is read as 15%.", out)
 

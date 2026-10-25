@@ -1,0 +1,3 @@
+set score to 5
+score gets bigger
+show score

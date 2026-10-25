@@ -5,10 +5,10 @@ Plain is inspired by the [plain language movement](https://en.wikipedia.org/wiki
 This is the design Plain is built from. It has two parts:
 
 1. **Amendments.** Decisions made after stress-testing the design. They come first because **they win wherever they disagree with the spec below.**
-2. **The spec.** The full design: sample programs, syntax, phrases, messages, architecture, the AI assist, testing, milestones and the site.
+2. **The spec.** The full design: sample programs, syntax, phrases, messages, architecture, the AI assist (superseded: removed before v0.1.0), testing, milestones and the site.
 
 Notes from building it (these also win over the spec):
-- The Claude call uses effort `medium` (the approved plan), not `low`.
+- The Claude call uses effort `medium` (the approved plan), not `low`. *(Superseded: the Claude helper was removed before v0.1.0; see "The Claude helper is gone" in the notes from building it.)*
 - When Plain offers different fixes to choose from, the message says "Try one of these:" and separates them with "or", so two fixes never look like two steps in a row.
 - Numbers that show the same are the same: comparisons use the number as shown (at most 10 decimal places), so `1 divided by 3 times 3 is 1` is yes.
 - A percent keeps the decimal places you wrote even when it's kept under a name: `set rate to 15%` then `200 times rate` shows `30`, like `200 times 15%`.
@@ -18,8 +18,11 @@ Notes from building it (these also win over the spec):
 - The site deploys from `main`, not from release tags (Travis's call, 2026-10-24, before anything was on PyPI): the `deploy` job in `ci.yml` runs `wrangler deploy` after every push to `main` that passes all the tests, using the `CLOUDFLARE_API_TOKEN` secret. `release.yml` only publishes to PyPI. So the site can be ahead of the released version on PyPI and Homebrew; revisit once releases start.
 - Amendment 5 keeps rule R7 for slots right after `of`. `the number of guests plus 1` means `(the number of guests) plus 1`, because a list plus a number has no meaning. The tie applies only to an open last slot that doesn't follow `of`, as in `a random number from 1 to 6 plus 1`.
 - **Distribution is a Homebrew tap plus PyPI through uv, not pipx** (Travis's call, 2026-10-24). On a Mac: `brew install travispwingo/tap/plain`, from the public tap repo `travispwingo/homebrew-tap`. The formula has `depends_on "python@3.15"` (Homebrew's current Python) and `virtualenv_install_with_resources` with no resources, since Plain has no dependencies. A bare `brew install plain` needs homebrew-core later. Windows, Linux, and Macs without Homebrew (or Macs with an Intel chip or macOS 14 or earlier, where Homebrew is slow) run uv's official installer one-liner, then `uv tool install plainlang`. The first release, v0.1.0, goes to PyPI as `plainlang` through trusted publishing. The install page is one short section each for Mac, Windows and Linux. This replaces every `pipx` statement in the spec.
-- **The Claude helper calls the Messages API directly with `urllib`** (Travis's call, 2026-10-24). There's no `anthropic` SDK and no `[ai]` extra, so every install, Homebrew included, has the helper with no extra step, and `ai.py` uses `urllib.request` too (the guard test already allows `ai.py`). It still runs only when `ANTHROPIC_API_KEY` is set, stdin and stdout are terminals, and neither `--no-ai` nor `PLAIN_AI=off` is used. This replaces the SDK statements in sections 6.8 and 7.
-- **HTTPS uses a certificate fallback.** Every HTTPS request Plain makes (the web phrases in `hosts.py` and the Claude call) uses one SSL context: `ssl.create_default_context()`, and if that loaded no CA certificates, the first system bundle that exists of `/etc/ssl/cert.pem`, `/etc/ssl/certs/ca-certificates.crt` and `/etc/pki/tls/certs/ca-bundle.crt`. So a python.org Mac Python whose "Install Certificates.command" was never run still works, and the install page has no certificate steps and no `--managed-python`. The only certificate fix the install page gives is Homebrew's: `brew postinstall ca-certificates`.
+- **The Claude helper calls the Messages API directly with `urllib`** (Travis's call, 2026-10-24). There's no `anthropic` SDK and no `[ai]` extra, so every install, Homebrew included, has the helper with no extra step, and `ai.py` uses `urllib.request` too (the guard test already allows `ai.py`). It still runs only when `ANTHROPIC_API_KEY` is set, stdin and stdout are terminals, and neither `--no-ai` nor `PLAIN_AI=off` is used. This replaces the SDK statements in sections 6.8 and 7. *(Superseded: the Claude helper was removed before v0.1.0; see "The Claude helper is gone" in the notes from building it.)*
+- **HTTPS uses a certificate fallback.** Every HTTPS request Plain makes (the web phrases in `hosts.py`, and the Claude call until it was removed) uses one SSL context: `ssl.create_default_context()`, and if that loaded no CA certificates, the first system bundle that exists of `/etc/ssl/cert.pem`, `/etc/ssl/certs/ca-certificates.crt` and `/etc/pki/tls/certs/ca-bundle.crt`. So a python.org Mac Python whose "Install Certificates.command" was never run still works, and the install page has no certificate steps and no `--managed-python`. The only certificate fix the install page gives is Homebrew's: `brew postinstall ca-certificates`.
+- **The Claude helper is gone (Travis's call, 2026-10-24, before v0.1.0).** Like most programming languages, Plain sends you to its documentation when it can't follow a line. Plain stays fully offline and works the same for everyone: no account, no key, no cost, and no line of your program leaves your computer. `ai.py`, `--no-ai`, `PLAIN_AI`, `PLAIN_AI_MODEL`, the "Asking Claude for ideas" line, the ask-Claude mark on problems, the code that built Claude's prompt and checked its answers, the install page's "Ask Claude for ideas" section and their tests are removed, not kept as no-ops, since nothing had been released. Plain's own ideas, the fixer screen, `plain fix`, `plain explain` and `plain phrases` stay, and so do `hosts.web_context()` and the certificate fallback, which the web phrases use.
+  - **Messages point to the docs instead.** A message for a line Plain can't follow and has no fix of its own for (a step Plain doesn't know, "Reword this line", a name with no close match) ends with one more line, after Why: `Find a phrase that fits at plain-lang.dev/phrases/#lists-and-tables, or type: plain phrases sort`. The link goes to the All phrases section for the topic of the closest phrase: the phrase whose own words come in your line in that order, or else in the first example shown, the more words the better. Steps that hold other phrases (`set`, `show`, `if`, `and call it`, `and`, `or`) count only when nothing else fits, and a phrase whose words are all small ones, like `the COLUMNs of TABLE`, never counts. Failing that, it's the first phrase one of your words names, and failing that, the whole page. The command names one of your own words when `plain phrases` with it lists that phrase, otherwise the phrase's own words, or no words at all. A name with no close match points to lesson 2: `Learn how to set a name at plain-lang.dev/learn/02-names/`. The REPL says `type :phrases sort`, and the playground, which has no command to type, shows only the link. "Start this line with a step Plain knows." no longer adds "Type plain phrases to see them all.", since the last line says it. `plain phrases`' search moved into `find_phrases()` in registry.py, so messages and the command find the same phrases. tests/test_pointers.py checks that every place a pointer can name is on the built site and that each command lists a phrase from the linked section; tests/test_browser.py checks the playground's messages.
+  - This supersedes section 7, the AI parts of sections 1, 6 and 9 to 13, the AI page in amendment 29, and the two notes above about the Claude call.
 - **Agreeing words after a plural name read the same (change 6).** In every check, `are`, `aren't`, `do not`, `don't` and `contain` read as `is`, `is not`, `does not` and `contains` (`INFLECTIONS` in words.py), so `if results are empty`, `if letters contain "e"` and `if todos do not contain "jam"` work, and explain keeps the words you wrote. `are` and `contain` are special words now. Bare `start with`, `end with` and `exist` are not added, so `start time` and `end date` stay names. `the file "x.txt" do not exist` reads too, and tidy writes `does`, since its subject is always one file. `NAME are VALUE` gets the same `set` fix as `NAME is VALUE`. `can't` is no longer a contraction. Plain doesn't check agreement, so `score are 0` reads like `score is 0`. Examples and lessons use the agreeing words.
 - **`else`, `else if`, `==` and `!=` are offered fixes, not accepted (change 8).** Plain offers `otherwise`, `otherwise if`, `is` and `is not`, checked to read, and fixes them together when one line has two (`else if x != 4` offers `otherwise if x is not 4`). `=`, `≠`, `<`, `>`, `<=`, `>=`, `≤` and `≥` stay.
 - **Every positive comparison has its "not" form (change 9).** `is not equal to` and `is not the same as` read as `is not`. `is not greater/bigger/larger/higher than` and `is not above` read as `is at most`. `is not smaller/fewer/lower than`, `is not under` and `is not below` read as `is at least`. explain shows the positive main wording.
@@ -132,7 +135,7 @@ Notes from building it (these also win over the spec):
     - the menu item is "All phrases";
     - a `/help/` page;
     - the install page walks through Mac and Windows step by step, for people who have never programmed;
-    - the AI page explains the Anthropic account, the key, and that each request has a small cost;
+    - the AI page explains the Anthropic account, the key, and that each request has a small cost; *(superseded: there's no AI page, since the helper was removed)*
     - the playground says files live only in this browser tab and names the reset button "Put back the example's files".
 
 
@@ -159,11 +162,11 @@ Notes from building it (these also win over the spec):
 - Code and phrase patterns go through the same normalizer, with a closed table that maps each synonym to exactly one main word.
 - **A tie is always a problem.** Plain never settles ambiguity by trying readings in order.
 - A duplicate-shape check runs on `how to` headers when a file loads.
-- Each phrase carries `effects` metadata, which produces the labels on AI ideas.
+- Each phrase carries `effects` metadata, which produces the labels on AI ideas. *(Superseded: there are no AI ideas; the labels show on the All phrases page.)*
 - Phrases are registered with type annotations on the function.
 - The real web code is tested against a local `ThreadingHTTPServer`.
 - B's messages for text without quotes and for a missing file, and its "so it hasn't run" footer.
-- The AI runs only when both stdin and stdout are terminals. `plain check` never calls the AI.
+- The AI runs only when both stdin and stdout are terminals. `plain check` never calls the AI. *(Superseded: there's no AI.)*
 
 **Grafted from C:**
 - Plain words end names structurally, so finding names needs no backtracking.
@@ -172,11 +175,11 @@ Notes from building it (these also win over the spec):
 - Recovery is per line, and Plain still checks the indented steps under a bad line.
 - A fuzz test.
 - The `Host` boundary.
-- An `unsupported` field in the AI answer.
-- Raw AI answers are cached and checked again every time they are used.
+- An `unsupported` field in the AI answer. *(Superseded: there's no AI.)*
+- Raw AI answers are cached and checked again every time they are used. *(Superseded: there's no AI.)*
 - A `.bak` copy is made before the first saved fix.
 - Secrets are hidden before anything is sent.
-- Plain's own ideas come first, and Claude's fill the list up to 3.
+- Plain's own ideas come first, and Claude's fill the list up to 3. *(Superseded: only Plain's own ideas.)*
 - Common habits from other languages are offered as fixes.
 
 **Weaknesses the judges named, and how they are fixed:**
@@ -234,7 +237,7 @@ Notes from building it (these also win over the spec):
 - **One word, one meaning.** Synonyms are a closed list that `plain tidy` turns into the main word. Words that would mean two things, such as `is` for both storing and comparing, are not accepted. Plain offers the fix instead.
 - **Messages teach.** Each message leads with the fix in your own words, shows the line, and says why in one or two sentences. Plain only offers a fix after checking that the line then works.
 - **A small core plus one phrase table.** About ten core forms give programs their shape. Everything else is a registered phrase. Each phrase is one Python function, and that function also produces the CLI catalog, the website reference, the AI's knowledge of Plain and the tests.
-- **AI helps you write Plain and never runs anything.** Claude can propose rewrites, but each one must pass Plain's own checks and you choose whether to save it. Everything, including the browser playground, works with no API key.
+- **AI helps you write Plain and never runs anything.** Claude can propose rewrites, but each one must pass Plain's own checks and you choose whether to save it. Everything, including the browser playground, works with no API key. *(Superseded: the helper was removed before v0.1.0. When Plain has no fix of its own, the message points to the docs.)*
 
 ---
 
@@ -692,7 +695,7 @@ source text
                still read the line's indented steps (ErrorBlock) so nested problems show too
  → check       unknown names (with closest name + where it is set), `stop repeating`/`skip`/`give back`
                in the wrong place, `and call it` on a step that gives nothing
- → suggest     Plain's ideas (+ Claude in an interactive terminal) → fixer → read again
+ → suggest     Plain's ideas (+ Claude in an interactive terminal; superseded: Plain's ideas only) → fixer → read again
  → run         tree-walking interpreter; every side effect goes through Host
 ```
 Nothing runs if any problem is left. At most 5 problems are shown, followed by "Here are the first 5 of N."
@@ -784,7 +787,7 @@ def random_number(run: Run, low: Number, high: Number) -> Number:
   - `Text`, `Number` and `List` are checked, with friendly problems ("save needs a file name, like "notes.txt". You gave it a number.").
   - `-> None` means the phrase gives nothing back.
 - **Core forms** (`set`, `if`, `otherwise`, `repeat`, `how to`, `give back`, `try`, `stop`, `skip`, `end`) are read by hand in `parser.py`. Each still has a registry entry for docs and AI. Phrases may not start with core words.
-- **One registry feeds** `plain phrases`, the website's phrase reference, the AI system prompt, closest-phrase ranking and `test_catalog`.
+- **One registry feeds** `plain phrases`, the website's phrase reference, the AI system prompt (superseded: removed; the docs pointers in messages instead), closest-phrase ranking and `test_catalog`.
 
 ### 6.5 Reading lines: the complete ambiguity rules
 - **R1 Same normalizer on both sides.** Source lines and phrase templates go through one function.
@@ -875,7 +878,7 @@ The PyPI distribution is **`plainlang`**, the command is **`plain`**, and the im
 │   ├── cli.py              # run / check / fix / tidy / explain / phrases; starts the REPL
 │   ├── words.py            # closed tables: Plain words, synonyms, comparison wordings, number words, habits from other languages
 │   ├── source.py           # normalize, tokens per line, {…} pieces, indentation → block tree
-│   ├── registry.py         # Phrase, @step/@value, template compiler, shapes, catalog export (CLI, site, AI)
+│   ├── registry.py         # Phrase, @step/@value, template compiler, shapes, catalog export (CLI, site; superseded: no AI)
 │   ├── parser.py           # declare pass, core forms, step matching with tie detection, expression reader, recovery
 │   ├── nodes.py            # tree dataclasses, each with canonical()
 │   ├── interpreter.py      # runs the tree: scopes, loops, how-to calls, try / if that fails
@@ -886,7 +889,7 @@ The PyPI distribution is **`plainlang`**, the command is **`plain`**, and the im
 │   ├── suggest.py          # repair search, habits from other languages, closest phrases
 │   ├── tidy.py             # plain tidy and plain explain
 │   ├── fixer.py            # pick-a-fix-and-save screen shared by run, fix and the REPL
-│   ├── ai.py               # optional Claude helper (lazy import; superseded: urllib, no SDK)
+│   ├── ai.py               # optional Claude helper (lazy import; superseded: urllib, no SDK; then removed before v0.1.0)
 │   ├── repl.py             # interactive prompt
 │   └── phrases/
 │       ├── __init__.py     # imports every module so phrases register
@@ -905,6 +908,8 @@ The Python code should come to about 3,500 lines, the site JavaScript to about 3
 ---
 
 ## 7. The AI assist
+
+*Superseded: the Claude helper was removed before v0.1.0 (Travis's call, 2026-10-24). This section stays as design history. See "The Claude helper is gone" in the notes from building it.*
 
 **When it runs.** All of the following must be true:
 - **The problem** is one of these:
@@ -1010,6 +1015,7 @@ Your file from before is in report.plain.bak.
 2. The line as you wrote it, with `^` marks under the part that's wrong.
 3. Why, in one or two sentences to "you".
 4. `Try this:` and the fixed lines, when there are any.
+5. Where to look in the docs, when Plain has no fix of its own. *(Added when the helper was removed; see the notes from building it.)*
 
 Problems found while running say `…, line 8, while running:` in the first line. Problems found before running end with "Plain found 2 things to fix, so it hasn't run your program yet." No banned word ever appears, and `test_plain_words.py` enforces this.
 
@@ -1101,7 +1107,7 @@ Plain: write steps in everyday English, then run them.
 Learn more at plain-lang.dev
 ```
 - **Exit codes:** 0 when the program finishes, 1 for problems, 2 when you typed the command wrong, 130 when you stopped it.
-- **Settings you can set:** `PLAIN_AI=off`, `PLAIN_AI_MODEL`, `PLAIN_DEBUG=1`, `NO_COLOR`.
+- **Settings you can set:** `PLAIN_AI=off`, `PLAIN_AI_MODEL`, `PLAIN_DEBUG=1`, `NO_COLOR`. *(Superseded: `--no-ai`, `PLAIN_AI` and `PLAIN_AI_MODEL` went with the helper.)*
 - **`plain check`** is deterministic and safe for editors and CI.
 
 ```text
@@ -1179,7 +1185,7 @@ All tests use stdlib `unittest` and need no network and no person typing. CI run
   - the 40-word limit;
   - **a fuzz test:** 10,000 random lines built from a word list never crash and always produce problems or nodes.
 - **Real web path** (`test_web.py`). TerminalHost's `urllib` code runs against a stdlib `ThreadingHTTPServer` on port 0. JSON, text, 404, slow replies and POST are covered.
-- **AI** (`test_ai.py`). A fake client returns canned JSON. The tests cover:
+- **AI** (`test_ai.py`). A fake client returns canned JSON. The tests cover: *(Superseded: removed with the helper. tests/test_pointers.py and tests/test_browser.py check the docs pointers instead.)*
   - splicing and whole-file checks;
   - the web-address and file-name rules;
   - hiding secrets and putting them back;
@@ -1218,7 +1224,7 @@ All tests use stdlib `unittest` and need no network and no person typing. CI run
 6. **Files and tables.** Records, possessives, field matching, columns, read and save by file extension, `where` / `sort` / `total`, showing tables. *Runs samples (c) and (f).*
 7. **Web.** `read ADDRESS`, `send`, `try` / `if that fails`, text and links of a page, web fixtures, the local-server test. *Runs sample (d) both live and from fixtures.*
 8. **REPL.** *`plain` opens a session with multi-line blocks and `:commands`.*
-9. **AI assist.** `ai.py`, `fixer.py` wired into run, fix and the REPL, the checks, the cache, offline fallback. *`plain fix` repairs `report.plain` with a key, and still helps without one.*
+9. **AI assist.** `ai.py`, `fixer.py` wired into run, fix and the REPL, the checks, the cache, offline fallback. *`plain fix` repairs `report.plain` with a key, and still helps without one.* *(Superseded: the helper was removed before v0.1.0.)*
 10. **Release 0.1.** Read-understand-act round 2, then `pipx install plainlang` from PyPI (superseded: `brew install travispwingo/tap/plain` and `uv tool install plainlang`). *Every example runs from a fresh install.*
 
 **Website** (W1 can start right after M3)
@@ -1234,12 +1240,12 @@ All tests use stdlib `unittest` and need no network and no person typing. CI run
 
 | Risk | Mitigation |
 |---|---|
-| **The writeability gap** (the AppleScript problem). Accepted wordings are hidden and strict. | Main words come from the phrasing study. Fixes in your own words are checked before they are offered. Closest phrases come with examples. `plain phrases`, `plain explain` and site search make the grammar visible. Saved fixes and `plain tidy` teach the main forms. Claude is available as an optional extra (superseded: built into every install, and used only with your key). |
+| **The writeability gap** (the AppleScript problem). Accepted wordings are hidden and strict. | Main words come from the phrasing study. Fixes in your own words are checked before they are offered. Closest phrases come with examples. `plain phrases`, `plain explain` and site search make the grammar visible. Saved fixes and `plain tidy` teach the main forms. Claude is available as an optional extra (superseded: built into every install, and used only with your key; then removed before v0.1.0, and messages Plain has no fix for point to the docs). |
 | **"One meaning per word" makes Plain feel strict** (refusing `score is 0`, `x = 5`, `+` on text). | Every refusal comes with a one-keypress fix that works offline, and the message explains the single meaning. The corpus measures how often people hit each refusal. A refusal that real users trip over constantly is reconsidered, but only if accepting it keeps one meaning. |
 | **Ambiguity creeps in** (Dijkstra's critique). | One normalizer and a closed synonym table. Ties are problems everywhere (R4, R8, R10). Duplicate shapes are rejected at load. The must-not-parse corpus, the catalog tie test and the 40-word limit. |
 | **Multi-word names clash with phrases.** | Names end at Plain words by structure. A clash between a name and a phrase is a problem, never a choice. `plain explain` shows how a line was read. Rename hints are built into the messages. |
 | **Silent surprises from forgiveness** (friendly `is`, auto-numbers, type-directed `add`). | Every rule is in one table (section 5). `is exactly` and `as text` are the escape hatches. Leading zeros stay text. Messages cite the line where a value came from. |
-| **AI suggests something wrong or unsafe.** | Ideas must pass whole-file checks. No new web addresses. A new file name must exist locally. Effect labels, your explicit choice, the old line printed back, and `.bak`. Secrets are hidden. Plain has no Python escape. Everything works offline. |
+| **AI suggests something wrong or unsafe.** | *(Superseded: there's no AI.)* Ideas must pass whole-file checks. No new web addresses. A new file name must exist locally. Effect labels, your explicit choice, the old line printed back, and `.bak`. Secrets are hidden. Plain has no Python escape. Everything works offline. |
 | **The playground is heavy or slow to start** (about 10 MB of Pyodide). | Pyodide is self-hosted, cached as immutable, and starts loading in a worker the moment the page opens. A clear "Getting Plain ready" message, and the editor works while it loads. The wheel is under 200 KB. |
 | **COOP/COEP breaks embedded content, or the browser lacks SharedArrayBuffer.** | Every asset is self-hosted, with no third-party embeds. If `crossOriginIsolated` is false, the page shows a plain message with a link to Install. Playwright checks the headers. |
 | **The browser and the terminal behave differently** (CORS, files, recursion depth). | Same core, and one Host interface. The parity test runs the whole golden and doc suites inside Pyodide. The depth limit is 100 in both. A CORS failure gets a message that leads with "run this on your computer". |
@@ -1279,7 +1285,7 @@ Every page opens with what you can do on it. Headings are tasks starting with ve
   - a filter box at the top.
 - **`/install/`.**
   - `pipx install plainlang` and the first `plain run`; *(superseded: `brew install travispwingo/tap/plain` on a Mac, uv's installer then `uv tool install plainlang` on Windows and Linux)*
-  - the AI helper: `pipx install "plainlang[ai]"` and setting `ANTHROPIC_API_KEY`; *(superseded: only setting `ANTHROPIC_API_KEY`, since every install has the helper)*
+  - the AI helper: `pipx install "plainlang[ai]"` and setting `ANTHROPIC_API_KEY`; *(superseded: only setting `ANTHROPIC_API_KEY`, since every install has the helper; then removed with the helper before v0.1.0)*
   - editor tips;
   - the `plain` command conflict.
 - **Search.** `build.py` writes `search.json` (titles, headings, phrase wordings). About 50 lines of `search.js` filter it as you type.

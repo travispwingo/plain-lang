@@ -1,6 +1,6 @@
-"""The core steps, checks and words read by hand in parser.py. Listed here for the phrase reference
-and the AI. The checks and the arithmetic words come from the tables in words.py (change 18), so a
-new comparison can't be left out of the reference."""
+"""The core steps, checks and words read by hand in parser.py. Listed here for the phrase reference.
+The checks and the arithmetic words come from the tables in words.py (change 18), so a new
+comparison can't be left out of the reference."""
 
 from ..nodes import OPPOSITES
 from ..registry import core

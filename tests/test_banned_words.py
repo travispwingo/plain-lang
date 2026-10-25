@@ -9,7 +9,7 @@ from plainlang.words import BANNED_WORDS
 
 SRC = ROOT / "src" / "plainlang"
 SHOWN_CALLS = {"Problem", "say"}
-UI_MODULES = {"cli.py", "repl.py", "fixer.py", "ai.py", "browser.py", "hosts.py"}
+UI_MODULES = {"cli.py", "repl.py", "fixer.py", "browser.py", "hosts.py"}
 
 
 def shown_strings(path):

@@ -17,7 +17,7 @@ const ok = pyodide.runPython(`
 import io, sys, unittest
 sys.path[:0] = ["/plain/src", "/plain"]
 names = ["tests.test_golden", "tests.test_problems", "tests.test_docs", "tests.test_phrasings",
-         "tests.test_catalog", "tests.test_parser", "tests.test_repl"]
+         "tests.test_catalog", "tests.test_parser", "tests.test_repl", "tests.test_browser", "tests.test_pointers"]
 suite = unittest.TestSuite(unittest.TestLoader().loadTestsFromName(n) for n in names)
 stream = io.StringIO()
 result = unittest.TextTestRunner(stream=stream, verbosity=1).run(suite)

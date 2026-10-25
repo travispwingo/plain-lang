@@ -35,11 +35,9 @@ class Session:
         self.ask = ask
         self.show = show or (lambda text: (sys.stdout.write(text + "\n"), sys.stdout.flush()))
         self.host = host or TerminalHost(seed=options.get("seed"))
-        self.terminal = sys.stdin.isatty() and sys.stdout.isatty()   # Claude helps only in a terminal
         self.names, self.howtos, self.origins = set(), [], {}
         self.howto_lines = {}    # each of your how-tos -> the lines of the step that wrote it
         self.saved = []          # (text, how-tos it wrote) for every step that worked, for :save
-        self.notes = set()
         self.explained_steps = False
         empty = Program([], [], [], set(), [], {}, [])
         self.run = SessionRun(empty, self.host)
@@ -89,7 +87,7 @@ class Session:
                 self.safely(self.enter, chunk)
 
     def safely(self, do, what):
-        """Ctrl-C while Plain works on a line (waiting for Claude, say) stops that line only."""
+        """Ctrl-C while Plain works on a line stops that line only."""
         try:
             do(what)
         except KeyboardInterrupt:
@@ -146,11 +144,9 @@ class Session:
             self.show("Stopped.")
 
     def offer_ideas(self, chunk, program, problem):
-        """Plain's own ideas, then Claude's in a terminal. Picking one runs it."""
-        from .fixer import gather_ideas, idea_lines, indent_of
-        options = dict(self.options, ai=self.options.get("ai") and self.terminal)
-        ideas = gather_ideas(program, problem, Path("your step"), options, self.notes,
-                             read=lambda text: self.reader().read(text), phrases=":phrases", tell=self.show)
+        """Plain's own checked ideas. Picking one runs it."""
+        from .fixer import idea_lines, ideas_for, indent_of
+        ideas = ideas_for(problem)
         if not ideas:
             return
         for line in idea_lines(ideas, indent_of(chunk[problem.line - 1])):
@@ -162,7 +158,7 @@ class Session:
             return
         if pick.isdigit() and 1 <= int(pick) <= len(ideas):
             fixed = list(chunk)
-            fixed[problem.line - 1:problem.line] = ideas[int(pick) - 1][0]
+            fixed[problem.line - 1:problem.line] = ideas[int(pick) - 1]
             self.enter(fixed)
 
     def value_line(self, line):
@@ -226,7 +222,7 @@ class Session:
         if count == 1:
             text = text.replace("your step, line 1", "your step", 1)
         # The advice is about a file. Here, earlier names come from earlier steps.
-        text = text.replace("Type plain phrases", "Type :phrases")
+        text = text.replace("type: plain phrases", "type :phrases")
         text = text.replace("Nothing in your program", "Nothing in your steps")
         return re.sub(r'You set "([^"]+)" on line \d+\.',
                       lambda m: f'You set "{m.group(1)}" in an earlier step.'

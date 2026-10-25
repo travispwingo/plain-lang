@@ -3,7 +3,7 @@
 import difflib
 import re
 
-from .problems import Problem
+from .problems import SITE, Problem
 from .registry import REGISTRY, Slot, Word
 from .words import (COMPARISONS, CORE_STARTS, ELIDED_COMPARISONS, SPECIAL_WORDS, SYNONYMS,
                     TYPE_CHECKS)
@@ -333,9 +333,10 @@ def explain_unreadable(reader, i, j, line, check=False):
                 and any(w in c.split() for w in stripped.lower().split()[1:] if w not in STOP_WORDS)]
         return Problem(
             "Start this line with a step Plain knows, like one of these." if close else
-            "Start this line with a step Plain knows. Type plain phrases to see them all.",
+            "Start this line with a step Plain knows.",
             f'Plain doesn\'t know a step that starts with "{first.raw}".',
-            line=number, col=first.col, end=first.end, examples=close, ideas=fits, ask_claude=True)
+            line=number, col=first.col, end=first.end, examples=close, ideas=fits,
+            **phrases_pointer(reader, stripped, close))
 
     if whole:
         problem = (step_inside(reader, line) or (check and where_problem(reader, line))
@@ -386,7 +387,7 @@ def explain_unreadable(reader, i, j, line, check=False):
         return Problem(
             f'Set "{said}" before this line uses it, or check the spelling.',
             f'Plain doesn\'t know a name "{said}". Nothing in your program sets it.',
-            line=number, col=ucol, end=uend, ask_claude=True)
+            line=number, col=ucol, end=uend, docs=NAMES_POINTER)
 
     if whole:
         problem = howto_call_problem(reader, line) or phrasing_problem(reader, line) \
@@ -399,7 +400,8 @@ def explain_unreadable(reader, i, j, line, check=False):
     close = closest_phrases(stripped, names=reader.names)
     return Problem(
         "Reword this line using phrases Plain knows, like one of these." if close else "Reword this line.",
-        "Plain couldn't follow this line.", line=number, col=col, end=end, examples=close, ask_claude=True)
+        "Plain couldn't follow this line.", line=number, col=col, end=end, examples=close,
+        **phrases_pointer(reader, stripped, close))
 
 
 def edit_distance(a, b):
@@ -720,7 +722,7 @@ def never_set(reader, line):
                     start = "an empty list" if slot.kind == "list" or any(t.kind == "text" for t in view) else "0"
                     return Problem(f'Set "{name}" to a starting value before this line, like: set {name} to {start}',
                                    f'Nothing in your program sets "{name}" before this line uses it.',
-                                   line=line.number, col=toks[0].col, end=toks[-1].end, ask_claude=True)
+                                   line=line.number, col=toks[0].col, end=toks[-1].end)
     return None
 
 
@@ -1321,3 +1323,115 @@ def closest_phrases(text, count=3, names=()):
             scored.append((score, personal(main.example)))
     scored.sort(key=lambda s: -s[0])
     return [example for _, example in scored[:count]]
+
+
+# Where to look in the docs ----------------------------------------------------------------------
+# When Plain can't follow a line and has no fix of its own, the message ends with where the docs
+# help (design: notes from building it). Every place named here is checked against the built site.
+
+NAMES_LESSON = "/learn/02-names/"
+NAMES_POINTER = f"Learn how to set a name at {SITE}{NAMES_LESSON}"
+# Steps that hold other phrases. They count as the closest phrase only when nothing else fits, so
+# "set count to the number of sales" points to "the number of", not to "set".
+FRAMES = {"set NAME to VALUE", "STEP and call it NAME", "show VALUE", "if CHECK", "CHECK and CHECK",
+          "CHECK or CHECK"}
+
+
+def anchor(topic):
+    """A topic's place on the All phrases page, made the way site/build.py makes it."""
+    return re.sub(r"[^a-z0-9]+", "-", topic.lower()).strip("-")
+
+
+def phrases_pointer(reader, text, examples):
+    """The All phrases section of the phrase closest to the line (or to the first example shown),
+    and the words for plain phrases that list that phrase: your own word when one does."""
+    if reader.r.quiet:            # only checking a fix: nobody sees this message
+        return {}
+    names = {w for name in reader.names for w in name}
+    entry = closest_entry([text] + examples[:1])
+    if entry is not None:
+        look_up = look_up_words(entry, text, names)
+    else:
+        entry, look_up = named_entry(text, names)
+    place = f"/phrases/#{anchor(entry['topic'])}" if entry else "/phrases/"
+    return {"docs": f"Find a phrase that fits at {SITE}{place}", "look_up": look_up}
+
+
+def written_words(text):
+    """The words of a line, leaving out text in quotes."""
+    return re.findall(r"[a-z']+", re.sub(r'"[^"]*"|\u201c[^\u201d]*\u201d', " ", text.lower()))
+
+
+def closest_entry(texts):
+    """The entry of the phrase reference closest to the first of these lines that has one: the
+    entry whose own words come in the line in that order, the more of them the better. An entry
+    whose own words are all small ones, like "the COLUMNs of TABLE", fits too many lines to count."""
+    from .registry import reference
+    entries = [(e, wording_parts(e["wording"])) for e in reference()]
+    entries = [(e, parts) for e, parts in entries if any(word - STOP_WORDS for run in parts for word in run)]
+    for frames in (False, True):
+        for text in texts:
+            words = written_words(text)
+            fits = [(e, parts) for e, parts in entries
+                    if (e["wording"] in FRAMES) == frames and in_order(parts, words)]
+            if fits:
+                return max(fits, key=lambda fit: sum(map(len, fit[1])))[0]
+    return None
+
+
+def wording_parts(wording):
+    """The runs of words a wording writes as they are, between its placeholders. Each word is the
+    set of its alternatives: "wait NUMBER second|seconds" is [[{wait}], [{second, seconds}]]."""
+    from .registry import fixed_words
+    wording = re.sub(r"\b([A-Z]{2,}) or ([A-Z]{2,})\b", r"\1 \2", wording)    # FILE or ADDRESS
+    parts, run = [], []
+    for token in wording.split():
+        alternatives = set(fixed_words(token))
+        if alternatives:
+            run.append(alternatives)
+        elif run:
+            parts.append(run)
+            run = []
+    return parts + [run] if run else parts
+
+
+def in_order(parts, words):
+    """Each run of words comes in the line, one after another. A word you wrote can be the start
+    of the phrase's word, as in "if name start with": "start" for "starts"."""
+    def fits(word, alternatives):
+        return any(word == a or len(word) > 2 and a.startswith(word) for a in alternatives)
+
+    at = 0
+    for run in parts:
+        at = next((k + len(run) for k in range(at, len(words) - len(run) + 1)
+                   if all(fits(words[k + j], alternatives) for j, alternatives in enumerate(run))), None)
+        if at is None:
+            return False
+    return True
+
+
+def your_words(text, names=()):
+    """Your words in a line worth looking up, each on its own: not small words or your names."""
+    return [[w] for w in dict.fromkeys(written_words(text)) if len(w) > 2 and w not in STOP_WORDS | set(names)]
+
+
+def named_entry(text, names=()):
+    """The first phrase one of your words names, or names in another way of writing it, with that
+    word: "bigger" finds "is more than". (None, "") when there's none."""
+    from .registry import find_phrases, fixed_words, has_words
+    for words in your_words(text, names):
+        _, found, ways = find_phrases(words)
+        if found and (ways or any(has_words(fixed_words(e["wording"]), words) for e in found)):
+            return found[0], words[0]
+    return None, ""
+
+
+def look_up_words(entry, text, names=()):
+    """Words for plain phrases that list this entry: one of your own words if one does (not one of
+    your names), otherwise the entry's own words, otherwise none (plain phrases lists every phrase)."""
+    from .registry import find_phrases, fixed_words
+    own = [w for w in fixed_words(entry["wording"]) if w not in STOP_WORDS]
+    for words in your_words(text, names) + [own]:
+        if words and entry in find_phrases(words)[1]:
+            return " ".join(words)
+    return ""

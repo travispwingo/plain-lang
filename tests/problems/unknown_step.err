@@ -5,5 +5,6 @@ unknown_step.plain, line 1: Start this line with a step Plain knows, like one of
 For example:
     set count to the number of sales
 Why: Plain doesn't know a step that starts with "count".
+Find a phrase that fits at plain-lang.dev/phrases/#lists-and-tables, or type: plain phrases number
 
 Plain found 1 thing to fix, so it hasn't run your program yet.

@@ -1263,7 +1263,7 @@ def where_postfix_problem(tail, outer, reader, line):
         return Problem(
             f'Add brackets to show that "{words}" goes with everything before it.',
             f'"{words}" goes after a value, and here it would go with the check in brackets, which is yes or no.',
-            line=line.number, col=start, end=tail.end, try_lines=texts, ideas=list(texts), ask_claude=True)
+            line=line.number, col=start, end=tail.end, try_lines=texts, ideas=list(texts))
     part = start_of(raw, tail.col)
     inner = (raw[:part] + "(" + raw[part:tail.end] + ")" + raw[tail.end:]).rstrip()
     texts = checked(reader, line, [whole, inner])
@@ -1272,7 +1272,7 @@ def where_postfix_problem(tail, outer, reader, line):
         f'"{words}" could go with everything before it, or only with {said} at the end of the "where" '
         "check. Plain never guesses which one you mean.",
         line=line.number, col=start, end=tail.end, try_lines=texts,
-        choices=[[t] for t in texts] if len(texts) > 1 else [], ideas=list(texts), ask_claude=True)
+        choices=[[t] for t in texts] if len(texts) > 1 else [], ideas=list(texts))
 
 
 TEXT_SPLITTERS = {"the words of {text}": "words", "the lines of {text}": "lines",
@@ -1323,8 +1323,7 @@ def split_where_problem(node, reader, line):
         f'"where" goes with the value right before it, so here it would pick from '
         f'{said} itself, which is text, not a list.',
         line=line.number, col=start, end=where.end, try_lines=texts,
-        choices=choices if len(choices) > 1 else [], ideas=[t for c in choices if len(c) == 1 for t in c],
-        ask_claude=True)
+        choices=choices if len(choices) > 1 else [], ideas=[t for c in choices if len(c) == 1 for t in c])
 
 
 def text_where_problem(node, line):
@@ -1397,8 +1396,7 @@ def file_text_problem(node, stmt, reader, line):
     return Problem(
         fix, why,
         line=line.number, col=start, end=node.end, try_lines=texts,
-        choices=choices if len(choices) > 1 else [], ideas=[t for c in choices if len(c) == 1 for t in c],
-        ask_claude=True)
+        choices=choices if len(choices) > 1 else [], ideas=[t for c in choices if len(c) == 1 for t in c])
 
 
 def written_number(node):
@@ -1580,7 +1578,7 @@ class LineReader:
                 "Add brackets, or reword this, so it has only one meaning.",
                 "This line can mean two things, and Plain never guesses which one you mean.",
                 line=line.number, col=col, end=end, try_lines=try_lines, choices=[[t] for t in try_lines],
-                ideas=list(try_lines), ask_claude=True)
+                ideas=list(try_lines))
         # Only a rename fixes it, never a new wording, which could change what the line means
         # ("is the same as number" in place of "is a number"). Once your name is renamed, the
         # line reads with Plain's words, so it shows the new name wherever that reading uses it.
@@ -1595,7 +1593,7 @@ class LineReader:
             f'Rename "{words}" so this line has only one meaning, for example to "{new}".',
             f'This line can mean two things: one with your name "{words}", and one with Plain\'s own words. '
             "Plain never guesses, so you choose. Change the name everywhere you use it.",
-            line=line.number, col=name.col, end=name.end, try_lines=try_lines, ask_claude=True)
+            line=line.number, col=name.col, end=name.end, try_lines=try_lines)
 
     def bad_problem(self, bad, line):
         problem = bad.problem
@@ -1677,7 +1675,7 @@ class LineReader:
                       'Inside "where", "it" means each item being checked, but in "and call it" it means what the '
                       "step gives back. One word can't mean two things in one line.",
                       line=line.number, col=it.col, end=self.t[k + 2].end, try_lines=texts,
-                      ideas=["\n".join(texts)] if texts else [], ask_claude=True)
+                      ideas=["\n".join(texts)] if texts else [])
 
     def mark_step_boundaries(self, i, j):
         """A "where" check can end right before one of a step's own words, like "to" in save … to."""
@@ -1779,7 +1777,7 @@ class LineReader:
         ideas = [] if not same or self.r.quiet else [t for t in texts if reads_cleanly(self, line, t)]
         return Problem(fix, why + " Plain never guesses, so you choose.",
                        line=line.number, col=self.t[0].col, end=self.t[-1].end, try_lines=texts, choices=choices,
-                       ideas=ideas, ask_claude=True)
+                       ideas=ideas)
 
     # Matching a phrase's words and slots ----------------------------------------------
 

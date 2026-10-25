@@ -13,53 +13,20 @@ def say(text=""):
     sys.stdout.flush()
 
 
-def gather_ideas(program, problem, path, options, notes, read=None, phrases="plain phrases", tell=say):
-    """Plain's own checked ideas first, then Claude's to fill the list up to 3.
-
-    The REPL passes its own way to read a whole candidate program, to list Plain's phrases
-    and to show a line."""
-    ideas = [(idea.split("\n"), "", [], "Plain") for idea in problem.ideas]   # an idea can be a step plus its use
-    if len(ideas) >= 3 or not options.get("ai") or problem.running or problem.line is None \
-            or not problem.ask_claude or about_layout(program, problem):
-        return ideas[:3]
-    from . import ai
-    try:
-        answer, _ = ai.ask_claude(program, problem, path.name, tell=tell)
-    except ai.Unavailable as reason:
-        if str(reason) not in notes:
-            notes.add(str(reason))
-            tell(str(reason))
-        return ideas[:3]
-    note = ai.unsupported_note(answer, program.source_lines[problem.line - 1])
-    if note:
-        tell(f"Claude says Plain can't do this yet: {note}. To see what Plain can do, type: {phrases}")
-    for new, why, effects in ai.checked_ideas(program, problem, answer, path.parent, own_ideas=problem.ideas,
-                                              own_file=path, read=read):
-        if len(ideas) >= 3:
-            break
-        ideas.append((new, why, effects, "Claude"))
-    return ideas
-
-
-def about_layout(program, problem):
-    """A problem with how far lines are moved to the right, which Claude isn't asked about."""
-    from .source import build_blocks, read_lines
-    _, found = build_blocks(read_lines("\n".join(program.source_lines)))
-    return any((p.line, p.fix) == (problem.line, problem.fix) for p in found)
+def ideas_for(problem):
+    """Plain's own checked ideas for a problem, at most 3, each as its lines (an idea can be a
+    step plus its use)."""
+    return [idea.split("\n") for idea in problem.ideas[:3]]
 
 
 def idea_lines(ideas, indent=""):
     """The numbered ideas, ready to show, moved left by the indent of the line they replace
     (so an idea that moves a line right shows that)."""
     out = []
-    for number, (lines, why, effects, source) in enumerate(ideas, start=1):
-        label = f"(from {source})" if source == "Claude" else ""
-        extra = "".join(f" ({e})" for e in effects)
+    for number, lines in enumerate(ideas, start=1):
         first, *more = [line[len(indent):] if line.startswith(indent) else line.lstrip() for line in lines]
-        out.append(f"  {number}) {first.rstrip()}    {label}{extra}".rstrip())
+        out.append(f"  {number}) {first.rstrip()}")
         out += [f"     {line.rstrip()}" for line in more]
-        if why:
-            out.append(f"     {why}")
     return out
 
 
@@ -111,7 +78,7 @@ def cant_save(path):
     return f'Check that you\'re allowed to change "{path.name}" and its folder. Plain couldn\'t save it.'
 
 
-def fix_file(path, text, program, options, interactive=True, ask=input):
+def fix_file(path, text, program, interactive=True, ask=input):
     """Go through each problem, offer checked ideas, save the ones you pick.
 
     Returns (program, text) when the file is clean, or (None, text) when lines are left."""
@@ -129,7 +96,6 @@ def fix_file(path, text, program, options, interactive=True, ask=input):
         say(layout_all(program.problems, path.name, program.source_lines))
         return None, text
     backup_made = False
-    notes = set()
     skipped = set()
     while True:
         waiting = [p for p in program.problems if (p.line, p.fix) not in skipped]
@@ -138,7 +104,7 @@ def fix_file(path, text, program, options, interactive=True, ask=input):
         problem = waiting[0]
         say(layout(problem, path.name, program.source_lines))
         say()
-        ideas = gather_ideas(program, problem, path, options, notes)
+        ideas = ideas_for(problem)
         if not ideas:
             say("Plain has no ideas for this one. Press Enter to skip it.")
             answer("")
@@ -151,7 +117,7 @@ def fix_file(path, text, program, options, interactive=True, ask=input):
         if not picked.isdigit() or not 1 <= int(picked) <= len(ideas):
             skipped.add((problem.line, problem.fix))
             continue
-        chosen = ideas[int(picked) - 1][0]
+        chosen = ideas[int(picked) - 1]
         old = program.source_lines[problem.line - 1].strip()
         new_text = splice(text, problem.line, chosen)
         try:

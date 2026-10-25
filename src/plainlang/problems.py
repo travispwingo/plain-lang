@@ -4,12 +4,14 @@
 2. your line with ^ marks under the part that's wrong
 3. "Try this:" and the fixed lines, when there are any
 4. "Why:" in one or two sentences
+5. where to look in the docs, when Plain has no fix of its own
 """
 
 from dataclasses import dataclass, field
 
 MAX_SHOWN = 5
-HELP_ADDRESS = "plain-lang.dev/help"
+SITE = "plain-lang.dev"
+HELP_ADDRESS = f"{SITE}/help"
 
 
 @dataclass(eq=False)
@@ -25,9 +27,12 @@ class Problem(Exception):
     ideas: list[str] = field(default_factory=list)
     focus: str | None = None      # text to underline, when the problem doesn't know its column
     guard: str | None = None      # a name to check is a number first (for "Try this")
-    ask_claude: bool = False      # design section 7: Claude may offer ideas for this problem
     choices: list = field(default_factory=list)   # different fixes to choose from, each a list of lines
     examples: list = field(default_factory=list)  # phrases that might fit; not checked against your line
+    # Where to look when Plain has no fix of its own: a sentence with a plain-lang.dev link, and the
+    # words for `plain phrases` that list the same phrase ("" lists them all, None adds no command).
+    docs: str | None = None
+    look_up: str | None = None
 
     def __str__(self):
         return self.fix
@@ -41,7 +46,9 @@ class Problem(Exception):
         return self
 
 
-def layout(problem, file_name, source_lines):
+def layout(problem, file_name, source_lines, phrases="plain phrases"):
+    """The message. `phrases` is how to list Plain's phrases where you are, or None in the
+    playground, which has no command to type."""
     where = f"{file_name}, line {problem.line}" if problem.line else file_name
     if problem.running:
         where += ", while running"
@@ -68,6 +75,9 @@ def layout(problem, file_name, source_lines):
     if problem.why:
         why = problem.why
         out.append(f"Why: {why[:1].upper() + why[1:]}")
+    if problem.docs:
+        command = phrases is not None and problem.look_up is not None
+        out.append(problem.docs + (f", or type: {phrases} {problem.look_up}".rstrip() if command else ""))
     return "\n".join(out)
 
 
@@ -81,10 +91,10 @@ def column(raw, col):
     return len(widen(raw[:col])) + max(0, col - len(raw))
 
 
-def layout_all(problems, file_name, source_lines):
+def layout_all(problems, file_name, source_lines, phrases="plain phrases"):
     """All problems found before running, at most MAX_SHOWN of them, with the footer."""
     shown = problems[:MAX_SHOWN]
-    parts = [layout(p, file_name, source_lines) for p in shown]
+    parts = [layout(p, file_name, source_lines, phrases) for p in shown]
     count = len(problems)
     things = "1 thing" if count == 1 else f"{count} things"
     footer = f"Plain found {things} to fix, so it hasn't run your program yet."

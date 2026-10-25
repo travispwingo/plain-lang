@@ -19,7 +19,7 @@ def session(lines, answers=()):
         return typed.pop(0)
 
     host = TestHost(tempfile.mkdtemp(), answers=answers)
-    s = Session({"ai": False}, ask=ask, show=shown.append, host=host)
+    s = Session({"seed": None}, ask=ask, show=shown.append, host=host)
     s.loop()
     return shown, host, s
 

@@ -1,0 +1,8 @@
+pointer_unknown_name.plain, line 2: Set "weather" before this line uses it, or check the spelling.
+
+    show the weather in city
+             ^^^^^^^
+Why: Plain doesn't know a name "weather". Nothing in your program sets it.
+Learn how to set a name at plain-lang.dev/learn/02-names/
+
+Plain found 1 thing to fix, so it hasn't run your program yet.

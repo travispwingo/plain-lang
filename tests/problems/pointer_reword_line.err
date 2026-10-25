@@ -1,0 +1,8 @@
+pointer_reword_line.plain, line 2: Reword this line.
+
+    sort names by by
+    ^^^^^^^^^^^^^^^^
+Why: Plain couldn't follow this line.
+Find a phrase that fits at plain-lang.dev/phrases/#lists-and-tables, or type: plain phrases sort
+
+Plain found 1 thing to fix, so it hasn't run your program yet.

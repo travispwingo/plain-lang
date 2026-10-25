@@ -59,8 +59,6 @@ plain run hello.plain
 
 [plain-lang.dev/install](https://plain-lang.dev/install/) walks through each step for people who have never used a terminal.
 
-Plain can ask Claude for ideas when it can't follow a line. Every install includes this; it only needs your Anthropic key in `ANTHROPIC_API_KEY`. Turn it off with `--no-ai` or `PLAIN_AI=off`.
-
 Another program called Plain (a web framework) also installs a `plain` command. If you have it, run this Plain with `uvx --from plainlang plain` or `"$(brew --prefix plain)/bin/plain"`.
 
 ## What you can do

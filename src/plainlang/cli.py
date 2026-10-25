@@ -1,7 +1,6 @@
 """The plain command. All of its text is written by hand, in plain words."""
 
 import os
-import re
 import shutil
 import sys
 from pathlib import Path
@@ -19,7 +18,6 @@ HELP = """Plain: write steps in everyday English, then run them.
   plain explain FILE       Show how Plain reads each line
   plain phrases [WORDS]    List Plain's phrases, or find the ones about WORDS
 
-  --no-ai       Don't ask Claude for ideas
   --seed N      Make random numbers come out the same every time
   --version     Show which version of Plain you have
 
@@ -36,14 +34,12 @@ def say(text="", err=False):
 
 def main(argv=None):
     args = list(sys.argv[1:] if argv is None else argv)
-    options = {"ai": os.environ.get("PLAIN_AI", "").lower() != "off", "seed": None}
+    options = {"seed": None}
     rest = []
     k = 0
     while k < len(args):
         arg = args[k]
-        if arg == "--no-ai":
-            options["ai"] = False
-        elif arg == "--seed":
+        if arg == "--seed":
             if k + 1 >= len(args) or not args[k + 1].lstrip("-").isdigit():
                 say("Type a whole number after --seed, like this: plain run game.plain --seed 7", err=True)
                 return 2
@@ -167,7 +163,7 @@ def run_command(command, path, text, options):
         interactive = sys.stdin.isatty() and sys.stdout.isatty()
         if interactive or command == "fix":
             from .fixer import fix_file
-            program, text = fix_file(path, text, program, options, interactive=interactive)
+            program, text = fix_file(path, text, program, interactive=interactive)
             if program is None:
                 return 1
             if command == "fix":
@@ -195,28 +191,11 @@ def run_program(program, path, options):
 
 def phrases(words, again="plain phrases"):
     """List Plain's phrases, or the ones about WORDS. `again` is how to list them all."""
-    from .registry import OFFERED_FIXES, fixed_words, other_ways, reference
-    entries, ways = reference(), other_ways()
+    from .registry import OFFERED_FIXES, find_phrases
     wanted = [x for w in words for x in w.lower().split()]
-    offered = [w for w in wanted if w in OFFERED_FIXES]
+    offered, entries, ways = find_phrases(wanted)
     for word in offered:   # plain phrases timer: Plain writes "the stopwatch"
         say(f'Plain doesn\'t read "{word}". Write "{OFFERED_FIXES[word][0]}" instead.')
-    if offered:
-        # Then the phrase with those words: "else if" shows "otherwise if CHECK".
-        wanted = [x for w in wanted for x in (fixed_words(OFFERED_FIXES[w][0]) if w in OFFERED_FIXES else [w])]
-        ways = []
-        entries = [e for e in entries if fixed_words(e["wording"]) == wanted] or \
-            [e for e in entries if has_words(fixed_words(e["wording"]), wanted)]
-    elif wanted:
-        ways = [w for w in ways if all(way_has(w, x) for x in wanted)]
-        # The phrase's own words first ("plain phrases at least"), then what other ways mean, then the
-        # explanations.
-        mains = [fixed_words(m) for way in ways for m in way.main]
-        found = [e for e in entries if has_words(fixed_words(e["wording"]), wanted)
-                 or any(m and has_words(fixed_words(e["wording"]), m) for m in mains)]
-        if not found:
-            found = [e for e in entries if all(w in " ".join([e["wording"], e["doc"]]).lower() for w in wanted)]
-        entries = found
     if not entries and not ways:
         if offered:
             return 0
@@ -252,18 +231,3 @@ def phrases(words, again="plain phrases"):
         say("Plain's special words (they can't be part of a name):")
         say("  " + " ".join(sorted(w for w in SPECIAL_WORDS)))
     return 0
-
-
-def way_has(way, word):
-    """An other way matches a word you typed when the word starts one of its wordings' words, or is
-    a whole word of its note: "plain phrases end" finds the end lines, not "ends in s"."""
-    def written(text):   # a placeholder like COLUMN or LIST isn't a word you write
-        return re.sub(r"\b[A-Z]{2,}s?\b", " ", text).lower()
-    words = re.findall(r"[^\s`,.:;()\"]+", written(" ".join(way.said + way.main)))
-    return any(w.startswith(word) for w in words) or \
-        re.search(rf"(?<![\w']){re.escape(word)}(?![\w'])", written(way.note)) is not None
-
-
-def has_words(have, wanted):
-    """Every word you typed starts one of the phrase's own words, in any order: "contain" finds contains."""
-    return all(any(h.startswith(w) for h in have) for w in wanted)

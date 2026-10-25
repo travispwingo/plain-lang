@@ -30,28 +30,6 @@ Here's what each part tells you:
 3. **`Try this:`** shows your line with the fix made. Not every message has one.
 4. **`Why:`** explains the problem in a sentence or two.
 
-## Find the right words when Plain has no fix
-
-Sometimes Plain can't tell what you meant, so it has no fix to offer. Then the last line of the message says where to look on this site. On your computer, it also gives a `plain phrases` command that lists the phrases to try:
-
-```plain
-set names to a list of "Bea" and "Al"
-sort names by by
-```
-
-```problem
-your program, line 2: Reword this line.
-
-    sort names by by
-    ^^^^^^^^^^^^^^^^
-Why: Plain couldn't follow this line.
-Find a phrase that fits at plain-lang.dev/phrases/#lists-and-tables, or type: plain phrases sort
-
-Plain found 1 thing to fix, so it hasn't run your program yet.
-```
-
-[Lists and tables](/phrases/#lists-and-tables), on the All phrases page, shows every way to sort, with an example of each. `plain phrases sort` lists the same phrases in Terminal or PowerShell. In the playground, the message gives just the link.
-
 ## Fix problems Plain finds before running
 
 Plain checks every line before it runs any of them, so you can fix problems before anything happens. If it finds a line it can't follow, nothing runs, not even the lines above it. That's why `Hi!` didn't appear above.
@@ -83,6 +61,28 @@ Why: You set "score" on line 2. Nothing in your program sets "scor".
 
 Plain found 2 things to fix, so it hasn't run your program yet.
 ```
+
+## Find the right words when Plain has no fix
+
+Sometimes Plain can't tell what you meant, so it has no fix to offer. Then the line after `Why:` says where to look on this site. On your computer, it also gives a `plain phrases` command that lists the phrases to try:
+
+```plain
+set names to a list of "Bea" and "Al"
+sort names by by
+```
+
+```problem
+your program, line 2: Reword this line.
+
+    sort names by by
+    ^^^^^^^^^^^^^^^^
+Why: Plain couldn't follow this line.
+Find a phrase that fits at plain-lang.dev/phrases/#lists-and-tables, or type: plain phrases sort
+
+Plain found 1 thing to fix, so it hasn't run your program yet.
+```
+
+[Lists and tables](/phrases/#lists-and-tables), on the All phrases page, shows every way to sort, with an example of each. `plain phrases sort` lists the same phrases in Terminal or PowerShell. In the playground, the message gives just the link.
 
 ## Fix problems that happen while running
 

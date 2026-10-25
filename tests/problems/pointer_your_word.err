@@ -1,8 +1,8 @@
 pointer_your_word.plain, line 2: Start this line with a step Plain knows.
 
-    score gets bigger
-    ^^^^^
-Why: Plain doesn't know a step that starts with "score".
-Find a phrase that fits at plain-lang.dev/phrases/#checks, or type: plain phrases bigger
+    find the sum of prices
+    ^^^^
+Why: Plain doesn't know a step that starts with "find".
+Find a phrase that fits at plain-lang.dev/phrases/#lists-and-tables, or type: plain phrases sum
 
 Plain found 1 thing to fix, so it hasn't run your program yet.

@@ -440,6 +440,14 @@ class OfferedFixes(unittest.TestCase):   # changes 8, 19 and 25: offered, never 
         self.assertEqual(["wait for Enter"], offered("wait for the Enter key")[1])
         self.assertEqual([], problems("wait for Enter\nwait for enter"))
 
+    def test_wait_for_a_number_of_seconds(self):
+        # "wait for 3 secs" read "secs" as a name before.
+        for line, fixed in (("wait for 3 secs", "wait 3 seconds"), ("wait for 3 seconds", "wait 3 seconds"),
+                            ("wait for 1 minute", "wait 1 minute"), ("wait for 2 mins", "wait 2 minutes"),
+                            ("wait for 5", "wait 5 seconds")):
+            with self.subTest(line=line):
+                self.assertEqual([fixed], offered(line)[1])
+
 
 class RenameSuggestions(unittest.TestCase):   # change 21: a suggested name keeps the meaning
     def test_suggestions(self):

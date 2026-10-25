@@ -139,6 +139,25 @@ class Command(unittest.TestCase):
                 self.assertEqual(0, code)
                 self.assertIn(phrase, out)
 
+    def test_output_into_a_reader_that_stops_ends_quietly(self):
+        # plain phrases | head: once head stops reading, Plain stops too, with no traceback.
+        read_end, write_end = os.pipe()
+
+        class Stopped(io.StringIO):
+            def write(self, text):
+                raise BrokenPipeError
+
+            def fileno(self):
+                return write_end
+
+        try:
+            with mock.patch("sys.stdout", Stopped()), self.assertRaises(SystemExit) as stop:
+                cli.phrases([])
+            self.assertEqual(0, stop.exception.code)
+        finally:
+            os.close(read_end)
+            os.close(write_end)
+
     def test_other_words_work(self):
         folder = Path(tempfile.mkdtemp())
         (folder / "todos.txt").write_text("a\nb\n")

@@ -1,5 +1,6 @@
 """The plain command. All of its text is written by hand, in plain words."""
 
+import errno
 import os
 import shutil
 import sys
@@ -28,8 +29,16 @@ COMMANDS = {"run", "check", "fix", "tidy", "explain", "phrases", "help"}
 
 def say(text="", err=False):
     stream = sys.stderr if err else sys.stdout
-    stream.write(text + "\n")
-    stream.flush()
+    try:
+        stream.write(text + "\n")
+        stream.flush()
+    except OSError as error:
+        # Whatever was reading the output (like "head" in plain phrases | head) has stopped, so
+        # stop quietly, as a program's show does. Windows reports that as EINVAL.
+        if not isinstance(error, BrokenPipeError) and error.errno != errno.EINVAL:
+            raise
+        os.dup2(os.open(os.devnull, os.O_WRONLY), stream.fileno())
+        raise SystemExit(0) from None
 
 
 def main(argv=None):

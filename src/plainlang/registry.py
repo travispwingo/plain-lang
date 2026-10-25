@@ -394,13 +394,17 @@ def find_phrases(wanted):
         ways = [w for w in ways if all(way_has(w, x) for x in wanted)]
         # The phrase's own words first ("plain phrases at least"), then what other ways mean, then the
         # explanations.
-        mains = [fixed_words(m) for way in ways for m in way.main]
-        found = [e for e in entries if has_words(fixed_words(e["wording"]), wanted)
-                 or any(m and has_words(fixed_words(e["wording"]), m) for m in mains)]
-        if not found:
-            found = [e for e in entries if all(w in " ".join([e["wording"], e["doc"]]).lower() for w in wanted)]
-        entries = found
+        entries = named_by(entries, wanted, ways) or \
+            [e for e in entries if all(w in " ".join([e["wording"], e["doc"]]).lower() for w in wanted)]
     return offered, entries, ways
+
+
+def named_by(entries, wanted, ways):
+    """The entries whose own words have the words you typed, or have what one of these other ways
+    of writing means: "bigger" finds "is more than". An entry's explanation doesn't count."""
+    mains = [fixed_words(m) for way in ways for m in way.main]
+    return [e for e in entries if has_words(fixed_words(e["wording"]), wanted)
+            or any(m and has_words(fixed_words(e["wording"]), m) for m in mains)]
 
 
 def way_has(way, word):

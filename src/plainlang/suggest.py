@@ -1,6 +1,7 @@
 """Helpful messages for lines Plain can't follow, with fixes Plain has checked work."""
 
 import difflib
+import functools
 import re
 
 from .problems import SITE, Problem
@@ -156,6 +157,12 @@ def python_def(m):
     return "how to " + words + "".join((" " if k == 0 else " and ") + f"({n})" for k, n in enumerate(names))
 
 
+def wait_for(m):
+    """wait for 3 secs: wait 3 seconds, and wait for 1 minute: wait 1 minute."""
+    unit = "minute" if m["u"].lower().startswith("m") else "second"
+    return f"wait {m['n']} {unit}" + ("" if m["n"] == "1" else "s")
+
+
 def dotted_field(m):
     return f"{m['a']}{m['o']}'s {m['f'].replace('_', ' ')}{m['b']}"
 
@@ -189,7 +196,9 @@ HABITS = [
      'Plain says "and call it" to keep what a step gives back.'),
     (r"^(?P<a>.*?)\s+and\s+(?:name\s+it|(?:keep|save|store)\s+it\s+as|call\s+the\s+answer)\s+(?P<n>.+)$",
      r"\g<a> and call it \g<n>", 'Plain says "and call it" to keep what a step gives back.'),
-    (r"^wait\s+(?P<n>[\d.]+)\s*(?:s|sec|secs|second|seconds)?\.?$", r"wait \g<n> seconds",
+    (r"^wait\s+for\s+(?P<n>[\d.]+)\s*(?P<u>s|sec|secs|second|seconds|min|mins|minute|minutes)\.?$", wait_for,
+     'Plain says "wait 3 seconds" without "for". It keeps "wait for" for "wait for Enter".'),
+    (r"^wait\s+(?:for\s+)?(?P<n>[\d.]+)\s*(?:s|sec|secs|second|seconds)?\.?$", r"wait \g<n> seconds",
      'Say what to wait for: seconds or minutes.'),
     (r"^(?P<a>[^\"“]*?)\b(?:None|nil|null|undefined|NULL)\b(?P<b>.*)$", r"\g<a>nothing\g<b>",
      'Plain says "nothing" when there\'s no value.'),
@@ -329,14 +338,17 @@ def explain_unreadable(reader, i, j, line, check=False):
         if repair:
             return repair_problem(repair[0], line, number)
         close = closest_phrases(stripped, names=reader.names)
+        # An example is an idea when it shares a word with your line, other than one of your names,
+        # which the examples use too: "set total to 0" isn't an idea for "make total 5".
+        yours = {w for name in reader.names for w in name}
         fits = [indent + c for c in close if number is not None and reads_cleanly(reader, line, indent + c)
-                and any(w in c.split() for w in stripped.lower().split()[1:] if w not in STOP_WORDS)]
+                and any(w in c.split() for w in stripped.lower().split()[1:] if w not in STOP_WORDS | yours)]
         return Problem(
             "Start this line with a step Plain knows, like one of these." if close else
             "Start this line with a step Plain knows.",
             f'Plain doesn\'t know a step that starts with "{first.raw}".',
             line=number, col=first.col, end=first.end, examples=close, ideas=fits,
-            **phrases_pointer(reader, stripped, close))
+            **({} if fits else phrases_pointer(reader, stripped, close)))
 
     if whole:
         problem = (step_inside(reader, line) or (check and where_problem(reader, line))
@@ -387,7 +399,7 @@ def explain_unreadable(reader, i, j, line, check=False):
         return Problem(
             f'Set "{said}" before this line uses it, or check the spelling.',
             f'Plain doesn\'t know a name "{said}". Nothing in your program sets it.',
-            line=number, col=ucol, end=uend, docs=NAMES_POINTER)
+            line=number, col=ucol, end=uend, **name_pointer(reader, stripped, run_toks))
 
     if whole:
         problem = howto_call_problem(reader, line) or phrasing_problem(reader, line) \
@@ -1342,19 +1354,45 @@ def anchor(topic):
     return re.sub(r"[^a-z0-9]+", "-", topic.lower()).strip("-")
 
 
-def phrases_pointer(reader, text, examples):
-    """The All phrases section of the phrase closest to the line (or to the first example shown),
-    and the words for plain phrases that list that phrase: your own word when one does."""
+def phrases_pointer(reader, text, examples, entry=None):
+    """The All phrases section of the phrase closest to the line, and the words for plain phrases
+    that list that phrase: your own word when one does. The closest phrase is, in this order:
+    the one with two or more of its own words in the line, in that order, the more the better;
+    the phrase of the first example shown, so the link never goes against it; one with a single
+    word in the line ("times" in "loop 5 times" counts for less than "repeat 3 times"); the
+    first phrase one of your words names; one of the steps that hold other phrases."""
     if reader.r.quiet:            # only checking a fix: nobody sees this message
         return {}
     names = {w for name in reader.names for w in name}
-    entry = closest_entry([text] + examples[:1])
-    if entry is not None:
-        look_up = look_up_words(entry, text, names)
-    else:
-        entry, look_up = named_entry(text, names)
+    look_up = None
+    if entry is None:
+        fit = best_fit(text)
+        entry = fit[0] if fit and fit[1] > 1 else None
+        if entry is None and examples:
+            entry = (best_fit(examples[0]) or best_fit(examples[0], frames=True) or (None,))[0]
+        if entry is None and fit:
+            entry = fit[0]
+        if entry is None:
+            entry, look_up = named_entry(text, names)
+        if entry is None:
+            entry = (best_fit(text, frames=True) or (None,))[0]
+    if look_up is None:
+        look_up = look_up_words(entry, text, names) if entry else ""
     place = f"/phrases/#{anchor(entry['topic'])}" if entry else "/phrases/"
     return {"docs": f"Find a phrase that fits at {SITE}{place}", "look_up": look_up}
+
+
+def name_pointer(reader, text, run_toks):
+    """Where to look for a name Plain doesn't know: lesson 2, about setting names, unless the
+    "name" is really a word for one of Plain's phrases. It is when it stands in for one of a
+    phrase's own words ("show story in big letters"), or when it's one of your names with words
+    Plain doesn't know after it, in a line a phrase fits ("sort names backwards")."""
+    run = tuple(t.norm for t in run_toks)
+    yours = {w for name in reader.names for w in name}
+    entry = stand_in_entry(text, set(run) - yours)
+    if entry is None and any(run[:len(name)] == name and len(run) > len(name) for name in reader.names):
+        entry = (best_fit(text) or (None,))[0]
+    return phrases_pointer(reader, text, [], entry) if entry else {"docs": NAMES_POINTER}
 
 
 def written_words(text):
@@ -1362,21 +1400,46 @@ def written_words(text):
     return re.findall(r"[a-z']+", re.sub(r'"[^"]*"|\u201c[^\u201d]*\u201d', " ", text.lower()))
 
 
-def closest_entry(texts):
-    """The entry of the phrase reference closest to the first of these lines that has one: the
-    entry whose own words come in the line in that order, the more of them the better. An entry
+@functools.cache
+def reference_parts():
+    """Each entry of the phrase reference with its runs of own words, worked out once. An entry
     whose own words are all small ones, like "the COLUMNs of TABLE", fits too many lines to count."""
     from .registry import reference
     entries = [(e, wording_parts(e["wording"])) for e in reference()]
-    entries = [(e, parts) for e, parts in entries if any(word - STOP_WORDS for run in parts for word in run)]
-    for frames in (False, True):
-        for text in texts:
-            words = written_words(text)
-            fits = [(e, parts) for e, parts in entries
-                    if (e["wording"] in FRAMES) == frames and in_order(parts, words)]
-            if fits:
-                return max(fits, key=lambda fit: sum(map(len, fit[1])))[0]
-    return None
+    return [(e, parts) for e, parts in entries if any(word - STOP_WORDS for run in parts for word in run)]
+
+
+def best_fit(text, frames=False):
+    """The entry whose own words come in this line in that order, the more of them the better, and
+    how many of its words that is, or None. With frames, only the steps that hold other phrases."""
+    words = written_words(text)
+    fits = [(e, sum(map(len, parts))) for e, parts in reference_parts()
+            if (e["wording"] in FRAMES) == frames and in_order(parts, words)]
+    return max(fits, key=lambda fit: fit[1]) if fits else None
+
+
+def stand_in_entry(text, unknown):
+    """The entry the line fits once one of these words you wrote stands for one of its own words:
+    "big" for "capital" in "show story in big letters". Another of the entry's own words that isn't
+    a small one must be in the line as you wrote it, so "show score plus bonus" stands in for
+    nothing. The entry with the most own words, or None."""
+    words = written_words(text)
+    found = []
+    for e, parts in reference_parts():
+        if in_order(parts, words):
+            continue
+        own = [alternatives for run in parts for alternatives in run]
+        for k, word in enumerate(words):
+            if word not in unknown:
+                continue
+            for alternatives in own:
+                if not alternatives - STOP_WORDS:     # "numbers" doesn't stand for "to"
+                    continue
+                tried = words[:k] + [min(alternatives)] + words[k + 1:]
+                others = [a for a in own if a is not alternatives and a - STOP_WORDS]
+                if in_order(parts, tried) and any(set(words) & a for a in others):
+                    found.append((e, len(own)))
+    return max(found, key=lambda fit: fit[1])[0] if found else None
 
 
 def wording_parts(wording):
@@ -1417,11 +1480,11 @@ def your_words(text, names=()):
 
 def named_entry(text, names=()):
     """The first phrase one of your words names, or names in another way of writing it, with that
-    word: "bigger" finds "is more than". (None, "") when there's none."""
-    from .registry import find_phrases, fixed_words, has_words
+    word: "bigger" finds "is more than". A word only in a phrase's explanation doesn't name it:
+    "score" doesn't name "RECORD's FIELD". (None, "") when there's none."""
     for words in your_words(text, names):
-        _, found, ways = find_phrases(words)
-        if found and (ways or any(has_words(fixed_words(e["wording"]), words) for e in found)):
+        found = named(tuple(words))
+        if found:
             return found[0], words[0]
     return None, ""
 
@@ -1429,9 +1492,24 @@ def named_entry(text, names=()):
 def look_up_words(entry, text, names=()):
     """Words for plain phrases that list this entry: one of your own words if one does (not one of
     your names), otherwise the entry's own words, otherwise none (plain phrases lists every phrase)."""
-    from .registry import find_phrases, fixed_words
+    from .registry import fixed_words
     own = [w for w in fixed_words(entry["wording"]) if w not in STOP_WORDS]
     for words in your_words(text, names) + [own]:
-        if words and entry in find_phrases(words)[1]:
+        if words and entry in listed(tuple(words))[0]:
             return " ".join(words)
     return ""
+
+
+@functools.cache
+def listed(words):
+    """What plain phrases lists for these words, worked out once: (entries, other ways)."""
+    from .registry import find_phrases
+    _, entries, ways = find_phrases(list(words))
+    return entries, ways
+
+
+@functools.cache
+def named(words):
+    """The entries these words name, in their own words or in another way of writing them."""
+    from .registry import named_by, reference
+    return named_by(reference(), list(words), listed(words)[1])

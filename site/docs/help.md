@@ -4,7 +4,7 @@ When Plain stops with a message, you can almost always fix the problem yourself.
 
 1. **Read Plain's message from the top.** The first line says which line to change and how. That's the fix.
 2. **Try the lines under "Try this:".** They show your line with the fix made, ready to put in place of your line.
-3. **Follow the link at the end.** When Plain has no fix to offer, the last line of its message says where to look on this site, and on your computer, which `plain phrases` command to type.
+3. **Follow the link after Why.** When Plain has no fix to offer, the line after "Why:" says where to look on this site. On your computer, it also gives a `plain phrases` command to type.
 4. **See how Plain reads your program.** Type `plain explain` and your file's name, like `plain explain hello.plain`.
 5. **Look up a phrase** on [All phrases](/phrases/), or type `plain phrases` and a word, like `plain phrases sort`.
 6. **Go back to the lessons.** [Handle problems and read Plain's messages](/learn/10-problems/) walks through the common ones, and [each lesson](/learn/) teaches one thing.

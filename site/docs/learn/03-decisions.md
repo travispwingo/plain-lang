@@ -4,7 +4,7 @@ You can make your program take different steps depending on the answer to a chec
 
 ## Take steps only when a check is yes
 
-Start the line with `if`, then write the check. Put the steps that depend on it on the lines below, moved 4 spaces to the right. The Tab key does this for you.
+Start the line with `if`, then write the check. Put the steps that depend on it on the lines below, moved 4 spaces to the right. In the playground, pressing Enter after the `if` line does this for you. In a text editor, press Tab.
 
 ```plain
 ask "How old are you?" and call it age

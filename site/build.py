@@ -104,6 +104,23 @@ def block_options(info):
     return options
 
 
+def problem_html(text):
+    """A message from Plain. Lines that start with a space show code and the ^ marks under it:
+    they keep their shape, and scroll sideways on a narrow screen. The other lines wrap.
+    playground.js shows messages the same way."""
+    out, code = [], []
+    for line in text.rstrip("\n").split("\n") + [None]:
+        if line is not None and line.startswith(" "):
+            code.append(line)
+            continue
+        if code:
+            out.append("<pre>" + html.escape("\n".join(code)) + "</pre>")
+            code = []
+        if line is not None:
+            out.append(f"<div>{html.escape(line) or '<br>'}</div>")
+    return '<div class="problem">' + "".join(out) + "</div>"
+
+
 def markdown(text):
     """Returns (html, title, headings)."""
     out, title, headings = [], None, []
@@ -123,7 +140,7 @@ def markdown(text):
             elif kind == "output":
                 out.append(f'<p class="label">What it shows:</p><pre class="output"><code>{code}</code></pre>')
             elif kind == "problem":
-                out.append(f'<p class="label">What Plain says:</p><pre class="problem"><code>{code}</code></pre>')
+                out.append(f'<p class="label">What Plain says:</p>{problem_html(body)}')
             else:
                 out.append(f'<pre class="{html.escape(kind) or "text"}"><code>{code}</code></pre>')
             continue
@@ -260,15 +277,18 @@ def home_page(examples):
 <section class="hero">{intro}</section>
 <section class="playground" aria-label="Try Plain">
   <div class="bar">
-    <label>Example <select id="examples"></select></label>
-    <span class="grow"></span>
-    <button id="run" class="primary" disabled>Run</button>
-    <button id="stop" disabled>Stop</button>
-    <button id="copy">Copy link</button>
+    <label class="picker">Example <select id="examples"></select></label>
+    <div class="actions">
+      <button id="run" class="primary" disabled>Run</button>
+      <button id="stop" disabled>Stop</button>
+      <button id="copy">Copy link</button>
+    </div>
   </div>
   <div class="editor">
-    <pre class="gutter" id="gutter" aria-hidden="true"></pre>
-    <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Your program"></textarea>
+    <div class="code-area">
+      <div class="lines" id="lines" aria-hidden="true"></div>
+      <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-label="Your program"></textarea>
+    </div>
   </div>
   <div class="tabs" role="tablist">
     <button role="tab" id="tab-output" aria-selected="true" aria-controls="output">What your program shows</button>
@@ -284,7 +304,7 @@ def home_page(examples):
     </div>
     <div id="file-view" hidden>
       <p><strong id="file-name"></strong></p>
-      <textarea id="file-text" spellcheck="false"></textarea>
+      <textarea id="file-text" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
       <p><button id="file-save">Keep these changes</button> <a id="file-download" class="button" download>Download</a></p>
     </div>
   </div>

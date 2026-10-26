@@ -81,7 +81,14 @@ code { font-family: var(--mono); font-size: .92em; background: var(--code-bg); p
 pre { background: var(--code-bg); padding: .8rem 1rem; border-radius: 8px; overflow-x: auto; line-height: 1.5; }
 pre code { background: none; padding: 0; font-size: .9rem; }
 pre.output { background: var(--panel); border: 1px solid var(--line); }
-pre.problem { background: var(--problem-bg); border-left: 4px solid var(--problem-line); white-space: pre-wrap; }
+/* A message from Plain. Its code lines keep their shape, so the ^ marks stay under the right
+   words: on a narrow screen they scroll sideways while the other lines wrap. */
+.problem {
+  background: var(--problem-bg); border-left: 4px solid var(--problem-line); border-radius: 8px;
+  padding: .8rem 1rem; margin: 1rem 0; font-family: var(--mono); font-size: .9rem; line-height: 1.5;
+  white-space: pre-wrap; overflow-wrap: break-word;
+}
+.problem pre { margin: 0; padding: 0; background: none; border-radius: 0; font: inherit; white-space: pre; overflow-x: auto; scrollbar-width: thin; }
 pre.answers { background: var(--panel); border: 1px dashed var(--line); }
 .label { color: var(--muted); font-size: .85rem; margin: .6rem 0 -.5rem; }
 
@@ -106,36 +113,47 @@ button:disabled { opacity: .5; cursor: default; }
 .hero h1 { font-size: 2.4rem; }
 .hero p { font-size: 1.15rem; color: var(--muted); }
 
-.playground { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); overflow: hidden; }
-.bar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding: .6rem .8rem; border-bottom: 1px solid var(--line); }
-.bar select { font: inherit; font-size: .95rem; padding: .3rem; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--text); }
-.grow { flex: 1; }
+/* "clip" rather than "hidden", so the bar with Run and Stop can stay in view as you scroll.
+   The page keeps what you're typing in clear of that bar. */
+html:has(.playground) { scroll-padding-top: 5rem; }
+.playground { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); overflow: clip; }
+.bar {
+  position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem;
+  padding: .6rem .8rem; border-bottom: 1px solid var(--line); background: var(--panel);
+}
+.picker { display: flex; flex: 1 1 0; align-items: center; gap: .5rem; min-width: 0; }   /* shrinks rather than wrapping the bar */
+.picker select { font: inherit; font-size: .95rem; padding: .3rem; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--text); min-width: 0; max-width: 100%; }
+.actions { display: flex; gap: .5rem; margin-left: auto; }
 
-.editor { display: flex; min-height: 18rem; max-height: 60vh; overflow: auto; border-bottom: 1px solid var(--line); background: var(--bg); }
-.gutter {
-  margin: 0; padding: .8rem .6rem; min-width: 3rem; text-align: right;
-  color: var(--muted); background: var(--code-bg); border-radius: 0; user-select: none;
-  font-family: var(--mono); font-size: .95rem; line-height: 1.5; overflow: hidden;
+/* Long lines wrap. The line numbers come from a copy of your program laid out the same way
+   behind the editor, so each number stays next to the first part of its line. */
+.editor { --gutter: 3.2rem; --pad: .8rem; max-height: 60vh; max-height: 60svh; overflow: auto; border-bottom: 1px solid var(--line); background: var(--bg); }
+.code-area { position: relative; background: linear-gradient(to right, var(--code-bg) var(--gutter), transparent var(--gutter)); }
+#code, .lines {
+  display: block; width: 100%; margin: 0; border: 0; border-radius: 0;
+  padding: .8rem var(--pad) .8rem calc(var(--gutter) + var(--pad));
+  font-family: var(--mono); font-size: .95rem; line-height: 1.5; tab-size: 4;
+  white-space: pre-wrap; overflow-wrap: break-word;
 }
-.gutter .bad { color: var(--problem-line); font-weight: 700; }
-#code {
-  flex: 1; border: 0; resize: none; padding: .8rem 1rem; background: transparent; color: var(--text);
-  font-family: var(--mono); font-size: .95rem; line-height: 1.5; white-space: pre; overflow: hidden; tab-size: 4;
-}
+.lines { position: absolute; inset: 0; overflow: clip; color: transparent; user-select: none; pointer-events: none; counter-reset: line; }
+.lines > div { position: relative; counter-increment: line; }
+.lines > div::before { content: counter(line); position: absolute; right: calc(100% + var(--pad) + .5rem); color: var(--muted); }
+.lines > .bad::before { color: var(--problem-line); font-weight: 700; }
+#code { position: relative; min-height: 18rem; resize: none; overflow: hidden; background: transparent; color: var(--text); }
 #code:focus { outline: none; }
 
-.tabs { display: flex; gap: .25rem; padding: .4rem .6rem 0; border-bottom: 1px solid var(--line); }
+.tabs { display: flex; flex-wrap: wrap; gap: .25rem; padding: .4rem .6rem 0; border-bottom: 1px solid var(--line); }
 .tabs button { border: 0; border-bottom: 3px solid transparent; border-radius: 0; background: none; }
 .tabs button[aria-selected="true"] { border-bottom-color: var(--accent); font-weight: 700; }
 
-.panel { padding: .8rem 1rem; min-height: 8rem; max-height: 50vh; overflow: auto; }
-#output { font-family: var(--mono); font-size: .95rem; white-space: pre-wrap; }
+.panel { padding: .8rem 1rem; min-height: 8rem; max-height: 50vh; max-height: 50svh; overflow: auto; }
+#output { font-family: var(--mono); font-size: .95rem; white-space: pre-wrap; overflow-wrap: break-word; }
 #output .asked { color: var(--muted); }
 #output .answer { color: var(--good); }
-#output .problem { background: var(--problem-bg); border-left: 4px solid var(--problem-line); padding: .6rem .8rem; margin: .5rem 0; white-space: pre-wrap; font-family: var(--mono); }
-#output .idea { margin: .3rem .4rem 0 0; font-family: var(--font); }
+#output .problem { padding: .6rem .8rem; margin: .5rem 0; font-size: inherit; }
+#output .idea { display: block; max-width: 100%; margin-top: .4rem; text-align: left; white-space: pre-wrap; font-family: var(--font); }
 #output .stopped { color: var(--muted); font-style: italic; }
-#output input.answer-box { font: inherit; padding: .2rem .4rem; border: 2px solid var(--accent); border-radius: 5px; background: var(--bg); color: var(--text); min-width: 14rem; }
+#output input.answer-box { font: inherit; padding: .2rem .4rem; border: 2px solid var(--accent); border-radius: 5px; background: var(--bg); color: var(--text); min-width: min(14rem, 100%); max-width: 100%; }
 #status { margin: 0; padding: .5rem 1rem; color: var(--muted); font-size: .9rem; border-top: 1px solid var(--line); }
 
 #files .note { color: var(--muted); font-size: .9rem; }
@@ -162,6 +180,36 @@ th, td { text-align: left; padding: .35rem .5rem; border-bottom: 1px solid var(-
 @media (max-width: 40rem) {
   html { font-size: 106%; }
   .search { margin-left: 0; width: 100%; }
-  .search input { width: 100%; }
+  /* 1rem is at least 16px, so phones don't zoom in when you tap a box to type. */
+  .search input, #file-text { width: 100%; font-size: 1rem; }
   .hero h1 { font-size: 1.9rem; }
+  /* Under the example, so it doesn't cover the end of the first line. */
+  .example { display: flex; flex-direction: column; align-items: flex-start; }
+  .example pre { align-self: stretch; }
+  .example .try { position: static; margin: -.4rem 0 1rem; padding: .45rem .9rem; }
+
+  /* On a phone the playground uses the full width of the screen. Only the row with Run and
+     Stop stays in view as you scroll, and the editor grows with your program. */
+  .playground { margin: 0 -1.25rem; border-radius: 0; border-left: 0; border-right: 0; }
+  .bar { display: contents; }
+  .picker { padding: .6rem .8rem 0; }
+  .picker select { flex: 1; }
+  .actions { position: sticky; top: 0; z-index: 2; margin: 0; padding: .6rem .8rem; border-bottom: 1px solid var(--line); background: var(--panel); }
+  .actions button { flex: 1 1 auto; padding-left: .5rem; padding-right: .5rem; white-space: nowrap; }
+  .editor { --gutter: 2.4rem; --pad: .6rem; max-height: none; }
+  #code { min-height: 10rem; }
+  .tabs button { padding-left: .5rem; padding-right: .5rem; }
+  .panel { height: 50vh; height: 50svh; max-height: none; }
+}
+
+/* On a short screen, like a phone on its side, the editor grows with your program too. */
+@media (max-height: 30rem) {
+  .editor { max-height: none; }
+}
+
+/* Bigger buttons for fingers. */
+@media (pointer: coarse) {
+  button, .button { padding: .6rem 1rem; }
+  .picker select { padding: .55rem .4rem; }
+  #file-list button.link { padding: .5rem 0; }
 }

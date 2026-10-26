@@ -3,7 +3,7 @@
 
 const $ = (id) => document.getElementById(id);
 const code = $("code");
-const gutter = $("gutter");
+const lines = $("lines");
 const output = $("output");
 const status = $("status");
 const runButton = $("run");
@@ -25,25 +25,67 @@ let drawScheduled = false;
 
 // Editor -----------------------------------------------------------------------------
 
-function drawGutter(bad = new Set()) {
-  const count = code.value.split("\n").length;
-  gutter.innerHTML = Array.from({ length: count }, (_, i) =>
-    bad.has(i + 1) ? `<span class="bad">${i + 1}</span>` : String(i + 1)).join("\n");
-  code.style.height = "auto";
-  code.style.height = code.scrollHeight + "px";
+// The line numbers sit beside a copy of your program that wraps its lines the same way the
+// editor does, so each number stays next to the first part of its line.
+function drawLines(bad = new Set()) {
+  lines.replaceChildren(...code.value.split("\n").map((text, i) => {
+    const line = document.createElement("div");
+    if (text) line.textContent = text;
+    else line.append(document.createElement("br"));   // so an empty line is one row high
+    if (bad.has(i + 1)) line.className = "bad";
+    return line;
+  }));
+  fitHeight();
 }
 
-code.addEventListener("input", () => drawGutter());
+// The editor is as tall as your program, so it never scrolls on its own. Holding the space
+// while it measures keeps the page from jumping.
+function fitHeight() {
+  const area = code.parentElement;
+  area.style.minHeight = code.offsetHeight + "px";
+  code.style.height = "auto";
+  code.style.height = code.scrollHeight + "px";
+  area.style.minHeight = "";
+}
+
+// When the editor gets wider or narrower (say, you turn your phone), lines wrap differently.
+let codeWidth = 0;
+new ResizeObserver(() => {
+  if (code.clientWidth === codeWidth) return;
+  codeWidth = code.clientWidth;
+  requestAnimationFrame(fitHeight);   // not straight away, which would resize what's being watched
+}).observe(code);
+
+// The steps under a line like these go on the lines below it, moved 4 spaces to the right.
+// Text in quotes and notes don't count. "if done then" has its steps below; "if done then
+// show 1" and "otherwise show 1" are whole on one line.
+function opensSteps(line) {
+  const words = line.replace(/["“][^"”]*["”]?/g, '""').replace(/#.*/, "").trim().toLowerCase();
+  return !/\bthen\W+\w/.test(words) &&
+    (/^(if|otherwise if|repeat|while|until|how to|for (each|every))\b/.test(words) || /^(otherwise|try)\W*$/.test(words));
+}
+
+code.addEventListener("input", () => drawLines());
 code.addEventListener("keydown", (event) => {
+  const start = code.selectionStart;
+  const lineStart = code.value.lastIndexOf("\n", start - 1) + 1;
+  const before = code.value.slice(lineStart, start);
   if (event.key === "Tab" && !event.shiftKey) {
     event.preventDefault();
     insertAtCursor("    ");
   } else if (event.key === "Enter" && !event.metaKey && !event.ctrlKey) {
+    // Phones have no Tab key, so Enter moves the next line in for you.
     event.preventDefault();
-    const start = code.selectionStart;
-    const lineStart = code.value.lastIndexOf("\n", start - 1) + 1;
-    const indent = code.value.slice(lineStart, start).match(/^\s*/)[0];
-    insertAtCursor("\n" + indent);
+    const indent = before.match(/^\s*/)[0];
+    insertAtCursor("\n" + indent + (opensSteps(before) ? "    " : ""));
+  } else if (event.key === "Backspace" && !event.metaKey && !event.ctrlKey && !event.altKey &&
+             start === code.selectionEnd && /^ {4,}$/.test(before)) {
+    // In the spaces at the start of a line, Backspace moves the line back 4 spaces at a time.
+    event.preventDefault();
+    const remove = before.length % 4 || 4;
+    code.value = code.value.slice(0, start - remove) + code.value.slice(start);
+    code.selectionStart = code.selectionEnd = start - remove;
+    drawLines();
   } else if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
     event.preventDefault();
     if (!runButton.disabled) run();
@@ -54,14 +96,17 @@ function insertAtCursor(text) {
   const { selectionStart: s, selectionEnd: e, value } = code;
   code.value = value.slice(0, s) + text + value.slice(e);
   code.selectionStart = code.selectionEnd = s + text.length;
-  drawGutter();
+  drawLines();
+  // The browser doesn't follow a cursor moved this way, so keep its line on the screen.
+  const row = code.value.slice(0, code.selectionStart).split("\n").length;
+  lines.children[row - 1].scrollIntoView({ block: "nearest" });
 }
 
 function replaceLine(number, text) {
   const lines = code.value.split("\n");
   lines.splice(number - 1, 1, ...text.split("\n"));
   code.value = lines.join("\n");
-  drawGutter();
+  drawLines();
 }
 
 // Examples, links and files --------------------------------------------------------------
@@ -81,7 +126,7 @@ function loadExample(name) {
   exampleFiles = { ...example.files };
   files = { ...example.files };
   output.textContent = "";
-  drawGutter();
+  drawLines();
   drawFiles();
 }
 
@@ -115,7 +160,7 @@ async function loadFromLink() {
     if (response.ok) files[name] = await response.text();
   }
   exampleFiles = { ...files };
-  drawGutter();
+  drawLines();
   drawFiles();
 }
 
@@ -177,13 +222,15 @@ $("reset-files").addEventListener("click", () => {
   }
 });
 
+function selectTab(tab) {
+  for (const other of document.querySelectorAll('[role="tab"]')) {
+    other.setAttribute("aria-selected", String(other === tab));
+    $(other.getAttribute("aria-controls")).hidden = other !== tab;
+  }
+}
+
 for (const tab of document.querySelectorAll('[role="tab"]')) {
-  tab.addEventListener("click", () => {
-    for (const other of document.querySelectorAll('[role="tab"]')) {
-      other.setAttribute("aria-selected", String(other === tab));
-      $(other.getAttribute("aria-controls")).hidden = other !== tab;
-    }
-  });
+  tab.addEventListener("click", () => selectTab(tab));
 }
 
 // Output -----------------------------------------------------------------------------
@@ -277,11 +324,30 @@ function askInPlace(question) {
   });
 }
 
+// Lines that start with a space show your code and the ^ marks under it. They keep their shape,
+// and scroll sideways on a narrow screen, so the marks stay under the right words.
+// site/build.py shows the messages on the other pages the same way.
+function fillMessage(box, text) {
+  let code = null;
+  for (const line of text.replace(/\n+$/, "").split("\n")) {
+    if (line.startsWith(" ")) {
+      if (!code) box.append(code = document.createElement("pre"));
+      code.textContent += (code.textContent ? "\n" : "") + line;
+    } else {
+      code = null;
+      const prose = document.createElement("div");
+      if (line) prose.textContent = line;
+      else prose.append(document.createElement("br"));
+      box.append(prose);
+    }
+  }
+}
+
 function showProblems(message) {
   drawPending();
   const box = document.createElement("div");
   box.className = "problem";
-  box.textContent = message.text;
+  fillMessage(box, message.text);
   const bad = new Set();
   for (const problem of message.problems || []) {
     if (problem.line) bad.add(problem.line);
@@ -293,11 +359,11 @@ function showProblems(message) {
         replaceLine(problem.line, idea);
         status.textContent = `Changed line ${problem.line}. Press Run to try again.`;
       });
-      box.append(document.createElement("br"), button);
+      box.append(button);
     }
   }
   output.append(box);
-  drawGutter(bad);
+  drawLines(bad);
 }
 
 // Running ------------------------------------------------------------------------------
@@ -359,11 +425,15 @@ function run() {
   output.textContent = "";
   shownLines = 0;
   pending = [];
-  drawGutter();
+  drawLines();
   running = true;
   runButton.disabled = true;
   stopButton.disabled = false;
   status.textContent = "Running your program.";
+  // On a phone, what your program shows can be below the bottom of the screen. Bring it up
+  // at once: a slow scroll would stop short when a question box takes the focus.
+  selectTab($("tab-output"));
+  if (status.getBoundingClientRect().bottom > innerHeight) status.scrollIntoView({ block: "end" });
   worker.postMessage({ type: "run", source: code.value, files, run: runId });
 }
 

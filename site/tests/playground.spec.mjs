@@ -131,6 +131,7 @@ for (const width of [280, 375, 768, 1280]) {
           wrapped: lines[0].offsetHeight > lines[1].offsetHeight,
           editorText: code.scrollHeight - top - bottom,
           besideNumbers: last.offsetTop + last.offsetHeight - top,
+          row: parseFloat(getComputedStyle(code).lineHeight),
         };
       });
       expect(layout.pageWidth).toBeLessThanOrEqual(width);
@@ -138,8 +139,9 @@ for (const width of [280, 375, 768, 1280]) {
       expect(layout.cutOff).toBeLessThanOrEqual(0);
       expect(layout.numbers).toBe(15);
       expect(layout.wrapped).toBe(true);
-      // The copy that holds the numbers wraps each line the same way as the editor.
-      expect(Math.abs(layout.editorText - layout.besideNumbers)).toBeLessThanOrEqual(1);
+      // The copy that holds the numbers wraps each line the same way as the editor: a line that
+      // wrapped differently would make them a whole row apart, not just a pixel or so of rounding.
+      expect(Math.abs(layout.editorText - layout.besideNumbers)).toBeLessThan(layout.row / 2);
     });
 
     test("Run brings the output into view, Run and Stop stay in view, and messages keep their shape", async ({ page }) => {
